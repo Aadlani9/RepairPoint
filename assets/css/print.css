@@ -1,0 +1,724 @@
+/* 
+ * RepairPoint - Estilos de Impresión para Tickets POS
+ * Optimizado para impresoras térmicas de 58mm y 80mm
+ */
+
+@media print {
+    /* ===================================================
+       RESET Y CONFIGURACIÓN GENERAL
+       =================================================== */
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+    }
+    
+    html, body {
+        width: 100%;
+        height: auto;
+        margin: 0;
+        padding: 0;
+        background: white;
+        color: black;
+        font-family: 'Courier New', monospace;
+        font-size: 10pt;
+        line-height: 1.2;
+    }
+    
+    /* Ocultar elementos no necesarios */
+    .navbar,
+    .footer,
+    .btn,
+    .card-header,
+    .no-print,
+    nav,
+    footer,
+    .alert,
+    .pagination {
+        display: none !important;
+    }
+    
+    /* ===================================================
+       CONFIGURACIÓN DE PÁGINA
+       =================================================== */
+    @page {
+        size: 58mm auto; /* Ancho para impresoras térmicas de 58mm */
+        margin: 0;
+        padding: 0;
+    }
+    
+    /* Para impresoras de 80mm, usar esta configuración */
+    @page :root(.width-80mm) {
+        size: 80mm auto;
+    }
+    
+    /* ===================================================
+       CONTENEDOR DEL TICKET
+       =================================================== */
+    .ticket,
+    .ticket-container {
+        width: 100%;
+        max-width: 100%;
+        background: white;
+        padding: 2mm;
+        margin: 0;
+        border: none;
+        box-shadow: none;
+        page-break-inside: avoid;
+    }
+    
+    /* ===================================================
+       HEADER DEL TICKET
+       =================================================== */
+    .ticket-header {
+        text-align: center;
+        margin-bottom: 3mm;
+        border-bottom: 1px dashed #000;
+        padding-bottom: 2mm;
+    }
+    
+    .ticket-logo {
+        max-width: 25mm;
+        height: auto;
+        margin-bottom: 2mm;
+        display: block;
+        margin-left: auto;
+        margin-right: auto;
+    }
+    
+    .shop-name {
+        font-size: 12pt;
+        font-weight: bold;
+        text-transform: uppercase;
+        margin-bottom: 1mm;
+    }
+    
+    .shop-contact {
+        font-size: 8pt;
+        line-height: 1.1;
+        margin-bottom: 1mm;
+    }
+    
+    /* ===================================================
+       INFORMACIÓN DEL TICKET
+       =================================================== */
+    .ticket-info {
+        margin-bottom: 3mm;
+    }
+    
+    .ticket-title {
+        text-align: center;
+        font-size: 11pt;
+        font-weight: bold;
+        text-transform: uppercase;
+        margin-bottom: 2mm;
+        border-bottom: 1px solid #000;
+        padding-bottom: 1mm;
+    }
+    
+    .ticket-reference {
+        text-align: center;
+        font-size: 14pt;
+        font-weight: bold;
+        margin-bottom: 2mm;
+        letter-spacing: 1px;
+    }
+    
+    /* ===================================================
+       DATOS DEL CLIENTE
+       =================================================== */
+    .customer-info {
+        margin-bottom: 3mm;
+        border-bottom: 1px dashed #000;
+        padding-bottom: 2mm;
+    }
+    
+    .customer-row,
+    .ticket-row {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 1mm;
+        font-size: 9pt;
+    }
+    
+    .customer-row .label,
+    .ticket-row .label {
+        font-weight: bold;
+        min-width: 30%;
+    }
+    
+    .customer-row .value,
+    .ticket-row .value {
+        text-align: right;
+        word-break: break-word;
+        max-width: 65%;
+    }
+    
+    /* ===================================================
+       DETALLES DE LA REPARACIÓN
+       =================================================== */
+    .repair-details {
+        margin-bottom: 3mm;
+        border-bottom: 1px dashed #000;
+        padding-bottom: 2mm;
+    }
+    
+    .device-info {
+        font-size: 9pt;
+        margin-bottom: 2mm;
+    }
+    
+    .issue-description {
+        font-size: 9pt;
+        margin-bottom: 2mm;
+        padding: 1mm;
+        border: 1px solid #000;
+        word-wrap: break-word;
+    }
+    
+    .issue-title {
+        font-weight: bold;
+        margin-bottom: 1mm;
+        text-transform: uppercase;
+    }
+    
+    /* ===================================================
+       FECHAS Y ESTADO
+       =================================================== */
+    .dates-info {
+        margin-bottom: 3mm;
+        font-size: 8pt;
+    }
+    
+    .status-info {
+        text-align: center;
+        font-weight: bold;
+        font-size: 10pt;
+        margin-bottom: 2mm;
+        text-transform: uppercase;
+    }
+    
+    .status-pending {
+        color: #000;
+    }
+    
+    .estimated-date {
+        font-style: italic;
+        text-align: center;
+    }
+    
+    /* ===================================================
+       COSTES (SI APLICA)
+       =================================================== */
+    .cost-info {
+        margin-bottom: 3mm;
+        border-bottom: 1px dashed #000;
+        padding-bottom: 2mm;
+    }
+    
+    .cost-row {
+        display: flex;
+        justify-content: space-between;
+        font-size: 9pt;
+        margin-bottom: 1mm;
+    }
+    
+    .total-cost {
+        font-weight: bold;
+        font-size: 11pt;
+        border-top: 1px solid #000;
+        padding-top: 1mm;
+        margin-top: 2mm;
+    }
+    
+    /* ===================================================
+       PIE DEL TICKET
+       =================================================== */
+    .ticket-footer {
+        text-align: center;
+        font-size: 8pt;
+        margin-top: 3mm;
+        border-top: 1px dashed #000;
+        padding-top: 2mm;
+    }
+    
+    .footer-message {
+        margin-bottom: 2mm;
+        font-weight: bold;
+    }
+    
+    .footer-notes {
+        font-size: 7pt;
+        line-height: 1.1;
+        margin-bottom: 2mm;
+    }
+    
+    .print-time {
+        font-size: 7pt;
+        color: #666;
+        margin-bottom: 1mm;
+    }
+    
+    .employee-signature {
+        margin-top: 3mm;
+        border-top: 1px solid #000;
+        padding-top: 2mm;
+        text-align: center;
+        font-size: 8pt;
+    }
+    
+    /* ===================================================
+       CÓDIGO QR (SI SE IMPLEMENTA)
+       =================================================== */
+    .qr-code {
+        text-align: center;
+        margin: 3mm 0;
+    }
+    
+    .qr-code img {
+        max-width: 20mm;
+        height: auto;
+    }
+    
+    /* ===================================================
+       UTILIDADES DE IMPRESIÓN
+       =================================================== */
+    .print-break {
+        page-break-after: always;
+    }
+    
+    .no-break {
+        page-break-inside: avoid;
+    }
+    
+    .text-center {
+        text-align: center;
+    }
+    
+    .text-right {
+        text-align: right;
+    }
+    
+    .text-bold {
+        font-weight: bold;
+    }
+    
+    .text-uppercase {
+        text-transform: uppercase;
+    }
+    
+    .separator {
+        border-bottom: 1px dashed #000;
+        margin: 2mm 0;
+    }
+    
+    .double-separator {
+        border-bottom: 2px solid #000;
+        margin: 2mm 0;
+    }
+    
+    /* ===================================================
+       RESPONSIVE PARA DIFERENTES ANCHOS
+       =================================================== */
+    
+    /* Para impresoras de 80mm */
+    .width-80mm {
+        font-size: 11pt;
+    }
+    
+    .width-80mm .ticket-logo {
+        max-width: 35mm;
+    }
+    
+    .width-80mm .shop-name {
+        font-size: 14pt;
+    }
+    
+    .width-80mm .ticket-reference {
+        font-size: 16pt;
+    }
+    
+    .width-80mm .customer-row,
+    .width-80mm .ticket-row {
+        font-size: 10pt;
+    }
+    
+    /* Para impresoras de 58mm más pequeñas */
+    .width-58mm-small {
+        font-size: 8pt;
+    }
+    
+    .width-58mm-small .ticket-logo {
+        max-width: 20mm;
+    }
+    
+    .width-58mm-small .shop-name {
+        font-size: 10pt;
+    }
+    
+    .width-58mm-small .ticket-reference {
+        font-size: 12pt;
+    }
+    
+    .width-58mm-small .customer-row,
+    .width-58mm-small .ticket-row {
+        font-size: 8pt;
+    }
+    
+    /* ===================================================
+       CONFIGURACIÓN ESPECÍFICA PARA NAVEGADORES
+       =================================================== */
+    
+    /* Chrome y Safari */
+    @media print and (-webkit-min-device-pixel-ratio: 0) {
+        body {
+            -webkit-print-color-adjust: exact;
+        }
+    }
+    
+    /* Firefox */
+    @-moz-document url-prefix() {
+        body {
+            color-adjust: exact;
+        }
+    }
+    
+    /* ===================================================
+       EVITAR PROBLEMAS DE IMPRESIÓN
+       =================================================== */
+    
+    /* Evitar que se corten las líneas */
+    .ticket-row,
+    .customer-row,
+    .cost-row {
+        page-break-inside: avoid;
+        orphans: 2;
+        widows: 2;
+    }
+    
+    /* Asegurar que el contenido se ajuste */
+    img {
+        max-width: 100% !important;
+        height: auto !important;
+    }
+    
+    /* Optimizar espaciado */
+    p, div {
+        orphans: 3;
+        widows: 3;
+    }
+}
+
+/* ===================================================
+   ESTILOS PARA VISTA PREVIA (NO IMPRESIÓN)
+   =================================================== */
+@media screen {
+    .ticket-preview-container {
+        max-width: 300px;
+        margin: 20px auto;
+        padding: 20px;
+        background: #f8f9fa;
+        border-radius: 8px;
+    }
+    
+    .ticket-preview {
+        background: white;
+        padding: 15px;
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+        font-family: 'Courier New', monospace;
+        font-size: 12px;
+        line-height: 1.3;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    
+    .print-button-container {
+        text-align: center;
+        margin-top: 15px;
+    }
+}%;
+    }
+    
+    /* ===================================================
+       DETALLES DE LA REPARACIÓN
+       =================================================== */
+    .repair-details {
+        margin-bottom: 3mm;
+        border-bottom: 1px dashed #000;
+        padding-bottom: 2mm;
+    }
+    
+    .device-info {
+        font-size: 9pt;
+        margin-bottom: 2mm;
+    }
+    
+    .issue-description {
+        font-size: 9pt;
+        margin-bottom: 2mm;
+        padding: 1mm;
+        border: 1px solid #000;
+        word-wrap: break-word;
+    }
+    
+    .issue-title {
+        font-weight: bold;
+        margin-bottom: 1mm;
+        text-transform: uppercase;
+    }
+    
+    /* ===================================================
+       FECHAS Y ESTADO
+       =================================================== */
+    .dates-info {
+        margin-bottom: 3mm;
+        font-size: 8pt;
+    }
+    
+    .status-info {
+        text-align: center;
+        font-weight: bold;
+        font-size: 10pt;
+        margin-bottom: 2mm;
+        text-transform: uppercase;
+    }
+    
+    .status-pending {
+        color: #000;
+    }
+    
+    .estimated-date {
+        font-style: italic;
+        text-align: center;
+    }
+    
+    /* ===================================================
+       COSTES (SI APLICA)
+       =================================================== */
+    .cost-info {
+        margin-bottom: 3mm;
+        border-bottom: 1px dashed #000;
+        padding-bottom: 2mm;
+    }
+    
+    .cost-row {
+        display: flex;
+        justify-content: space-between;
+        font-size: 9pt;
+        margin-bottom: 1mm;
+    }
+    
+    .total-cost {
+        font-weight: bold;
+        font-size: 11pt;
+        border-top: 1px solid #000;
+        padding-top: 1mm;
+        margin-top: 2mm;
+    }
+    
+    /* ===================================================
+       PIE DEL TICKET
+       =================================================== */
+    .ticket-footer {
+        text-align: center;
+        font-size: 8pt;
+        margin-top: 3mm;
+        border-top: 1px dashed #000;
+        padding-top: 2mm;
+    }
+    
+    .footer-message {
+        margin-bottom: 2mm;
+        font-weight: bold;
+    }
+    
+    .footer-notes {
+        font-size: 7pt;
+        line-height: 1.1;
+        margin-bottom: 2mm;
+    }
+    
+    .print-time {
+        font-size: 7pt;
+        color: #666;
+        margin-bottom: 1mm;
+    }
+    
+    .employee-signature {
+        margin-top: 3mm;
+        border-top: 1px solid #000;
+        padding-top: 2mm;
+        text-align: center;
+        font-size: 8pt;
+    }
+    
+    /* ===================================================
+       CÓDIGO QR (SI SE IMPLEMENTA)
+       =================================================== */
+    .qr-code {
+        text-align: center;
+        margin: 3mm 0;
+    }
+    
+    .qr-code img {
+        max-width: 20mm;
+        height: auto;
+    }
+    
+    /* ===================================================
+       UTILIDADES DE IMPRESIÓN
+       =================================================== */
+    .print-break {
+        page-break-after: always;
+    }
+    
+    .no-break {
+        page-break-inside: avoid;
+    }
+    
+    .text-center {
+        text-align: center;
+    }
+    
+    .text-right {
+        text-align: right;
+    }
+    
+    .text-bold {
+        font-weight: bold;
+    }
+    
+    .text-uppercase {
+        text-transform: uppercase;
+    }
+    
+    .separator {
+        border-bottom: 1px dashed #000;
+        margin: 2mm 0;
+    }
+    
+    .double-separator {
+        border-bottom: 2px solid #000;
+        margin: 2mm 0;
+    }
+    
+    /* ===================================================
+       RESPONSIVE PARA DIFERENTES ANCHOS
+       =================================================== */
+    
+    /* Para impresoras de 80mm */
+    .width-80mm {
+        font-size: 11pt;
+    }
+    
+    .width-80mm .ticket-logo {
+        max-width: 35mm;
+    }
+    
+    .width-80mm .shop-name {
+        font-size: 14pt;
+    }
+    
+    .width-80mm .ticket-reference {
+        font-size: 16pt;
+    }
+    
+    .width-80mm .customer-row,
+    .width-80mm .ticket-row {
+        font-size: 10pt;
+    }
+    
+    /* Para impresoras de 58mm más pequeñas */
+    .width-58mm-small {
+        font-size: 8pt;
+    }
+    
+    .width-58mm-small .ticket-logo {
+        max-width: 20mm;
+    }
+    
+    .width-58mm-small .shop-name {
+        font-size: 10pt;
+    }
+    
+    .width-58mm-small .ticket-reference {
+        font-size: 12pt;
+    }
+    
+    .width-58mm-small .customer-row,
+    .width-58mm-small .ticket-row {
+        font-size: 8pt;
+    }
+    
+    /* ===================================================
+       CONFIGURACIÓN ESPECÍFICA PARA NAVEGADORES
+       =================================================== */
+    
+    /* Chrome y Safari */
+    @media print and (-webkit-min-device-pixel-ratio: 0) {
+        body {
+            -webkit-print-color-adjust: exact;
+        }
+    }
+    
+    /* Firefox */
+    @-moz-document url-prefix() {
+        body {
+            color-adjust: exact;
+        }
+    }
+    
+    /* ===================================================
+       EVITAR PROBLEMAS DE IMPRESIÓN
+       =================================================== */
+    
+    /* Evitar que se corten las líneas */
+    .ticket-row,
+    .customer-row,
+    .cost-row {
+        page-break-inside: avoid;
+        orphans: 2;
+        widows: 2;
+    }
+    
+    /* Asegurar que el contenido se ajuste */
+    img {
+        max-width: 100% !important;
+        height: auto !important;
+    }
+    
+    /* Optimizar espaciado */
+    p, div {
+        orphans: 3;
+        widows: 3;
+    }
+}
+
+/* ===================================================
+   ESTILOS PARA VISTA PREVIA (NO IMPRESIÓN)
+   =================================================== */
+@media screen {
+    .ticket-preview-container {
+        max-width: 300px;
+        margin: 20px auto;
+        padding: 20px;
+        background: #f8f9fa;
+        border-radius: 8px;
+    }
+    
+    .ticket-preview {
+        background: white;
+        padding: 15px;
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+        font-family: 'Courier New', monospace;
+        font-size: 12px;
+        line-height: 1.3;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    
+    .print-button-container {
+        text-align: center;
+        margin-top: 15px;
+    }
+}
