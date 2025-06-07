@@ -54,16 +54,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Validar datos
         $required_fields = ['customer_name', 'customer_phone', 'brand_id', 'model_id', 'issue_description'];
         $errors = validateRequired($_POST, $required_fields);
-        
+
         if (empty($errors)) {
             // Sanitizar datos
             $data = sanitizeArray($_POST);
-            
+
             // Validar teléfono
             if (!isValidPhone($data['customer_phone'])) {
                 $errors[] = 'El formato del teléfono no es válido';
             }
-            
+
             // Verificar que la marca y modelo existen
             $model = $db->selectOne(
                 "SELECT m.*, b.name as brand_name FROM models m 
@@ -71,15 +71,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                  WHERE m.id = ? AND m.brand_id = ?",
                 [$data['model_id'], $data['brand_id']]
             );
-            
+
             if (!$model) {
                 $errors[] = 'Marca o modelo no válido';
             }
-            
+
             if (empty($errors)) {
                 try {
                     $db->beginTransaction();
-                    
+
                     // Actualizar reparación
                     $updated = $db->update(
                         "UPDATE repairs SET 
@@ -100,14 +100,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             $shop_id
                         ]
                     );
-                    
+
                     if ($updated !== false) {
                         $db->commit();
-                        
+
                         logActivity('repair_updated', "Reparación #{$repair['reference']} actualizada", $_SESSION['user_id']);
-                        
+
                         setMessage('Reparación actualizada correctamente', MSG_SUCCESS);
-                        
+
                         // Redirigir según la opción elegida
                         if (isset($_POST['action']) && $_POST['action'] === 'save_continue') {
                             // Permanecer en la página de edición
@@ -127,7 +127,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             }
         }
-        
+
         if (!empty($errors)) {
             setMessage(implode('<br>', $errors), MSG_ERROR);
         }
@@ -139,355 +139,357 @@ $brands = $db->select("SELECT * FROM brands ORDER BY name");
 $common_issues = $db->select("SELECT * FROM common_issues ORDER BY category, issue_text");
 
 // Si hay datos POST, usar esos; si no, usar los de la base de datos
-$form_data = $_POST ?? $repair;
+// إضافة معالجة آمنة للبيانات هنا
+$form_data = safeFormData($_POST ? $_POST : $repair);
 
 // Incluir header
 require_once INCLUDES_PATH . 'header.php';
 ?>
 
-<div class="container-fluid">
-    <!-- Breadcrumb -->
-    <nav aria-label="breadcrumb" class="mb-4">
-        <ol class="breadcrumb">
-            <li class="breadcrumb-item">
-                <a href="<?= url('pages/dashboard.php') ?>">
-                    <i class="bi bi-house"></i> Dashboard
-                </a>
-            </li>
-            <li class="breadcrumb-item">
-                <a href="<?= url('pages/repairs_active.php') ?>">
-                    <i class="bi bi-tools"></i> Reparaciones
-                </a>
-            </li>
-            <li class="breadcrumb-item">
-                <a href="<?= url('pages/repair_details.php?id=' . $repair['id']) ?>">
-                    <i class="bi bi-eye"></i> #<?= htmlspecialchars($repair['reference']) ?>
-                </a>
-            </li>
-            <li class="breadcrumb-item active" aria-current="page">
-                <i class="bi bi-pencil"></i> Editar
-            </li>
-        </ol>
-    </nav>
-    
-    <!-- Header de la página -->
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="page-header bg-warning text-dark p-4 rounded">
-                <div class="row align-items-center">
-                    <div class="col-md-8">
-                        <h1 class="h3 mb-1">
-                            <i class="bi bi-pencil me-2"></i>
-                            Editar Reparación #<?= htmlspecialchars($repair['reference']) ?>
-                        </h1>
-                        <p class="mb-0 opacity-75">
-                            Modifica la información de la reparación
-                        </p>
-                    </div>
-                    <div class="col-md-4 text-md-end">
-                        <a href="<?= url('pages/repair_details.php?id=' . $repair['id']) ?>" class="btn btn-dark">
-                            <i class="bi bi-arrow-left me-2"></i>Volver a Detalles
-                        </a>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
 
-    <!-- Mostrar mensajes -->
-    <?php displayMessage(); ?>
+    <div class="container-fluid">
+        <!-- Breadcrumb -->
+        <nav aria-label="breadcrumb" class="mb-4">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item">
+                    <a href="<?= url('pages/dashboard.php') ?>">
+                        <i class="bi bi-house"></i> Dashboard
+                    </a>
+                </li>
+                <li class="breadcrumb-item">
+                    <a href="<?= url('pages/repairs_active.php') ?>">
+                        <i class="bi bi-tools"></i> Reparaciones
+                    </a>
+                </li>
+                <li class="breadcrumb-item">
+                    <a href="<?= url('pages/repair_details.php?id=' . $repair['id']) ?>">
+                        <i class="bi bi-eye"></i> #<?= safeHtml($repair['reference']) ?>
+                    </a>
+                </li>
+                <li class="breadcrumb-item active" aria-current="page">
+                    <i class="bi bi-pencil"></i> Editar
+                </li>
+            </ol>
+        </nav>
 
-    <!-- Formulario principal -->
-    <form method="POST" action="" class="needs-validation" novalidate>
-        <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
-        
-        <div class="row">
-            <!-- Formulario principal -->
-            <div class="col-lg-8">
-                <div class="card">
-                    <div class="card-header">
-                        <h5 class="card-title mb-0">
-                            <i class="bi bi-person-gear me-2"></i>
-                            Información de la Reparación
-                        </h5>
-                    </div>
-                    <div class="card-body">
-                        <!-- Información del cliente -->
-                        <div class="row mb-4">
-                            <div class="col-12">
-                                <h6 class="text-muted border-bottom pb-2 mb-3">
-                                    <i class="bi bi-person-vcard me-2"></i>Datos del Cliente
-                                </h6>
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label for="customer_name" class="form-label">
-                                    Nombre Completo <span class="text-danger">*</span>
-                                </label>
-                                <input type="text" 
-                                       class="form-control" 
-                                       id="customer_name" 
-                                       name="customer_name" 
-                                       placeholder="Ej: Juan Pérez García"
-                                       value="<?= htmlspecialchars($form_data['customer_name']) ?>"
-                                       required>
-                                <div class="invalid-feedback">
-                                    Por favor, introduce el nombre del cliente.
-                                </div>
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label for="customer_phone" class="form-label">
-                                    Teléfono <span class="text-danger">*</span>
-                                </label>
-                                <input type="tel" 
-                                       class="form-control" 
-                                       id="customer_phone" 
-                                       name="customer_phone" 
-                                       placeholder="Ej: +34 666 123 456"
-                                       value="<?= htmlspecialchars($form_data['customer_phone']) ?>"
-                                       pattern="^(\+34|0034|34)?[6789]\d{8}$"
-                                       required>
-                                <div class="invalid-feedback">
-                                    Introduce un número de teléfono válido.
-                                </div>
-                            </div>
+        <!-- Header de la página -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="page-header bg-warning text-dark p-4 rounded">
+                    <div class="row align-items-center">
+                        <div class="col-md-8">
+                            <h1 class="h3 mb-1">
+                                <i class="bi bi-pencil me-2"></i>
+                                Editar Reparación #<?= safeHtml($repair['reference']) ?>
+                            </h1>
+                            <p class="mb-0 opacity-75">
+                                Modifica la información de la reparación
+                            </p>
                         </div>
-
-                        <!-- Información del dispositivo -->
-                        <div class="row mb-4">
-                            <div class="col-12">
-                                <h6 class="text-muted border-bottom pb-2 mb-3">
-                                    <i class="bi bi-phone me-2"></i>Información del Dispositivo
-                                </h6>
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label for="brand_id" class="form-label">
-                                    Marca <span class="text-danger">*</span>
-                                </label>
-                                <select class="form-select" 
-                                        id="brand_id" 
-                                        name="brand_id" 
-                                        data-target-model="model_id" 
-                                        required>
-                                    <option value="">Selecciona una marca</option>
-                                    <?php foreach ($brands as $brand): ?>
-                                        <option value="<?= $brand['id'] ?>" 
-                                                <?= (($form_data['brand_id'] ?? '') == $brand['id']) ? 'selected' : '' ?>>
-                                            <?= htmlspecialchars($brand['name']) ?>
-                                        </option>
-                                    <?php endforeach; ?>
-                                </select>
-                                <div class="invalid-feedback">
-                                    Por favor, selecciona una marca.
-                                </div>
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label for="model_id" class="form-label">
-                                    Modelo <span class="text-danger">*</span>
-                                </label>
-                                <select class="form-select" 
-                                        id="model_id" 
-                                        name="model_id" 
-                                        required>
-                                    <option value="">Cargando modelos...</option>
-                                </select>
-                                <div class="invalid-feedback">
-                                    Por favor, selecciona un modelo.
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Descripción del problema -->
-                        <div class="row mb-4">
-                            <div class="col-12">
-                                <h6 class="text-muted border-bottom pb-2 mb-3">
-                                    <i class="bi bi-exclamation-triangle me-2"></i>Descripción del Problema
-                                </h6>
-                            </div>
-                            <div class="col-12 mb-3">
-                                <label for="issue_description" class="form-label">
-                                    Problema Reportado <span class="text-danger">*</span>
-                                </label>
-                                
-                                <!-- Problemas comunes -->
-                                <?php if (!empty($common_issues)): ?>
-                                <div class="mb-2">
-                                    <small class="text-muted">Problemas comunes (clic para usar):</small>
-                                    <div class="common-issues-buttons mt-1">
-                                        <?php 
-                                        $current_category = '';
-                                        foreach ($common_issues as $issue): 
-                                            if ($current_category !== $issue['category']):
-                                                if ($current_category !== '') echo '<br>';
-                                                $current_category = $issue['category'];
-                                        ?>
-                                            <small class="text-primary fw-bold"><?= htmlspecialchars($issue['category']) ?>:</small>
-                                        <?php endif; ?>
-                                            <button type="button" 
-                                                    class="btn btn-outline-secondary btn-sm me-1 mb-1 common-issue-btn" 
-                                                    data-issue="<?= htmlspecialchars($issue['issue_text']) ?>">
-                                                <?= htmlspecialchars($issue['issue_text']) ?>
-                                            </button>
-                                        <?php endforeach; ?>
-                                    </div>
-                                </div>
-                                <?php endif; ?>
-                                
-                                <textarea class="form-control" 
-                                          id="issue_description" 
-                                          name="issue_description" 
-                                          rows="4" 
-                                          placeholder="Describe detalladamente el problema del dispositivo..."
-                                          required><?= htmlspecialchars($form_data['issue_description']) ?></textarea>
-                                <div class="invalid-feedback">
-                                    Por favor, describe el problema del dispositivo.
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Información adicional -->
-                        <div class="row">
-                            <div class="col-12">
-                                <h6 class="text-muted border-bottom pb-2 mb-3">
-                                    <i class="bi bi-gear me-2"></i>Información Adicional
-                                </h6>
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label for="priority" class="form-label">Prioridad</label>
-                                <select class="form-select" id="priority" name="priority">
-                                    <option value="low" <?= (($form_data['priority'] ?? '') === 'low') ? 'selected' : '' ?>>
-                                        Baja
-                                    </option>
-                                    <option value="medium" <?= (($form_data['priority'] ?? 'medium') === 'medium') ? 'selected' : '' ?>>
-                                        Media
-                                    </option>
-                                    <option value="high" <?= (($form_data['priority'] ?? '') === 'high') ? 'selected' : '' ?>>
-                                        Alta
-                                    </option>
-                                </select>
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label for="estimated_cost" class="form-label">Coste Estimado (€)</label>
-                                <div class="input-group">
-                                    <span class="input-group-text">€</span>
-                                    <input type="number" 
-                                           class="form-control" 
-                                           id="estimated_cost" 
-                                           name="estimated_cost" 
-                                           placeholder="0.00"
-                                           value="<?= htmlspecialchars($form_data['estimated_cost'] ?? '') ?>"
-                                           step="0.01" 
-                                           min="0">
-                                </div>
-                            </div>
-                            <div class="col-12 mb-3">
-                                <label for="notes" class="form-label">Notas Internas</label>
-                                <textarea class="form-control" 
-                                          id="notes" 
-                                          name="notes" 
-                                          rows="3" 
-                                          placeholder="Notas adicionales para uso interno..."><?= htmlspecialchars($form_data['notes'] ?? '') ?></textarea>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Panel lateral -->
-            <div class="col-lg-4">
-                <!-- Información actual -->
-                <div class="card mb-4">
-                    <div class="card-header">
-                        <h6 class="card-title mb-0">
-                            <i class="bi bi-info-circle me-2"></i>
-                            Información Actual
-                        </h6>
-                    </div>
-                    <div class="card-body">
-                        <div class="current-info">
-                            <div class="info-row mb-2">
-                                <span class="fw-bold">Referencia:</span>
-                                <span class="text-primary">#<?= htmlspecialchars($repair['reference']) ?></span>
-                            </div>
-                            <div class="info-row mb-2">
-                                <span class="fw-bold">Estado:</span>
-                                <?= getStatusBadge($repair['status']) ?>
-                            </div>
-                            <div class="info-row mb-2">
-                                <span class="fw-bold">Recibido:</span>
-                                <span><?= formatDateTime($repair['received_at']) ?></span>
-                            </div>
-                            <?php if ($repair['completed_at']): ?>
-                            <div class="info-row mb-2">
-                                <span class="fw-bold">Completado:</span>
-                                <span><?= formatDateTime($repair['completed_at']) ?></span>
-                            </div>
-                            <?php endif; ?>
-                            <?php if ($repair['delivered_at']): ?>
-                            <div class="info-row mb-2">
-                                <span class="fw-bold">Entregado:</span>
-                                <span><?= formatDateTime($repair['delivered_at']) ?></span>
-                            </div>
-                            <?php endif; ?>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Acciones -->
-                <div class="card mb-4">
-                    <div class="card-header">
-                        <h6 class="card-title mb-0">
-                            <i class="bi bi-check-square me-2"></i>
-                            Acciones
-                        </h6>
-                    </div>
-                    <div class="card-body">
-                        <div class="d-grid gap-2">
-                            <button type="submit" name="action" value="save" class="btn btn-primary">
-                                <i class="bi bi-save me-2"></i>
-                                Guardar Cambios
-                            </button>
-                            <button type="submit" name="action" value="save_continue" class="btn btn-success">
-                                <i class="bi bi-save me-2"></i>
-                                Guardar y Continuar Editando
-                            </button>
-                            <a href="<?= url('pages/repair_details.php?id=' . $repair['id']) ?>" class="btn btn-outline-secondary">
-                                <i class="bi bi-arrow-left me-2"></i>
-                                Cancelar
+                        <div class="col-md-4 text-md-end">
+                            <a href="<?= url('pages/repair_details.php?id=' . $repair['id']) ?>" class="btn btn-dark">
+                                <i class="bi bi-arrow-left me-2"></i>Volver a Detalles
                             </a>
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
 
-                <!-- Historial de cambios -->
-                <div class="card">
-                    <div class="card-header">
-                        <h6 class="card-title mb-0">
-                            <i class="bi bi-clock-history me-2"></i>
-                            Última Modificación
-                        </h6>
+        <!-- Mostrar mensajes -->
+        <?php displayMessage(); ?>
+
+        <!-- Formulario principal -->
+        <form method="POST" action="" class="needs-validation" novalidate>
+            <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
+
+            <div class="row">
+                <!-- Formulario principal -->
+                <div class="col-lg-8">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">
+                                <i class="bi bi-person-gear me-2"></i>
+                                Información de la Reparación
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <!-- Información del cliente -->
+                            <div class="row mb-4">
+                                <div class="col-12">
+                                    <h6 class="text-muted border-bottom pb-2 mb-3">
+                                        <i class="bi bi-person-vcard me-2"></i>Datos del Cliente
+                                    </h6>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="customer_name" class="form-label">
+                                        Nombre Completo <span class="text-danger">*</span>
+                                    </label>
+                                    <input type="text"
+                                           class="form-control"
+                                           id="customer_name"
+                                           name="customer_name"
+                                           placeholder="Ej: Juan Pérez García"
+                                           value="<?= safeHtml($form_data['customer_name']) ?>"
+                                           required>
+                                    <div class="invalid-feedback">
+                                        Por favor, introduce el nombre del cliente.
+                                    </div>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="customer_phone" class="form-label">
+                                        Teléfono <span class="text-danger">*</span>
+                                    </label>
+                                    <input type="tel"
+                                           class="form-control"
+                                           id="customer_phone"
+                                           name="customer_phone"
+                                           placeholder="Ej: +34 666 123 456"
+                                           value="<?= safeHtml($form_data['customer_phone']) ?>"
+                                           pattern="^(\+34|0034|34)?[6789]\d{8}$"
+                                           required>
+                                    <div class="invalid-feedback">
+                                        Introduce un número de teléfono válido.
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Información del dispositivo -->
+                            <div class="row mb-4">
+                                <div class="col-12">
+                                    <h6 class="text-muted border-bottom pb-2 mb-3">
+                                        <i class="bi bi-phone me-2"></i>Información del Dispositivo
+                                    </h6>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="brand_id" class="form-label">
+                                        Marca <span class="text-danger">*</span>
+                                    </label>
+                                    <select class="form-select"
+                                            id="brand_id"
+                                            name="brand_id"
+                                            data-target-model="model_id"
+                                            required>
+                                        <option value="">Selecciona una marca</option>
+                                        <?php foreach ($brands as $brand): ?>
+                                            <option value="<?= $brand['id'] ?>"
+                                                <?= safeSelected($form_data['brand_id'], $brand['id']) ?>>
+                                                <?= safeHtml($brand['name']) ?>
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                    <div class="invalid-feedback">
+                                        Por favor, selecciona una marca.
+                                    </div>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="model_id" class="form-label">
+                                        Modelo <span class="text-danger">*</span>
+                                    </label>
+                                    <select class="form-select"
+                                            id="model_id"
+                                            name="model_id"
+                                            required>
+                                        <option value="">Cargando modelos...</option>
+                                    </select>
+                                    <div class="invalid-feedback">
+                                        Por favor, selecciona un modelo.
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Descripción del problema -->
+                            <div class="row mb-4">
+                                <div class="col-12">
+                                    <h6 class="text-muted border-bottom pb-2 mb-3">
+                                        <i class="bi bi-exclamation-triangle me-2"></i>Descripción del Problema
+                                    </h6>
+                                </div>
+                                <div class="col-12 mb-3">
+                                    <label for="issue_description" class="form-label">
+                                        Problema Reportado <span class="text-danger">*</span>
+                                    </label>
+
+                                    <!-- Problemas comunes -->
+                                    <?php if (!empty($common_issues)): ?>
+                                        <div class="mb-2">
+                                            <small class="text-muted">Problemas comunes (clic para usar):</small>
+                                            <div class="common-issues-buttons mt-1">
+                                                <?php
+                                                $current_category = '';
+                                                foreach ($common_issues as $issue):
+                                                    if ($current_category !== $issue['category']):
+                                                        if ($current_category !== '') echo '<br>';
+                                                        $current_category = $issue['category'];
+                                                        ?>
+                                                        <small class="text-primary fw-bold"><?= safeHtml($issue['category']) ?>:</small>
+                                                    <?php endif; ?>
+                                                    <button type="button"
+                                                            class="btn btn-outline-secondary btn-sm me-1 mb-1 common-issue-btn"
+                                                            data-issue="<?= safeHtml($issue['issue_text']) ?>">
+                                                        <?= safeHtml($issue['issue_text']) ?>
+                                                    </button>
+                                                <?php endforeach; ?>
+                                            </div>
+                                        </div>
+                                    <?php endif; ?>
+
+                                    <textarea class="form-control"
+                                              id="issue_description"
+                                              name="issue_description"
+                                              rows="4"
+                                              placeholder="Describe detalladamente el problema del dispositivo..."
+                                              required><?= safeHtml($form_data['issue_description']) ?></textarea>
+                                    <div class="invalid-feedback">
+                                        Por favor, describe el problema del dispositivo.
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Información adicional -->
+                            <div class="row">
+                                <div class="col-12">
+                                    <h6 class="text-muted border-bottom pb-2 mb-3">
+                                        <i class="bi bi-gear me-2"></i>Información Adicional
+                                    </h6>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="priority" class="form-label">Prioridad</label>
+                                    <select class="form-select" id="priority" name="priority">
+                                        <option value="low" <?= safeSelected($form_data['priority'], 'low') ?>>
+                                            Baja
+                                        </option>
+                                        <option value="medium" <?= safeSelected($form_data['priority'], 'medium') ?>>
+                                            Media
+                                        </option>
+                                        <option value="high" <?= safeSelected($form_data['priority'], 'high') ?>>
+                                            Alta
+                                        </option>
+                                    </select>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="estimated_cost" class="form-label">Coste Estimado (€)</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text">€</span>
+                                        <input type="number"
+                                               class="form-control"
+                                               id="estimated_cost"
+                                               name="estimated_cost"
+                                               placeholder="0.00"
+                                               value="<?= safeHtml($form_data['estimated_cost']) ?>"
+                                               step="0.01"
+                                               min="0">
+                                    </div>
+                                </div>
+                                <div class="col-12 mb-3">
+                                    <label for="notes" class="form-label">Notas Internas</label>
+                                    <textarea class="form-control"
+                                              id="notes"
+                                              name="notes"
+                                              rows="3"
+                                              placeholder="Notas adicionales para uso interno..."><?= safeHtml($form_data['notes']) ?></textarea>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    <div class="card-body">
-                        <div class="history-info">
-                            <div class="text-muted small">
-                                <i class="bi bi-calendar me-1"></i>
-                                <?= formatDateTime($repair['updated_at'] ?: $repair['created_at']) ?>
+                </div>
+
+                <!-- Panel lateral -->
+                <div class="col-lg-4">
+                    <!-- Información actual -->
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h6 class="card-title mb-0">
+                                <i class="bi bi-info-circle me-2"></i>
+                                Información Actual
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="current-info">
+                                <div class="info-row mb-2">
+                                    <span class="fw-bold">Referencia:</span>
+                                    <span class="text-primary">#<?= safeHtml($repair['reference']) ?></span>
+                                </div>
+                                <div class="info-row mb-2">
+                                    <span class="fw-bold">Estado:</span>
+                                    <?= getStatusBadge($repair['status']) ?>
+                                </div>
+                                <div class="info-row mb-2">
+                                    <span class="fw-bold">Recibido:</span>
+                                    <span><?= safeDateFormat($repair['received_at']) ?></span>
+                                </div>
+                                <?php if ($repair['completed_at']): ?>
+                                    <div class="info-row mb-2">
+                                        <span class="fw-bold">Completado:</span>
+                                        <span><?= safeDateFormat($repair['completed_at']) ?></span>
+                                    </div>
+                                <?php endif; ?>
+                                <?php if ($repair['delivered_at']): ?>
+                                    <div class="info-row mb-2">
+                                        <span class="fw-bold">Entregado:</span>
+                                        <span><?= safeDateFormat($repair['delivered_at']) ?></span>
+                                    </div>
+                                <?php endif; ?>
                             </div>
-                            <?php if ($repair['updated_at']): ?>
-                            <div class="text-muted small mt-1">
-                                Actualizada por última vez
+                        </div>
+                    </div>
+
+                    <!-- Acciones -->
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h6 class="card-title mb-0">
+                                <i class="bi bi-check-square me-2"></i>
+                                Acciones
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="d-grid gap-2">
+                                <button type="submit" name="action" value="save" class="btn btn-primary">
+                                    <i class="bi bi-save me-2"></i>
+                                    Guardar Cambios
+                                </button>
+                                <button type="submit" name="action" value="save_continue" class="btn btn-success">
+                                    <i class="bi bi-save me-2"></i>
+                                    Guardar y Continuar Editando
+                                </button>
+                                <a href="<?= url('pages/repair_details.php?id=' . $repair['id']) ?>" class="btn btn-outline-secondary">
+                                    <i class="bi bi-arrow-left me-2"></i>
+                                    Cancelar
+                                </a>
                             </div>
-                            <?php else: ?>
-                            <div class="text-muted small mt-1">
-                                Fecha de creación
+                        </div>
+                    </div>
+
+                    <!-- Historial de cambios -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h6 class="card-title mb-0">
+                                <i class="bi bi-clock-history me-2"></i>
+                                Última Modificación
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="history-info">
+                                <div class="text-muted small">
+                                    <i class="bi bi-calendar me-1"></i>
+                                    <?= safeDateFormat($repair['updated_at'] ?: $repair['created_at']) ?>
+                                </div>
+                                <?php if ($repair['updated_at']): ?>
+                                    <div class="text-muted small mt-1">
+                                        Actualizada por última vez
+                                    </div>
+                                <?php else: ?>
+                                    <div class="text-muted small mt-1">
+                                        Fecha de creación
+                                    </div>
+                                <?php endif; ?>
                             </div>
-                            <?php endif; ?>
                         </div>
                     </div>
                 </div>
             </div>
-        </div>
-    </form>
-</div>
+        </form>
+    </div>
 
 <style>
 /* Estilos específicos para editar reparación */
@@ -703,22 +705,22 @@ require_once INCLUDES_PATH . 'header.php';
 </style>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Inicializar formulario de edición
-    initEditForm();
-    
-    // Configurar validación en tiempo real
-    setupFormValidation();
-    
-    // Manejar botones de problemas comunes
-    setupCommonIssues();
-    
-    // Cargar modelos para la marca seleccionada
-    loadModelsForBrand();
-    
-    // Detectar cambios en el formulario
-    setupChangeDetection();
-});
+    document.addEventListener('DOMContentLoaded', function() {
+        // Inicializar formulario de edición
+        initEditForm();
+
+        // Configurar validación en tiempo real
+        setupFormValidation();
+
+        // Manejar botones de problemas comunes
+        setupCommonIssues();
+
+        // Cargar modelos para la marca seleccionada
+        loadModelsForBrand();
+
+        // Detectar cambios en el formulario
+        setupChangeDetection();
+    });
 
 function initEditForm() {
     const form = document.querySelector('.needs-validation');
@@ -787,59 +789,63 @@ function setupCommonIssues() {
     });
 }
 
-function loadModelsForBrand() {
-    const brandSelect = document.getElementById('brand_id');
-    const modelSelect = document.getElementById('model_id');
-    const currentModelId = <?= $repair['model_id'] ?>;
-    
-    brandSelect.addEventListener('change', function() {
-        loadModels(this.value, modelSelect);
-    });
-    
-    // Cargar modelos iniciales
-    if (brandSelect.value) {
-        loadModels(brandSelect.value, modelSelect, currentModelId);
-    }
-}
+    function loadModelsForBrand() {
+        const brandSelect = document.getElementById('brand_id');
+        const modelSelect = document.getElementById('model_id');
+        const currentModelId = <?= intval($repair['model_id']) ?>;
 
-async function loadModels(brandId, modelSelect, selectedModelId = null) {
-    if (!brandId) {
-        modelSelect.innerHTML = '<option value="">Selecciona una marca primero</option>';
-        modelSelect.disabled = true;
-        return;
-    }
-    
-    try {
-        modelSelect.innerHTML = '<option value="">Cargando...</option>';
-        modelSelect.disabled = true;
-        
-        const response = await fetch(`<?= url('api/models.php') ?>?brand_id=${brandId}`);
-        const data = await response.json();
-        
-        modelSelect.innerHTML = '<option value="">Selecciona un modelo</option>';
-        
-        if (data.success && data.data) {
-            data.data.forEach(model => {
-                const option = document.createElement('option');
-                option.value = model.id;
-                option.textContent = model.name;
-                
-                if (selectedModelId && model.id == selectedModelId) {
-                    option.selected = true;
-                }
-                
-                modelSelect.appendChild(option);
-            });
+        brandSelect.addEventListener('change', function() {
+            loadModels(this.value, modelSelect);
+        });
+
+        // Cargar modelos iniciales
+        if (brandSelect.value) {
+            loadModels(brandSelect.value, modelSelect, currentModelId);
         }
-        
-        modelSelect.disabled = false;
-    } catch (error) {
-        console.error('Error cargando modelos:', error);
-        modelSelect.innerHTML = '<option value="">Error al cargar modelos</option>';
-        modelSelect.disabled = false;
-        Utils.showNotification('Error al cargar los modelos', 'error');
     }
-}
+
+
+    async function loadModels(brandId, modelSelect, selectedModelId = null) {
+        if (!brandId) {
+            modelSelect.innerHTML = '<option value="">Selecciona una marca primero</option>';
+            modelSelect.disabled = true;
+            return;
+        }
+
+        try {
+            modelSelect.innerHTML = '<option value="">Cargando...</option>';
+            modelSelect.disabled = true;
+
+            const response = await fetch(`<?= url('api/models.php') ?>?brand_id=${brandId}`);
+            const data = await response.json();
+
+            modelSelect.innerHTML = '<option value="">Selecciona un modelo</option>';
+
+            if (data.success && data.data) {
+                data.data.forEach(model => {
+                    const option = document.createElement('option');
+                    option.value = model.id;
+                    option.textContent = model.name;
+
+                    if (selectedModelId && model.id == selectedModelId) {
+                        option.selected = true;
+                    }
+
+                    modelSelect.appendChild(option);
+                });
+            }
+
+            modelSelect.disabled = false;
+        } catch (error) {
+            console.error('Error cargando modelos:', error);
+            modelSelect.innerHTML = '<option value="">Error al cargar modelos</option>';
+            modelSelect.disabled = false;
+
+            if (typeof Utils !== 'undefined') {
+                Utils.showNotification('Error al cargar los modelos', 'error');
+            }
+        }
+    }
 
 function setupChangeDetection() {
     const inputs = document.querySelectorAll('input, select, textarea');

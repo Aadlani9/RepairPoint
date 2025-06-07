@@ -205,13 +205,13 @@ require_once INCLUDES_PATH . 'header.php';
                                 <label for="customer_phone" class="form-label">
                                     Teléfono <span class="text-danger">*</span>
                                 </label>
-                                <input type="tel" 
-                                       class="form-control" 
-                                       id="customer_phone" 
-                                       name="customer_phone" 
+                                <input type="tel"
+                                       class="form-control"
+                                       id="customer_phone"
+                                       name="customer_phone"
                                        placeholder="Ej: +34 666 123 456"
                                        value="<?= htmlspecialchars($_POST['customer_phone'] ?? '') ?>"
-                                       pattern="^(\+34|0034|34)?[6789]\d{8}$"
+                                       pattern="^(\+34|0034|34)?\s*[6789]\d{2}\s*\d{3}\s*\d{3}$"
                                        required>
                                 <div class="invalid-feedback">
                                     Introduce un número de teléfono válido.
@@ -220,9 +220,9 @@ require_once INCLUDES_PATH . 'header.php';
                                     Formato: +34 666 123 456 o 666 123 456
                                 </div>
                             </div>
-                        </div>
 
-                        <!-- Información del dispositivo -->
+
+                            <!-- Información del dispositivo -->
                         <div class="row mb-4">
                             <div class="col-12">
                                 <h6 class="text-muted border-bottom pb-2 mb-3">
@@ -742,13 +742,68 @@ function updateTicketPreview() {
 
 function setupPhoneFormatting() {
     const phoneInput = document.getElementById('customer_phone');
-    
+
     phoneInput.addEventListener('input', function() {
         let value = this.value.replace(/\s/g, '');
-        
-        // Auto-format español
-        if (value.length === 9 && !value.startsWith('+34')) {
-            this.value = '+34 ' + value.replace(/(\d{3})(\d{3})(\d{3})/, '$1 $2 $3');
+
+        // إزالة أي أحرف غير رقمية ما عدا + في البداية
+        value = value.replace(/[^\d+]/g, '');
+
+        // إذا لم يبدأ بـ +34 ولكن بدأ برقم 6-9
+        if (/^[6789]/.test(value) && value.length >= 9) {
+            // تنسيق للرقم الإسباني بدون +34
+            if (value.length === 9) {
+                this.value = value.replace(/(\d{3})(\d{3})(\d{3})/, '$1 $2 $3');
+            }
+        }
+        // إذا بدأ بـ +34
+        else if (value.startsWith('+34')) {
+            let number = value.substring(3);
+            if (number.length >= 9) {
+                number = number.substring(0, 9);
+                this.value = '+34 ' + number.replace(/(\d{3})(\d{3})(\d{3})/, '$1 $2 $3');
+            } else {
+                this.value = '+34 ' + number;
+            }
+        }
+        // إذا بدأ بـ 34
+        else if (value.startsWith('34') && !value.startsWith('+34')) {
+            let number = value.substring(2);
+            if (number.length >= 9) {
+                number = number.substring(0, 9);
+                this.value = '+34 ' + number.replace(/(\d{3})(\d{3})(\d{3})/, '$1 $2 $3');
+            } else {
+                this.value = '+34 ' + number;
+            }
+        }
+
+        // تحقق فوري من صحة الرقم
+        this.setCustomValidity('');
+        if (this.value) {
+            const cleanNumber = this.value.replace(/\s/g, '');
+            const spanishPhonePattern = /^(\+34|34)?[6789]\d{8}$/;
+
+            if (!spanishPhonePattern.test(cleanNumber)) {
+                this.setCustomValidity('يرجى إدخال رقم هاتف إسباني صحيح');
+            }
+        }
+    });
+
+    // تحقق عند blur أيضاً
+    phoneInput.addEventListener('blur', function() {
+        if (this.value) {
+            const cleanNumber = this.value.replace(/\s/g, '');
+            const spanishPhonePattern = /^(\+34|34)?[6789]\d{8}$/;
+
+            if (spanishPhonePattern.test(cleanNumber)) {
+                this.classList.remove('is-invalid');
+                this.classList.add('is-valid');
+                this.setCustomValidity('');
+            } else {
+                this.classList.remove('is-valid');
+                this.classList.add('is-invalid');
+                this.setCustomValidity('يرجى إدخال رقم هاتف إسباني صحيح');
+            }
         }
     });
 }

@@ -145,12 +145,52 @@ function isValidEmail($email) {
 }
 
 /**
- * Validar teléfono español
+ * Validar teléfono español - محسن
  */
 function isValidPhone($phone) {
-    // Patrón para teléfonos españoles
-    $pattern = '/^(\+34|0034|34)?[6789]\d{8}$/';
-    return preg_match($pattern, preg_replace('/[\s\-\.]/', '', $phone));
+    // إزالة جميع المسافات والرموز
+    $clean_phone = preg_replace('/[\s\-\.\(\)]/', '', $phone);
+
+    // أنماط الهواتف الإسبانية المقبولة
+    $patterns = [
+        '/^\+34[6789]\d{8}$/',    // +34xxxxxxxxx
+        '/^0034[6789]\d{8}$/',    // 0034xxxxxxxxx
+        '/^34[6789]\d{8}$/',      // 34xxxxxxxxx
+        '/^[6789]\d{8}$/',        // xxxxxxxxx (9 أرقام تبدأ بـ 6-9)
+    ];
+
+    // فحص جميع الأنماط
+    foreach ($patterns as $pattern) {
+        if (preg_match($pattern, $clean_phone)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+/**
+ * تنسيق رقم الهاتف للعرض
+ */
+function formatPhoneNumber($phone) {
+    $clean_phone = preg_replace('/[\s\-\.\(\)]/', '', $phone);
+
+    // إذا كان الرقم يبدأ بـ +34
+    if (preg_match('/^\+34([6789]\d{8})$/', $clean_phone, $matches)) {
+        return '+34 ' . substr($matches[1], 0, 3) . ' ' . substr($matches[1], 3, 3) . ' ' . substr($matches[1], 6, 3);
+    }
+
+    // إذا كان الرقم يبدأ بـ 34
+    if (preg_match('/^34([6789]\d{8})$/', $clean_phone, $matches)) {
+        return '+34 ' . substr($matches[1], 0, 3) . ' ' . substr($matches[1], 3, 3) . ' ' . substr($matches[1], 6, 3);
+    }
+
+    // إذا كان 9 أرقام فقط
+    if (preg_match('/^([6789]\d{8})$/', $clean_phone, $matches)) {
+        return '+34 ' . substr($matches[1], 0, 3) . ' ' . substr($matches[1], 3, 3) . ' ' . substr($matches[1], 6, 3);
+    }
+
+    return $phone; // إرجاع الرقم كما هو إذا لم يطابق أي نمط
 }
 
 /**
@@ -521,6 +561,136 @@ function getUpcomingDeliveries($shop_id, $days = 7) {
          ORDER BY r.estimated_completion ASC",
         [$shop_id, $days]
     );
+}
+
+
+/**
+ * Safe htmlspecialchars - يتعامل مع null values
+ */
+function safeHtml($value, $default = '') {
+    if ($value === null || $value === '') {
+        return htmlspecialchars($default, ENT_QUOTES, 'UTF-8');
+    }
+    return htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
+}
+
+/**
+ * Safe form data preparation
+ */
+function safeFormData($data, $defaults = []) {
+    $safe_defaults = [
+        'customer_name' => '',
+        'customer_phone' => '',
+        'brand_id' => '',
+        'model_id' => '',
+        'issue_description' => '',
+        'priority' => 'medium',
+        'estimated_cost' => '',
+        'actual_cost' => '',
+        'notes' => '',
+        'status' => 'pending',
+        'reference' => '',
+        'received_at' => '',
+        'completed_at' => '',
+        'delivered_at' => '',
+        'created_at' => '',
+        'updated_at' => ''
+    ];
+
+    // دمج القيم الافتراضية مع المخصصة
+    $merged_defaults = array_merge($safe_defaults, $defaults);
+
+    // دمج البيانات الفعلية مع التأكد من وجود جميع المفاتيح
+    $safe_data = [];
+    foreach ($merged_defaults as $key => $default_value) {
+        $safe_data[$key] = isset($data[$key]) ? $data[$key] : $default_value;
+    }
+
+    return $safe_data;
+}
+
+/**
+ * Safe option selected - للـ select options
+ */
+function safeSelected($current_value, $option_value, $default = '') {
+    $current = $current_value ?? $default;
+    return ($current == $option_value) ? 'selected' : '';
+}
+
+/**
+ * Safe checked - للـ checkboxes و radio buttons
+ */
+function safeChecked($current_value, $check_value, $default = false) {
+    $current = $current_value ?? $default;
+    return ($current == $check_value) ? 'checked' : '';
+}
+
+/**
+ * Safe number formatting - يتعامل مع null values
+ */
+function safeNumber($value, $decimals = 2, $default = 0) {
+    if ($value === null || $value === '' || !is_numeric($value)) {
+        return number_format($default, $decimals);
+    }
+    return number_format(floatval($value), $decimals);
+}
+
+/**
+ * Safe date formatting - نسخة محسنة
+ */
+function safeDateFormat($date, $format = 'd/m/Y H:i', $default = '') {
+    if (empty($date) || $date === null || $date === '0000-00-00 00:00:00') {
+        return $default;
+    }
+
+    try {
+        $dateObj = new DateTime($date);
+        return $dateObj->format($format);
+    } catch (Exception $e) {
+        return $default;
+    }
+}
+
+/**
+ * Safe array value - الحصول على قيمة من array بأمان
+ */
+function safeArrayValue($array, $key, $default = '') {
+    return isset($array[$key]) ? $array[$key] : $default;
+}
+
+/**
+ * Safe integer conversion
+ */
+function safeInt($value, $default = 0) {
+    if ($value === null || $value === '') {
+        return $default;
+    }
+    return intval($value);
+}
+
+/**
+ * Safe float conversion
+ */
+function safeFloat($value, $default = 0.0) {
+    if ($value === null || $value === '' || !is_numeric($value)) {
+        return $default;
+    }
+    return floatval($value);
+}
+
+/**
+ * Safe string truncation
+ */
+function safeTruncate($string, $length = 50, $suffix = '...') {
+    if ($string === null || $string === '') {
+        return '';
+    }
+
+    if (mb_strlen($string) <= $length) {
+        return $string;
+    }
+
+    return mb_substr($string, 0, $length) . $suffix;
 }
 
 ?>

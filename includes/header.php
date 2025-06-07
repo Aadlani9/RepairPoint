@@ -1,4 +1,3 @@
-
 <?php
 /**
  * RepairPoint - Header común para todas las páginas
@@ -18,17 +17,29 @@ if (!isset($_SESSION['user_id'])) {
 $current_user = null;
 $current_shop = null;
 if (isset($_SESSION['user_id'])) {
-    $db = getDB();
-    $current_user = $db->selectOne(
-        "SELECT u.*, s.name as shop_name, s.logo as shop_logo 
-         FROM users u 
-         JOIN shops s ON u.shop_id = s.id 
-         WHERE u.id = ?", 
-        [$_SESSION['user_id']]
-    );
-    
-    if ($current_user) {
-        $current_shop = $db->selectOne("SELECT * FROM shops WHERE id = ?", [$current_user['shop_id']]);
+    try {
+        $db = getDB();
+        $current_user = $db->selectOne(
+            "SELECT u.*, s.name as shop_name, s.logo as shop_logo 
+             FROM users u 
+             JOIN shops s ON u.shop_id = s.id 
+             WHERE u.id = ?",
+            [$_SESSION['user_id']]
+        );
+
+        if ($current_user) {
+            $current_shop = $db->selectOne("SELECT * FROM shops WHERE id = ?", [$current_user['shop_id']]);
+        }
+    } catch (Exception $e) {
+        // Si hay error en la DB, usar datos de sesión como fallback
+        $current_user = [
+            'id' => $_SESSION['user_id'],
+            'name' => $_SESSION['user_name'] ?? 'Usuario',
+            'email' => $_SESSION['user_email'] ?? '',
+            'role' => $_SESSION['user_role'] ?? 'staff',
+            'shop_name' => $_SESSION['shop_name'] ?? 'Mi Taller'
+        ];
+        $current_shop = ['name' => $current_user['shop_name'], 'logo' => null];
     }
 }
 ?>
@@ -39,29 +50,29 @@ if (isset($_SESSION['user_id'])) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="<?= APP_DESCRIPTION ?>">
     <meta name="author" content="<?= APP_AUTHOR ?>">
-    
+
     <title><?= isset($page_title) ? $page_title . ' - ' . APP_NAME : APP_NAME ?></title>
-    
+
     <!-- Bootstrap 5 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    
+
     <!-- Bootstrap Icons -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
-    
+
     <!-- Custom CSS -->
     <link href="<?= asset('css/style.css') ?>" rel="stylesheet">
-    
+
     <!-- Print CSS -->
     <link href="<?= asset('css/print.css') ?>" rel="stylesheet" media="print">
-    
+
     <!-- Favicon -->
     <link rel="icon" type="image/x-icon" href="<?= asset('images/favicon.ico') ?>">
-    
+
     <!-- Meta tags para PWA -->
     <meta name="theme-color" content="#0d6efd">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    
+
     <!-- CSRF Token -->
     <meta name="csrf-token" content="<?= generateCSRFToken() ?>">
 </head>
@@ -73,7 +84,7 @@ if (isset($_SESSION['user_id'])) {
     <div class="container-fluid">
         <!-- Brand -->
         <a class="navbar-brand d-flex align-items-center" href="<?= url('pages/dashboard.php') ?>">
-            <?php if ($current_shop && $current_shop['logo']): ?>
+            <?php if ($current_shop && isset($current_shop['logo']) && $current_shop['logo']): ?>
                 <img src="<?= $current_shop['logo'] ?>" alt="Logo" height="30" class="me-2">
             <?php else: ?>
                 <i class="bi bi-tools me-2"></i>
