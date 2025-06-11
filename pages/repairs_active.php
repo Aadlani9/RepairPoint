@@ -92,6 +92,7 @@ $stats = [
     'high_priority' => $db->selectOne("SELECT COUNT(*) as count FROM repairs WHERE shop_id = ? AND priority = 'high' AND status IN ('pending', 'in_progress', 'completed')", [$shop_id])['count'] ?? 0
 ];
 
+
 // Incluir header
 require_once INCLUDES_PATH . 'header.php';
 ?>
@@ -435,13 +436,13 @@ require_once INCLUDES_PATH . 'header.php';
         </div>
         
         <?php if ($total_pages > 1): ?>
-        <div class="card-footer">
-            <?= generatePagination($page, $total_pages, url('pages/repairs_active.php'), [
-                'search' => $search,
-                'status' => $status_filter,
-                'priority' => $priority_filter
-            ]) ?>
-        </div>
+            <div class="card-footer">
+                <?= generatePagination($page, $total_pages, '', [
+                    'search' => $search,
+                    'status' => $status_filter,
+                    'priority' => $priority_filter
+                ]) ?>
+            </div>
         <?php endif; ?>
     </div>
 </div>

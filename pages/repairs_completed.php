@@ -469,7 +469,7 @@ require_once INCLUDES_PATH . 'header.php';
         
         <?php if ($total_pages > 1): ?>
         <div class="card-footer">
-            <?= generatePagination($page, $total_pages, url('pages/repairs_completed.php'), [
+            <?= generatePagination($page, $total_pages, $_SERVER['PHP_SELF'], [
                 'search' => $search,
                 'date_from' => $date_from,
                 'date_to' => $date_to

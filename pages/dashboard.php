@@ -31,7 +31,7 @@ $recent_repairs = $db->select(
      JOIN users u ON r.created_by = u.id
      WHERE r.shop_id = ? 
      ORDER BY r.created_at DESC 
-     LIMIT 10",
+     LIMIT 8",
     [$shop_id]
 );
 
@@ -164,7 +164,9 @@ require_once INCLUDES_PATH . 'header.php';
                     <h5 class="card-title mb-0">
                         <i class="bi bi-clock-history me-2"></i>
                         Reparaciones Recientes
+                        <span class="badge bg-primary ms-2"><?= count($recent_repairs) ?></span>
                     </h5>
+
                     <a href="<?= url('pages/repairs_active.php') ?>" class="btn btn-sm btn-outline-primary">
                         Ver todas
                     </a>

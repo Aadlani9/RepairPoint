@@ -330,50 +330,137 @@ function getPriorityBadge($priority) {
 /**
  * Generar enlaces de paginación
  */
+/**
+ * إصلاح دالة generatePagination - استبدل الدالة الموجودة بهذه
+ */
 function generatePagination($current_page, $total_pages, $base_url, $params = []) {
     if ($total_pages <= 1) return '';
-    
+
+    // إصلاح المسار - إزالة BASE_URL إذا كان موجود
+    $clean_url = str_replace(BASE_URL, '', $base_url);
+    $clean_url = ltrim($clean_url, '/');
+
     $html = '<nav aria-label="Paginación">';
     $html .= '<ul class="pagination justify-content-center">';
-    
-    // Página anterior
+
+    // عرض معلومات الصفحة
+    $start_record = ($current_page - 1) * (defined('RECORDS_PER_PAGE') ? RECORDS_PER_PAGE : 20) + 1;
+    $end_record = min($current_page * (defined('RECORDS_PER_PAGE') ? RECORDS_PER_PAGE : 20), $total_pages * (defined('RECORDS_PER_PAGE') ? RECORDS_PER_PAGE : 20));
+
+    // زر "الأولى" (إذا لم نكن في الصفحة الأولى)
     if ($current_page > 1) {
-        $prev_url = $base_url . '?' . http_build_query(array_merge($params, ['page' => $current_page - 1]));
-        $html .= '<li class="page-item"><a class="page-link" href="' . $prev_url . '">Anterior</a></li>';
+        $first_url = $clean_url . '?' . http_build_query(array_merge($params, ['page' => 1]));
+        $html .= '<li class="page-item"><a class="page-link" href="' . $first_url . '" title="الصفحة الأولى"><i class="bi bi-chevron-double-left"></i></a></li>';
     }
-    
-    // Páginas numéricas
+
+    // الصفحة السابقة
+    if ($current_page > 1) {
+        $prev_url = $clean_url . '?' . http_build_query(array_merge($params, ['page' => $current_page - 1]));
+        $html .= '<li class="page-item"><a class="page-link" href="' . $prev_url . '" title="الصفحة السابقة">السابق</a></li>';
+    } else {
+        $html .= '<li class="page-item disabled"><span class="page-link">السابق</span></li>';
+    }
+
+    // الصفحات المرقمة
     $start = max(1, $current_page - 2);
     $end = min($total_pages, $current_page + 2);
-    
+
+    // إذا كنا في بداية القائمة، أظهر المزيد في النهاية
+    if ($start <= 3) {
+        $end = min($total_pages, 5);
+    }
+
+    // إذا كنا في نهاية القائمة، أظهر المزيد في البداية
+    if ($end >= $total_pages - 2) {
+        $start = max(1, $total_pages - 4);
+    }
+
+    // نقاط البداية إذا لزم الأمر
+    if ($start > 1) {
+        $page_url = $clean_url . '?' . http_build_query(array_merge($params, ['page' => 1]));
+        $html .= '<li class="page-item"><a class="page-link" href="' . $page_url . '">1</a></li>';
+        if ($start > 2) {
+            $html .= '<li class="page-item disabled"><span class="page-link">...</span></li>';
+        }
+    }
+
+    // الصفحات المرقمة الأساسية
     for ($i = $start; $i <= $end; $i++) {
         $active = ($i === $current_page) ? ' active' : '';
-        $page_url = $base_url . '?' . http_build_query(array_merge($params, ['page' => $i]));
+        $page_url = $clean_url . '?' . http_build_query(array_merge($params, ['page' => $i]));
         $html .= '<li class="page-item' . $active . '"><a class="page-link" href="' . $page_url . '">' . $i . '</a></li>';
     }
-    
-    // Página siguiente
-    if ($current_page < $total_pages) {
-        $next_url = $base_url . '?' . http_build_query(array_merge($params, ['page' => $current_page + 1]));
-        $html .= '<li class="page-item"><a class="page-link" href="' . $next_url . '">Siguiente</a></li>';
+
+    // نقاط النهاية إذا لزم الأمر
+    if ($end < $total_pages) {
+        if ($end < $total_pages - 1) {
+            $html .= '<li class="page-item disabled"><span class="page-link">...</span></li>';
+        }
+        $page_url = $clean_url . '?' . http_build_query(array_merge($params, ['page' => $total_pages]));
+        $html .= '<li class="page-item"><a class="page-link" href="' . $page_url . '">' . $total_pages . '</a></li>';
     }
-    
-    $html .= '</ul></nav>';
+
+    // الصفحة التالية
+    if ($current_page < $total_pages) {
+        $next_url = $clean_url . '?' . http_build_query(array_merge($params, ['page' => $current_page + 1]));
+        $html .= '<li class="page-item"><a class="page-link" href="' . $next_url . '" title="الصفحة التالية">التالي</a></li>';
+    } else {
+        $html .= '<li class="page-item disabled"><span class="page-link">التالي</span></li>';
+    }
+
+    // زر "الأخيرة" (إذا لم نكن في الصفحة الأخيرة)
+    if ($current_page < $total_pages) {
+        $last_url = $clean_url . '?' . http_build_query(array_merge($params, ['page' => $total_pages]));
+        $html .= '<li class="page-item"><a class="page-link" href="' . $last_url . '" title="الصفحة الأخيرة"><i class="bi bi-chevron-double-right"></i></a></li>';
+    }
+
+    $html .= '</ul>';
+
+    // إضافة معلومات الصفحة
+    $total_records = $total_pages * (defined('RECORDS_PER_PAGE') ? RECORDS_PER_PAGE : 20);
+    $html .= '<div class="pagination-info text-center mt-2">';
+    $html .= '<small class="text-muted">';
+    $html .= 'الصفحة ' . $current_page . ' من ' . $total_pages;
+    $html .= ' (' . number_format($total_records) . ' عنصر إجمالي)';
+    $html .= '</small>';
+    $html .= '</div>';
+
+    $html .= '</nav>';
     return $html;
 }
 
 /**
- * Calcular offset para paginación
+ * دالة مساعدة لحساب معلومات الصفحة الحالية
  */
-function calculateOffset($page, $limit) {
-    return ($page - 1) * $limit;
+function getPaginationInfo($current_page, $total_pages, $records_per_page) {
+    $total_records = $total_pages * $records_per_page;
+    $start_record = ($current_page - 1) * $records_per_page + 1;
+    $end_record = min($current_page * $records_per_page, $total_records);
+
+    return [
+        'start' => $start_record,
+        'end' => $end_record,
+        'total' => $total_records,
+        'current_page' => $current_page,
+        'total_pages' => $total_pages
+    ];
 }
 
 /**
- * Calcular total de páginas
+ * تحسين دالة calculateTotalPages - إضافة حماية من القسمة على صفر
  */
 function calculateTotalPages($total_records, $limit) {
-    return ceil($total_records / $limit);
+    if ($limit <= 0) return 1;
+    return max(1, ceil($total_records / $limit));
+}
+
+/**
+ * تحسين دالة calculateOffset - إضافة حماية
+ */
+function calculateOffset($page, $limit) {
+    $page = max(1, intval($page));
+    $limit = max(1, intval($limit));
+    return ($page - 1) * $limit;
 }
 
 // ===================================================
@@ -780,6 +867,45 @@ function safeTruncate($string, $length = 50, $suffix = '...') {
     }
 
     return mb_substr($string, 0, $length) . $suffix;
+}
+
+
+
+function getLogoUrl($logo_path) {
+    if (empty($logo_path)) {
+        return asset('images/default-logo.png'); // شعار افتراضي
+    }
+
+    // إذا كان المسار يبدأ بـ assets/ فقط
+    if (strpos($logo_path, 'assets/') === 0) {
+        return url($logo_path);
+    }
+
+    // إذا كان المسار يحتوي على assets/ في الوسط
+    if (strpos($logo_path, 'assets/') !== false) {
+        $clean_path = substr($logo_path, strpos($logo_path, 'assets/'));
+        return url($clean_path);
+    }
+
+    // إذا كان اسم ملف فقط
+    if (!strpos($logo_path, '/')) {
+        return url('assets/uploads/' . $logo_path);
+    }
+
+    // افتراضي
+    return url($logo_path);
+}
+
+/**
+ * دالة للحصول على شعار المحل
+ */
+function getShopLogo($shop_data) {
+    if (isset($shop_data['logo']) && !empty($shop_data['logo'])) {
+        return getLogoUrl($shop_data['logo']);
+    }
+
+    // شعار افتراضي إذا لم يوجد
+    return asset('images/default-logo.png');
 }
 
 ?>

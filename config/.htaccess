@@ -1,0 +1,9 @@
+# RepairPoint - Config Directory Protection
+# حماية مجلد التكوين
+
+# منع الوصول لجميع الملفات في هذا المجلد
+Order Deny,Allow
+Deny from all
+
+# رسالة خطأ مخصصة
+ErrorDocument 403 "Access Denied - Configuration files are protected"

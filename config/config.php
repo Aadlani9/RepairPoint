@@ -96,7 +96,7 @@ define('ALLOWED_IMAGE_TYPES', ['jpg', 'jpeg', 'png', 'gif']);
 // CONFIGURACIÓN DE PAGINACIÓN
 // ===================================================
 
-define('RECORDS_PER_PAGE', 20);
+define('RECORDS_PER_PAGE', 5);
 
 // ===================================================
 // MODO DEBUG

@@ -82,10 +82,10 @@ if (isset($_SESSION['user_id'])) {
 <!-- Navigation Bar -->
 <nav class="navbar navbar-expand-lg navbar-dark bg-primary fixed-top">
     <div class="container-fluid">
-        <!-- Brand -->
+      <!-- Brand -->
         <a class="navbar-brand d-flex align-items-center" href="<?= url('pages/dashboard.php') ?>">
             <?php if ($current_shop && isset($current_shop['logo']) && $current_shop['logo']): ?>
-                <img src="<?= $current_shop['logo'] ?>" alt="Logo" height="30" class="me-2">
+                <img src="<?= url($current_shop['logo']) ?>" alt="Logo" height="30" class="me-2">
             <?php else: ?>
                 <i class="bi bi-tools me-2"></i>
             <?php endif; ?>

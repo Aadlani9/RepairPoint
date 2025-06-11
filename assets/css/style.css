@@ -506,3 +506,165 @@ body {
 ::-webkit-scrollbar-thumb:hover {
     background: #a8a8a8;
 }
+
+
+/* ===================================================
+   تحسينات Pagination
+   =================================================== */
+
+.pagination {
+    --bs-pagination-padding-x: 0.75rem;
+    --bs-pagination-padding-y: 0.375rem;
+    --bs-pagination-font-size: 0.875rem;
+    --bs-pagination-color: var(--primary-color);
+    --bs-pagination-bg: #fff;
+    --bs-pagination-border-width: 1px;
+    --bs-pagination-border-color: #dee2e6;
+    --bs-pagination-border-radius: 0.375rem;
+    --bs-pagination-hover-color: #fff;
+    --bs-pagination-hover-bg: var(--primary-color);
+    --bs-pagination-hover-border-color: var(--primary-color);
+    --bs-pagination-focus-color: #fff;
+    --bs-pagination-focus-bg: var(--primary-color);
+    --bs-pagination-focus-box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+    --bs-pagination-active-color: #fff;
+    --bs-pagination-active-bg: var(--primary-color);
+    --bs-pagination-active-border-color: var(--primary-color);
+    --bs-pagination-disabled-color: #6c757d;
+    --bs-pagination-disabled-bg: #fff;
+    --bs-pagination-disabled-border-color: #dee2e6;
+}
+
+.pagination .page-link {
+    transition: all 0.3s ease;
+    font-weight: 500;
+}
+
+.pagination .page-link:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(13, 110, 253, 0.2);
+}
+
+.pagination .page-item.active .page-link {
+    font-weight: 600;
+    box-shadow: 0 2px 8px rgba(13, 110, 253, 0.3);
+}
+
+.pagination .page-item.disabled .page-link {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.pagination-info {
+    margin-top: 1rem;
+    padding: 0.5rem;
+    background: rgba(13, 110, 253, 0.05);
+    border-radius: 0.375rem;
+}
+
+.pagination-info small {
+    font-weight: 500;
+    color: var(--dark-color) !important;
+}
+
+/* تحسينات للأجهزة المحمولة */
+@media (max-width: 768px) {
+    .pagination {
+        --bs-pagination-padding-x: 0.5rem;
+        --bs-pagination-padding-y: 0.25rem;
+        --bs-pagination-font-size: 0.75rem;
+    }
+
+    .pagination .page-item:not(.active):not(:first-child):not(:last-child) {
+        display: none;
+    }
+
+    .pagination .page-item:nth-child(2),
+    .pagination .page-item:nth-last-child(2) {
+        display: inline-block;
+    }
+}
+
+@media (max-width: 576px) {
+    .pagination {
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 0.25rem;
+    }
+
+    .pagination .page-item {
+        margin: 0.125rem;
+    }
+
+    .pagination-info {
+        font-size: 0.75rem;
+        margin-top: 0.75rem;
+    }
+}
+
+/* تأثيرات تفاعلية */
+.pagination .page-link:focus {
+    box-shadow: var(--bs-pagination-focus-box-shadow);
+    outline: none;
+}
+
+.pagination .page-item.active .page-link {
+    position: relative;
+    z-index: 1;
+}
+
+.pagination .page-item.active .page-link::before {
+    content: '';
+    position: absolute;
+    top: -2px;
+    left: -2px;
+    right: -2px;
+    bottom: -2px;
+    background: linear-gradient(45deg, var(--primary-color), #0056b3);
+    border-radius: inherit;
+    z-index: -1;
+}
+
+/* تحسينات إضافية للشكل */
+.card-footer .pagination {
+    margin-bottom: 0;
+}
+
+.pagination-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 1rem;
+    background: rgba(248, 249, 250, 0.5);
+    border-radius: 0.5rem;
+    margin-top: 1rem;
+}
+
+.pagination-wrapper .pagination {
+    margin-bottom: 0.5rem;
+}
+
+/* تأثير التحميل للروابط */
+.pagination .page-link.loading {
+    position: relative;
+    color: transparent !important;
+}
+
+.pagination .page-link.loading::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 1rem;
+    height: 1rem;
+    margin: -0.5rem 0 0 -0.5rem;
+    border: 2px solid #f3f3f3;
+    border-top: 2px solid var(--primary-color);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}

@@ -1,0 +1,180 @@
+# ===================================================
+# RepairPoint - حماية شاملة للمشروع
+# ===================================================
+
+# تفعيل Rewrite Engine
+RewriteEngine On
+
+# ===================================================
+# حماية الملفات والمجلدات الحساسة
+# ===================================================
+
+# حجب الوصول للمجلدات الحساسة تماماً
+<IfModule mod_rewrite.c>
+    # حجب مجلد SQL (خطر جداً!)
+    RewriteRule ^sql/.*$ - [F,L]
+
+    # حجب مجلد logs (حساس!)
+    RewriteRule ^logs/.*$ - [F,L]
+
+    # حجب مجلد config (محمي مسبقاً لكن للتأكيد)
+    RewriteRule ^config/.*$ - [F,L]
+
+    # حجب مجلد includes (محمي مسبقاً لكن للتأكيد)
+    RewriteRule ^includes/.*$ - [F,L]
+</IfModule>
+
+# ===================================================
+# حماية أنواع الملفات الحساسة
+# ===================================================
+
+# حجب ملفات النسخ الاحتياطية والمؤقتة
+<FilesMatch "\.(bak|backup|tmp|temp|log|sql|old|orig|save)$">
+    Order Allow,Deny
+    Deny from all
+</FilesMatch>
+
+# حجب ملفات النظام والتكوين
+<FilesMatch "^(\.htaccess|\.htpasswd|config\.php|database\.php|\.env|composer\.(json|lock)|package\.(json|lock))$">
+    Order Allow,Deny
+    Deny from all
+</FilesMatch>
+
+# حجب ملفات Git وأنظمة التحكم في الإصدار
+<FilesMatch "^\.git">
+    Order Allow,Deny
+    Deny from all
+</FilesMatch>
+
+# ===================================================
+# حماية API - السماح فقط للطلبات الصحيحة
+# ===================================================
+
+# السماح بالوصول لـ API فقط عبر POST/GET من نفس الموقع
+<IfModule mod_rewrite.c>
+    # التحقق من وجود HTTP_REFERER للطلبات الحساسة
+    RewriteCond %{REQUEST_URI} ^/api/
+    RewriteCond %{REQUEST_METHOD} POST
+    RewriteCond %{HTTP_REFERER} !^https?://[^/]*\.?yourdomain\.com [NC]
+    RewriteRule ^api/.*$ - [F,L]
+</IfModule>
+
+# ===================================================
+# حماية من الهجمات الشائعة
+# ===================================================
+
+# منع SQL Injection في URLs
+<IfModule mod_rewrite.c>
+    RewriteCond %{QUERY_STRING} (\<|%3C).*script.*(\>|%3E) [NC,OR]
+    RewriteCond %{QUERY_STRING} GLOBALS(=|\[|\%[0-9A-Z]{0,2}) [OR]
+    RewriteCond %{QUERY_STRING} _REQUEST(=|\[|\%[0-9A-Z]{0,2}) [OR]
+    RewriteCond %{QUERY_STRING} concat[[:space:]]*\( [NC,OR]
+    RewriteCond %{QUERY_STRING} union([[:space:]]*select|[[:space:]]*all[[:space:]]*select) [NC,OR]
+    RewriteCond %{QUERY_STRING} union([[:space:]]*insert|[[:space:]]*update) [NC,OR]
+    RewriteCond %{QUERY_STRING} (;|<|>|'|"|\)|%0A|%0D|%22|%27|%3C|%3E|%00) [NC,OR]
+    RewriteCond %{QUERY_STRING} \.\./\.\./\.\./\.\./
+    RewriteRule .* - [F,L]
+</IfModule>
+
+# منع Path Traversal
+<IfModule mod_rewrite.c>
+    RewriteCond %{REQUEST_URI} \.\./
+    RewriteRule .* - [F,L]
+</IfModule>
+
+# ===================================================
+# إعادة توجيه الصفحات الرئيسية - مُصحح
+# ===================================================
+
+<IfModule mod_rewrite.c>
+    # توجيه فقط الصفحة الرئيسية لـ index.php
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{REQUEST_URI} ^/$
+    RewriteRule ^(.*)$ index.php [QSA,L]
+</IfModule>
+
+# ===================================================
+# إعدادات الأمان الإضافية
+# ===================================================
+
+# منع عرض فهرس المجلدات
+Options -Indexes
+
+# حماية من Clickjacking
+<IfModule mod_headers.c>
+    Header always append X-Frame-Options SAMEORIGIN
+    Header always append X-Content-Type-Options nosniff
+    Header always append X-XSS-Protection "1; mode=block"
+    Header always append Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>
+
+# ===================================================
+# إدارة انتهاء صلاحية الملفات (Cache Control)
+# ===================================================
+
+<IfModule mod_expires.c>
+    ExpiresActive On
+
+    # ملفات CSS و JS - أسبوع واحد
+    ExpiresByType text/css "access plus 1 week"
+    ExpiresByType application/javascript "access plus 1 week"
+
+    # الصور - شهر واحد
+    ExpiresByType image/png "access plus 1 month"
+    ExpiresByType image/jpg "access plus 1 month"
+    ExpiresByType image/jpeg "access plus 1 month"
+    ExpiresByType image/gif "access plus 1 month"
+    ExpiresByType image/svg+xml "access plus 1 month"
+
+    # الملفات الديناميكية - بدون cache
+    ExpiresByType text/html "access plus 0 seconds"
+    ExpiresByType application/json "access plus 0 seconds"
+</IfModule>
+
+# ===================================================
+# ضغط الملفات لتحسين الأداء
+# ===================================================
+
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html text/plain text/xml text/css text/javascript application/javascript application/json
+</IfModule>
+
+# ===================================================
+# حد أقصى لحجم رفع الملفات
+# ===================================================
+
+<IfModule mod_php.c>
+    php_value upload_max_filesize 5M
+    php_value post_max_size 10M
+    php_value max_execution_time 300
+    php_value max_input_time 300
+</IfModule>
+
+# ===================================================
+# منع الوصول المباشر للملفات المهمة
+# ===================================================
+
+<Files "debug.php">
+    Order Allow,Deny
+    Deny from all
+    # السماح فقط من localhost للتطوير
+    Allow from 127.0.0.1
+    Allow from ::1
+</Files>
+
+<Files "test.php">
+    Order Allow,Deny
+    Deny from all
+    # السماح فقط من localhost للتطوير
+    Allow from 127.0.0.1
+    Allow from ::1
+</Files>
+
+# ===================================================
+# رسائل خطأ مخصصة
+# ===================================================
+
+ErrorDocument 403 /pages/403.php
+ErrorDocument 404 /pages/404.php
+ErrorDocument 500 /pages/500.php

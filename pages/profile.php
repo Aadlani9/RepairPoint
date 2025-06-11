@@ -1,7 +1,7 @@
 <?php
 /**
- * RepairPoint - الملف الشخصي
- * صفحة خاصة بالمستخدم لإدارة معلوماته الشخصية
+ * RepairPoint - Perfil
+ * Página exclusiva para que el usuario gestione su información personal
  */
 
 // Definir acceso seguro
@@ -15,14 +15,14 @@ require_once INCLUDES_PATH . 'auth.php';
 // Verificar autenticación
 authMiddleware();
 
-$page_title = 'الملف الشخصي';
+$page_title = 'Perfil';
 $current_user = getCurrentUser();
 $shop_id = $_SESSION['shop_id'];
 
 // معالجة العمليات POST
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!verifyCSRFToken($_POST['csrf_token'] ?? '')) {
-        setMessage('رمز الأمان غير صحيح', MSG_ERROR);
+        setMessage('El token de seguridad no es válido', MSG_ERROR);
     } else {
         $action = $_POST['action'] ?? '';
         $success = false;
@@ -104,17 +104,17 @@ function updateProfile($data, $user_id) {
     $errors = validateRequired($data, $required_fields);
 
     if (!empty($errors)) {
-        return ['success' => false, 'message' => 'يرجى ملء جميع الحقول المطلوبة'];
+        return ['success' => false, 'message' => 'Por favor, completa todos los campos obligatorios'];
     }
 
     // التحقق من صحة الإيميل
     if (!isValidEmail($data['email'])) {
-        return ['success' => false, 'message' => 'البريد الإلكتروني غير صحيح'];
+        return ['success' => false, 'message' => 'El correo electrónico no es válido'];
     }
 
     // التحقق من صحة الهاتف إذا تم إدخاله
     if (!empty($data['phone']) && !isValidPhone($data['phone'])) {
-        return ['success' => false, 'message' => 'رقم الهاتف غير صحيح'];
+        return ['success' => false, 'message' => 'El número de teléfono no es válido'];
     }
 
     $db = getDB();
@@ -126,7 +126,7 @@ function updateProfile($data, $user_id) {
     );
 
     if ($existing) {
-        return ['success' => false, 'message' => 'البريد الإلكتروني مستخدم من قبل مستخدم آخر'];
+        return ['success' => false, 'message' => 'El correo electrónico ya está en uso por otro usuario'];
     }
 
     try {
@@ -145,14 +145,14 @@ function updateProfile($data, $user_id) {
             $_SESSION['user_name'] = cleanString($data['name']);
             $_SESSION['user_email'] = cleanString($data['email']);
 
-            logActivity('profile_updated', "تحديث الملف الشخصي", $user_id);
-            return ['success' => true, 'message' => 'تم تحديث الملف الشخصي بنجاح'];
+            logActivity('profile_updated', "Actualización del perfil", $user_id);
+            return ['success' => true, 'message' => 'El perfil se ha actualizado correctamente'];
         } else {
-            return ['success' => false, 'message' => 'خطأ في تحديث البيانات'];
+            return ['success' => false, 'message' => 'Error al actualizar los datos'];
         }
     } catch (Exception $e) {
-        error_log("خطأ في تحديث الملف الشخصي: " . $e->getMessage());
-        return ['success' => false, 'message' => 'خطأ في النظام، يرجى المحاولة مرة أخرى'];
+        error_log("Error al actualizar el perfil: " . $e->getMessage());
+        return ['success' => false, 'message' => 'Error en el sistema, por favor intenta de nuevo'];
     }
 }
 
@@ -161,17 +161,17 @@ function changePassword($data, $user_id) {
     $errors = validateRequired($data, $required_fields);
 
     if (!empty($errors)) {
-        return ['success' => false, 'message' => 'يرجى ملء جميع حقول كلمة المرور'];
+        return ['success' => false, 'message' => 'Por favor, completa todos los campos de contraseña'];
     }
 
     // التحقق من تطابق كلمة المرور الجديدة
     if ($data['new_password'] !== $data['confirm_password']) {
-        return ['success' => false, 'message' => 'كلمة المرور الجديدة غير متطابقة'];
+        return ['success' => false, 'message' => 'Las contraseñas nuevas no coinciden'];
     }
 
     // التحقق من طول كلمة المرور الجديدة
     if (strlen($data['new_password']) < 6) {
-        return ['success' => false, 'message' => 'كلمة المرور الجديدة يجب أن تكون 6 أحرف على الأقل'];
+        return ['success' => false, 'message' => 'La contraseña nueva debe tener al menos 6 caracteres'];
     }
 
     $db = getDB();
@@ -180,7 +180,7 @@ function changePassword($data, $user_id) {
     $user = $db->selectOne("SELECT password FROM users WHERE id = ?", [$user_id]);
 
     if (!$user || !verifyPassword($data['current_password'], $user['password'])) {
-        return ['success' => false, 'message' => 'كلمة المرور الحالية غير صحيحة'];
+        return ['success' => false, 'message' => 'La contraseña actual no es correcta'];
     }
 
     try {
@@ -192,14 +192,14 @@ function changePassword($data, $user_id) {
         );
 
         if ($updated !== false) {
-            logActivity('password_changed', "تغيير كلمة المرور", $user_id);
-            return ['success' => true, 'message' => 'تم تغيير كلمة المرور بنجاح'];
+            logActivity('password_changed', "Cambio de contraseña", $user_id);
+            return ['success' => true, 'message' => 'La contraseña se ha cambiado correctamente'];
         } else {
-            return ['success' => false, 'message' => 'خطأ في تحديث كلمة المرور'];
+            return ['success' => false, 'message' => 'Error al actualizar la contraseña'];
         }
     } catch (Exception $e) {
-        error_log("خطأ في تغيير كلمة المرور: " . $e->getMessage());
-        return ['success' => false, 'message' => 'خطأ في النظام، يرجى المحاولة مرة أخرى'];
+        error_log("Error al cambiar la contraseña: " . $e->getMessage());
+        return ['success' => false, 'message' => 'Error en el sistema, por favor intenta de nuevo'];
     }
 }
 
@@ -213,11 +213,11 @@ require_once INCLUDES_PATH . 'header.php';
             <ol class="breadcrumb">
                 <li class="breadcrumb-item">
                     <a href="<?= url('pages/dashboard.php') ?>">
-                        <i class="bi bi-house"></i> الرئيسية
+                        <i class="bi bi-house"></i> Inicio
                     </a>
                 </li>
                 <li class="breadcrumb-item active" aria-current="page">
-                    <i class="bi bi-person"></i> الملف الشخصي
+                    <i class="bi bi-person"></i> Perfil
                 </li>
             </ol>
         </nav>
@@ -236,10 +236,10 @@ require_once INCLUDES_PATH . 'header.php';
                                 </div>
                                 <div>
                                     <h1 class="h3 mb-1">
-                                        مرحباً، <?= htmlspecialchars($current_user['name']) ?>
+                                        Hola, <?= htmlspecialchars($current_user['name']) ?>
                                     </h1>
                                     <p class="mb-0 opacity-75">
-                                        <?= $current_user['role'] === 'admin' ? 'مدير' : 'موظف' ?> •
+                                        <?= $current_user['role'] === 'admin' ? 'Administrador' : 'Empleado' ?> •
                                         <?= htmlspecialchars($current_user['shop_name']) ?>
                                     </p>
                                 </div>
@@ -247,7 +247,7 @@ require_once INCLUDES_PATH . 'header.php';
                         </div>
                         <div class="col-md-4 text-md-end">
                         <span class="badge bg-light text-dark fs-6">
-                            <?= $current_user['status'] === 'active' ? 'حساب نشط' : 'حساب غير نشط' ?>
+                            <?= $current_user['status'] === 'active' ? 'Cuenta activa' : 'Cuenta inactiva' ?>
                         </span>
                         </div>
                     </div>
@@ -265,49 +265,49 @@ require_once INCLUDES_PATH . 'header.php';
                 <div class="card mb-4">
                     <div class="card-header">
                         <h5 class="card-title mb-0">
-                            <i class="bi bi-person-badge me-2"></i>معلوماتي
+                            <i class="bi bi-person-badge me-2"></i>Mis datos
                         </h5>
                     </div>
                     <div class="card-body">
                         <div class="user-info-details">
                             <div class="info-item mb-3">
-                                <label class="fw-bold text-muted">الاسم:</label>
+                                <label class="fw-bold text-muted">Nombre:</label>
                                 <div><?= htmlspecialchars($current_user['name']) ?></div>
                             </div>
 
                             <div class="info-item mb-3">
-                                <label class="fw-bold text-muted">البريد الإلكتروني:</label>
+                                <label class="fw-bold text-muted">Correo electrónico:</label>
                                 <div><?= htmlspecialchars($current_user['email']) ?></div>
                             </div>
 
                             <div class="info-item mb-3">
-                                <label class="fw-bold text-muted">الهاتف:</label>
-                                <div><?= $current_user['phone'] ? htmlspecialchars($current_user['phone']) : 'غير محدد' ?></div>
+                                <label class="fw-bold text-muted">Teléfono:</label>
+                                <div><?= $current_user['phone'] ? htmlspecialchars($current_user['phone']) : 'No especificado' ?></div>
                             </div>
 
                             <div class="info-item mb-3">
-                                <label class="fw-bold text-muted">الدور:</label>
+                                <label class="fw-bold text-muted">Rol:</label>
                                 <div>
                                     <?php if ($current_user['role'] === 'admin'): ?>
                                         <span class="badge bg-warning text-dark">
-                                        <i class="bi bi-shield me-1"></i>مدير
+                                        <i class="bi bi-shield me-1"></i>Administrador
                                     </span>
                                     <?php else: ?>
                                         <span class="badge bg-info">
-                                        <i class="bi bi-person-workspace me-1"></i>موظف
+                                        <i class="bi bi-person-workspace me-1"></i>Empleado
                                     </span>
                                     <?php endif; ?>
                                 </div>
                             </div>
 
                             <div class="info-item mb-3">
-                                <label class="fw-bold text-muted">تاريخ الانضمام:</label>
+                                <label class="fw-bold text-muted">Fecha de registro:</label>
                                 <div><?= formatDate($current_user['created_at'], 'd/m/Y') ?></div>
                             </div>
 
                             <?php if ($current_user['last_login']): ?>
                                 <div class="info-item">
-                                    <label class="fw-bold text-muted">آخر تسجيل دخول:</label>
+                                    <label class="fw-bold text-muted">Último inicio de sesión:</label>
                                     <div><?= formatDateTime($current_user['last_login']) ?></div>
                                 </div>
                             <?php endif; ?>
@@ -319,7 +319,7 @@ require_once INCLUDES_PATH . 'header.php';
                 <div class="card">
                     <div class="card-header">
                         <h5 class="card-title mb-0">
-                            <i class="bi bi-graph-up me-2"></i>إحصائياتي
+                            <i class="bi bi-graph-up me-2"></i>Mis estadísticas
                         </h5>
                     </div>
                     <div class="card-body">
@@ -327,7 +327,7 @@ require_once INCLUDES_PATH . 'header.php';
                             <div class="stat-item mb-3">
                                 <div class="d-flex justify-content-between align-items-center">
                                     <div>
-                                        <div class="stat-label text-muted">إجمالي الإصلاحات</div>
+                                        <div class="stat-label text-muted">Total de reparaciones</div>
                                         <div class="stat-value h4 text-primary mb-0"><?= $user_stats['total_repairs'] ?></div>
                                     </div>
                                     <div class="stat-icon">
@@ -339,7 +339,7 @@ require_once INCLUDES_PATH . 'header.php';
                             <div class="stat-item mb-3">
                                 <div class="d-flex justify-content-between align-items-center">
                                     <div>
-                                        <div class="stat-label text-muted">هذا الشهر</div>
+                                        <div class="stat-label text-muted">Este mes</div>
                                         <div class="stat-value h4 text-success mb-0"><?= $user_stats['this_month_repairs'] ?></div>
                                     </div>
                                     <div class="stat-icon">
@@ -351,7 +351,7 @@ require_once INCLUDES_PATH . 'header.php';
                             <div class="stat-item mb-3">
                                 <div class="d-flex justify-content-between align-items-center">
                                     <div>
-                                        <div class="stat-label text-muted">مكتملة</div>
+                                        <div class="stat-label text-muted">Completadas</div>
                                         <div class="stat-value h4 text-info mb-0"><?= $user_stats['completed_repairs'] ?></div>
                                     </div>
                                     <div class="stat-icon">
@@ -363,9 +363,9 @@ require_once INCLUDES_PATH . 'header.php';
                             <div class="stat-item">
                                 <div class="d-flex justify-content-between align-items-center">
                                     <div>
-                                        <div class="stat-label text-muted">متوسط الإنجاز</div>
+                                        <div class="stat-label text-muted">Promedio de finalización</div>
                                         <div class="stat-value h4 text-warning mb-0">
-                                            <?= round($user_stats['avg_completion_days'], 1) ?> يوم
+                                            <?= round($user_stats['avg_completion_days'], 1) ?> días
                                         </div>
                                     </div>
                                     <div class="stat-icon">
@@ -384,7 +384,7 @@ require_once INCLUDES_PATH . 'header.php';
                 <div class="card mb-4">
                     <div class="card-header">
                         <h5 class="card-title mb-0">
-                            <i class="bi bi-pencil me-2"></i>تحديث المعلومات الشخصية
+                            <i class="bi bi-pencil me-2"></i>Actualizar información personal
                         </h5>
                     </div>
                     <div class="card-body">
@@ -394,7 +394,7 @@ require_once INCLUDES_PATH . 'header.php';
 
                             <div class="row">
                                 <div class="col-md-6 mb-3">
-                                    <label for="name" class="form-label">الاسم الكامل *</label>
+                                    <label for="name" class="form-label">Nombre completo *</label>
                                     <input type="text"
                                            class="form-control"
                                            id="name"
@@ -402,12 +402,12 @@ require_once INCLUDES_PATH . 'header.php';
                                            value="<?= htmlspecialchars($current_user['name']) ?>"
                                            required>
                                     <div class="invalid-feedback">
-                                        يرجى إدخال الاسم الكامل
+                                        Por favor, introduce el nombre completo
                                     </div>
                                 </div>
 
                                 <div class="col-md-6 mb-3">
-                                    <label for="email" class="form-label">البريد الإلكتروني *</label>
+                                    <label for="email" class="form-label">Correo electrónico *</label>
                                     <input type="email"
                                            class="form-control"
                                            id="email"
@@ -415,13 +415,13 @@ require_once INCLUDES_PATH . 'header.php';
                                            value="<?= htmlspecialchars($current_user['email']) ?>"
                                            required>
                                     <div class="invalid-feedback">
-                                        يرجى إدخال بريد إلكتروني صحيح
+                                        Por favor, introduce un correo electrónico válido
                                     </div>
                                 </div>
                             </div>
 
                             <div class="mb-3">
-                                <label for="phone" class="form-label">رقم الهاتف</label>
+                                <label for="phone" class="form-label">Número de teléfono</label>
                                 <input type="tel"
                                        class="form-control"
                                        id="phone"
@@ -429,13 +429,13 @@ require_once INCLUDES_PATH . 'header.php';
                                        value="<?= htmlspecialchars($current_user['phone'] ?? '') ?>"
                                        placeholder="+34 666 123 456">
                                 <div class="form-text">
-                                    اتركه فارغاً إذا كنت لا تريد تحديثه
+                                    Déjalo en blanco si no deseas actualizarlo
                                 </div>
                             </div>
 
                             <div class="d-grid">
                                 <button type="submit" class="btn btn-primary">
-                                    <i class="bi bi-save me-2"></i>حفظ التغييرات
+                                    <i class="bi bi-save me-2"></i>Guardar cambios
                                 </button>
                             </div>
                         </form>
@@ -446,7 +446,7 @@ require_once INCLUDES_PATH . 'header.php';
                 <div class="card mb-4">
                     <div class="card-header">
                         <h5 class="card-title mb-0">
-                            <i class="bi bi-lock me-2"></i>تغيير كلمة المرور
+                            <i class="bi bi-lock me-2"></i>Cambiar contraseña
                         </h5>
                     </div>
                     <div class="card-body">
@@ -455,7 +455,7 @@ require_once INCLUDES_PATH . 'header.php';
                             <input type="hidden" name="action" value="change_password">
 
                             <div class="mb-3">
-                                <label for="current_password" class="form-label">كلمة المرور الحالية *</label>
+                                <label for="current_password" class="form-label">Contraseña actual *</label>
                                 <div class="input-group">
                                     <input type="password"
                                            class="form-control"
@@ -469,12 +469,12 @@ require_once INCLUDES_PATH . 'header.php';
                                     </button>
                                 </div>
                                 <div class="invalid-feedback">
-                                    يرجى إدخال كلمة المرور الحالية
+                                    Por favor, introduce la contraseña actual
                                 </div>
                             </div>
 
                             <div class="mb-3">
-                                <label for="new_password" class="form-label">كلمة المرور الجديدة *</label>
+                                <label for="new_password" class="form-label">Nueva contraseña *</label>
                                 <div class="input-group">
                                     <input type="password"
                                            class="form-control"
@@ -489,15 +489,15 @@ require_once INCLUDES_PATH . 'header.php';
                                     </button>
                                 </div>
                                 <div class="form-text">
-                                    يجب أن تكون كلمة المرور 6 أحرف على الأقل
+                                    La contraseña debe tener al menos 6 caracteres
                                 </div>
                                 <div class="invalid-feedback">
-                                    كلمة المرور يجب أن تكون 6 أحرف على الأقل
+                                    La contraseña debe tener al menos 6 caracteres
                                 </div>
                             </div>
 
                             <div class="mb-3">
-                                <label for="confirm_password" class="form-label">تأكيد كلمة المرور *</label>
+                                <label for="confirm_password" class="form-label">Confirmar contraseña *</label>
                                 <div class="input-group">
                                     <input type="password"
                                            class="form-control"
@@ -512,13 +512,13 @@ require_once INCLUDES_PATH . 'header.php';
                                     </button>
                                 </div>
                                 <div class="invalid-feedback" id="confirm-password-feedback">
-                                    يرجى تأكيد كلمة المرور
+                                    Por favor, confirma la contraseña
                                 </div>
                             </div>
 
                             <div class="d-grid">
                                 <button type="submit" class="btn btn-warning">
-                                    <i class="bi bi-shield-lock me-2"></i>تغيير كلمة المرور
+                                    <i class="bi bi-shield-lock me-2"></i>Cambiar contraseña
                                 </button>
                             </div>
                         </form>
@@ -529,19 +529,19 @@ require_once INCLUDES_PATH . 'header.php';
                 <div class="card">
                     <div class="card-header d-flex justify-content-between align-items-center">
                         <h5 class="card-title mb-0">
-                            <i class="bi bi-clock-history me-2"></i>آخر أنشطتي
+                            <i class="bi bi-clock-history me-2"></i>Mis últimas actividades
                         </h5>
                         <a href="<?= url('pages/repairs_active.php') ?>" class="btn btn-sm btn-outline-primary">
-                            عرض الكل
+                            Ver todas
                         </a>
                     </div>
                     <div class="card-body p-0">
                         <?php if (empty($recent_activities)): ?>
                             <div class="text-center p-4 text-muted">
                                 <i class="bi bi-inbox display-4 mb-3"></i>
-                                <p>لا توجد أنشطة حديثة</p>
+                                <p>No hay actividades recientes</p>
                                 <a href="<?= url('pages/add_repair.php') ?>" class="btn btn-primary btn-sm">
-                                    <i class="bi bi-plus me-2"></i>إضافة إصلاح جديد
+                                    <i class="bi bi-plus me-2"></i>Añadir nueva reparación
                                 </a>
                             </div>
                         <?php else: ?>
@@ -578,7 +578,7 @@ require_once INCLUDES_PATH . 'header.php';
                             <?php if (count($recent_activities) > 5): ?>
                                 <div class="card-footer text-center">
                                     <a href="<?= url('pages/repairs_active.php') ?>" class="btn btn-link">
-                                        عرض المزيد (<?= count($recent_activities) - 5 ?> أخرى)
+                                        Ver más (<?= count($recent_activities) - 5 ?> más)
                                     </a>
                                 </div>
                             <?php endif; ?>
@@ -885,13 +885,13 @@ require_once INCLUDES_PATH . 'header.php';
             // التحقق من تطابق كلمات المرور
             function validatePasswordMatch() {
                 if (confirmPassword.value && newPassword.value !== confirmPassword.value) {
-                    confirmPassword.setCustomValidity('كلمة المرور غير متطابقة');
-                    confirmFeedback.textContent = 'كلمة المرور غير متطابقة';
+                    confirmPassword.setCustomValidity('Las contraseñas no coinciden');
+                    confirmFeedback.textContent = 'Las contraseñas no coinciden';
                     confirmPassword.classList.add('is-invalid');
                     confirmPassword.classList.remove('is-valid');
                 } else {
                     confirmPassword.setCustomValidity('');
-                    confirmFeedback.textContent = 'يرجى تأكيد كلمة المرور';
+                    confirmFeedback.textContent = 'Por favor, confirma la contraseña';
                     if (confirmPassword.value) {
                         confirmPassword.classList.remove('is-invalid');
                         confirmPassword.classList.add('is-valid');
@@ -1051,7 +1051,7 @@ require_once INCLUDES_PATH . 'header.php';
             form.addEventListener('submit', function() {
                 if (submitButton) {
                     submitButton.disabled = true;
-                    submitButton.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>جاري الحفظ...';
+                    submitButton.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Guardando...';
                 }
             });
         });
