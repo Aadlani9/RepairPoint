@@ -246,10 +246,12 @@ require_once INCLUDES_PATH . 'header.php';
                                            name="customer_phone"
                                            placeholder="Ej: +34 666 123 456"
                                            value="<?= safeHtml($form_data['customer_phone']) ?>"
-                                           pattern="^(\+34|0034|34)?[6789]\d{8}$"
                                            required>
                                     <div class="invalid-feedback">
                                         Introduce un número de teléfono válido.
+                                    </div>
+                                    <div class="form-text">
+                                        Formato: +34 666 123 456 o 666 123 456
                                     </div>
                                 </div>
                             </div>
@@ -492,6 +494,8 @@ require_once INCLUDES_PATH . 'header.php';
     </div>
 
 <style>
+
+
 /* Estilos específicos para editar reparación */
 .page-header {
     background: linear-gradient(135deg, #ffc107 0%, #ffca2c 100%);
@@ -706,20 +710,63 @@ require_once INCLUDES_PATH . 'header.php';
 
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        // Inicializar formulario de edición
-        initEditForm();
+        const phoneInput = document.getElementById('customer_phone');
+        if (!phoneInput) return;
 
-        // Configurar validación en tiempo real
-        setupFormValidation();
+        // دالة للتحقق من صحة الرقم (مع أو بدون مسافات)
+        function isValidPhone(phone) {
+            if (!phone) return false;
 
-        // Manejar botones de problemas comunes
-        setupCommonIssues();
+            // إزالة المسافات والرموز للتحقق
+            const clean = phone.replace(/[\s\-\.\(\)]/g, '');
 
-        // Cargar modelos para la marca seleccionada
-        loadModelsForBrand();
+            // أنماط صحيحة
+            const patterns = [
+                /^\+34[6789]\d{8}$/,    // +34xxxxxxxxx
+                /^0034[6789]\d{8}$/,    // 0034xxxxxxxxx
+                /^34[6789]\d{8}$/,      // 34xxxxxxxxx
+                /^[6789]\d{8}$/,        // xxxxxxxxx
+            ];
 
-        // Detectar cambios en el formulario
-        setupChangeDetection();
+            return patterns.some(pattern => pattern.test(clean));
+        }
+
+        // منع validation تلقائي عند التحميل
+        phoneInput.addEventListener('focus', function() {
+            this.classList.remove('is-invalid', 'is-valid');
+            this.setCustomValidity('');
+        });
+
+        // التحقق فقط عند blur
+        phoneInput.addEventListener('blur', function() {
+            if (!this.value) {
+                // حقل فارغ ومطلوب
+                this.classList.add('is-invalid');
+                this.setCustomValidity('هذا الحقل مطلوب');
+            } else if (isValidPhone(this.value)) {
+                // رقم صحيح
+                this.classList.remove('is-invalid');
+                this.classList.add('is-valid');
+                this.setCustomValidity('');
+            } else {
+                // رقم خطأ
+                this.classList.add('is-invalid');
+                this.classList.remove('is-valid');
+                this.setCustomValidity('رقم الهاتف غير صحيح');
+            }
+        });
+
+        // منع validation أثناء الكتابة
+        phoneInput.addEventListener('input', function() {
+            this.classList.remove('is-invalid', 'is-valid');
+            this.setCustomValidity('');
+        });
+
+        // إزالة أي validation في البداية
+        setTimeout(function() {
+            phoneInput.classList.remove('is-invalid', 'is-valid');
+            phoneInput.setCustomValidity('');
+        }, 100);
     });
 
 function initEditForm() {

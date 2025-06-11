@@ -472,8 +472,97 @@ function debugDump($var, $label = '') {
  * Generar referencia única para reparación
  */
 function generateRepairReference() {
-    return uniqid() . date('dmY');
+    $db = getDB();
+
+    try {
+        // الحصول على آخر رقم متسلسل من قاعدة البيانات
+        $last_repair = $db->selectOne(
+            "SELECT id FROM repairs ORDER BY id DESC LIMIT 1"
+        );
+
+        // تحديد الرقم المتسلسل التالي
+        $next_number = $last_repair ? ($last_repair['id'] + 1) : 1;
+
+        // تنسيق التاريخ: dMYYY (يوم + شهر + 3 أرقام من السنة)
+        // مثال: 6 ديسمبر 2025 = 6122025 -> 612025
+        $date_format = date('jn') . date('Y'); // يوم بدون صفر + شهر بدون صفر + سنة كاملة
+
+        // دمج الرقم مع التاريخ
+        $reference = $next_number . $date_format;
+
+        return $reference;
+
+    } catch (Exception $e) {
+        // في حالة الخطأ، استخدم timestamp بسيط
+        error_log("خطأ في generateRepairReference: " . $e->getMessage());
+        return time() . date('jn'); // timestamp + يوم وشهر
+    }
 }
+
+/**
+ * نسخة محسنة أكثر - تأخذ shop_id في الاعتبار
+ * لضمان عدم التكرار بين المحلات المختلفة
+ */
+function generateRepairReferenceAdvanced($shop_id) {
+    $db = getDB();
+
+    try {
+        // الحصول على آخر رقم متسلسل لهذا المحل فقط
+        $last_repair = $db->selectOne(
+            "SELECT id FROM repairs WHERE shop_id = ? ORDER BY id DESC LIMIT 1",
+            [$shop_id]
+        );
+
+        // عد الإصلاحات في هذا المحل للحصول على رقم متسلسل محلي
+        $repairs_count = $db->selectOne(
+            "SELECT COUNT(*) as count FROM repairs WHERE shop_id = ?",
+            [$shop_id]
+        );
+
+        $next_number = ($repairs_count['count'] ?? 0) + 1;
+
+        // تنسيق التاريخ المختصر: يوم + شهر + آخر رقمين من السنة
+        $date_format = date('jn') . date('y'); // مثال: 6122025 -> 61225
+
+        // دمج الرقم مع التاريخ
+        $reference = $next_number . $date_format;
+
+        return $reference;
+
+    } catch (Exception $e) {
+        error_log("خطأ في generateRepairReferenceAdvanced: " . $e->getMessage());
+        return rand(1, 999) . date('jny'); // رقم عشوائي + تاريخ مختصر
+    }
+}
+
+/**
+ * نسخة بسيطة جداً - للاستخدام المباشر
+ * الشكل: رقم الإصلاح + يوم + شهر + سنة مختصرة
+ */
+function generateSimpleReference() {
+    static $counter = null;
+
+    if ($counter === null) {
+        // محاولة الحصول على آخر رقم من قاعدة البيانات
+        try {
+            $db = getDB();
+            $last_id = $db->selectOne("SELECT MAX(id) as max_id FROM repairs");
+            $counter = ($last_id['max_id'] ?? 0) + 1;
+        } catch (Exception $e) {
+            // في حالة فشل قاعدة البيانات، ابدأ من رقم عشوائي
+            $counter = rand(1, 100);
+        }
+    } else {
+        $counter++;
+    }
+
+    // تنسيق: رقم + يوم + شهر + آخر رقمين من السنة
+    // مثال: 16 ديسمبر 2025 = 1 + 6 + 12 + 25 = 161225
+    $reference = $counter . date('jn') . date('y');
+
+    return $reference;
+}
+
 
 /**
  * Obtener estadísticas del dashboard

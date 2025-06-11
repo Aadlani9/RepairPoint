@@ -167,10 +167,9 @@ require_once INCLUDES_PATH . 'header.php';
     <!-- Formulario principal -->
     <form method="POST" action="" class="needs-validation" novalidate>
         <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
-        
         <div class="row">
             <!-- Formulario principal -->
-            <div class="col-lg-8">
+            <div class="col-12 col-lg-8">
                 <div class="card">
                     <div class="card-header">
                         <h5 class="card-title mb-0">
@@ -190,17 +189,18 @@ require_once INCLUDES_PATH . 'header.php';
                                 <label for="customer_name" class="form-label">
                                     Nombre Completo <span class="text-danger">*</span>
                                 </label>
-                                <input type="text" 
-                                       class="form-control" 
-                                       id="customer_name" 
-                                       name="customer_name" 
-                                       placeholder="Ej: Juan Pérez García"
+                                <input type="text"
+                                       class="form-control"
+                                       id="customer_name"
+                                       name="customer_name"
+                                       placeholder="Ej: Mohammed Adlani.. "
                                        value="<?= htmlspecialchars($_POST['customer_name'] ?? '') ?>"
                                        required>
                                 <div class="invalid-feedback">
                                     Por favor, introduce el nombre del cliente.
                                 </div>
                             </div>
+
                             <div class="col-md-6 mb-3">
                                 <label for="customer_phone" class="form-label">
                                     Teléfono <span class="text-danger">*</span>
@@ -210,8 +210,8 @@ require_once INCLUDES_PATH . 'header.php';
                                        id="customer_phone"
                                        name="customer_phone"
                                        placeholder="Ej: +34 666 123 456"
+                                       autocomplete="off"
                                        value="<?= htmlspecialchars($_POST['customer_phone'] ?? '') ?>"
-                                       pattern="^(\+34|0034|34)?\s*[6789]\d{2}\s*\d{3}\s*\d{3}$"
                                        required>
                                 <div class="invalid-feedback">
                                     Introduce un número de teléfono válido.
@@ -220,9 +220,9 @@ require_once INCLUDES_PATH . 'header.php';
                                     Formato: +34 666 123 456 o 666 123 456
                                 </div>
                             </div>
+                        </div>
 
-
-                            <!-- Información del dispositivo -->
+                        <!-- Información del dispositivo -->
                         <div class="row mb-4">
                             <div class="col-12">
                                 <h6 class="text-muted border-bottom pb-2 mb-3">
@@ -233,15 +233,15 @@ require_once INCLUDES_PATH . 'header.php';
                                 <label for="brand_id" class="form-label">
                                     Marca <span class="text-danger">*</span>
                                 </label>
-                                <select class="form-select" 
-                                        id="brand_id" 
-                                        name="brand_id" 
-                                        data-target-model="model_id" 
+                                <select class="form-select"
+                                        id="brand_id"
+                                        name="brand_id"
+                                        data-target-model="model_id"
                                         required>
                                     <option value="">Selecciona una marca</option>
                                     <?php foreach ($brands as $brand): ?>
-                                        <option value="<?= $brand['id'] ?>" 
-                                                <?= (($_POST['brand_id'] ?? '') == $brand['id']) ? 'selected' : '' ?>>
+                                        <option value="<?= $brand['id'] ?>"
+                                            <?= (($_POST['brand_id'] ?? '') == $brand['id']) ? 'selected' : '' ?>>
                                             <?= htmlspecialchars($brand['name']) ?>
                                         </option>
                                     <?php endforeach; ?>
@@ -254,10 +254,10 @@ require_once INCLUDES_PATH . 'header.php';
                                 <label for="model_id" class="form-label">
                                     Modelo <span class="text-danger">*</span>
                                 </label>
-                                <select class="form-select" 
-                                        id="model_id" 
-                                        name="model_id" 
-                                        required 
+                                <select class="form-select"
+                                        id="model_id"
+                                        name="model_id"
+                                        required
                                         disabled>
                                     <option value="">Selecciona una marca primero</option>
                                 </select>
@@ -278,35 +278,35 @@ require_once INCLUDES_PATH . 'header.php';
                                 <label for="issue_description" class="form-label">
                                     Problema Reportado <span class="text-danger">*</span>
                                 </label>
-                                
+
                                 <!-- Problemas comunes -->
                                 <?php if (!empty($common_issues)): ?>
-                                <div class="mb-2">
-                                    <small class="text-muted">Problemas comunes (clic para seleccionar):</small>
-                                    <div class="common-issues-buttons mt-1">
-                                        <?php 
-                                        $current_category = '';
-                                        foreach ($common_issues as $issue): 
-                                            if ($current_category !== $issue['category']):
-                                                if ($current_category !== '') echo '<br>';
-                                                $current_category = $issue['category'];
-                                        ?>
-                                            <small class="text-primary fw-bold"><?= htmlspecialchars($issue['category']) ?>:</small>
-                                        <?php endif; ?>
-                                            <button type="button" 
-                                                    class="btn btn-outline-secondary btn-sm me-1 mb-1 common-issue-btn" 
-                                                    data-issue="<?= htmlspecialchars($issue['issue_text']) ?>">
-                                                <?= htmlspecialchars($issue['issue_text']) ?>
-                                            </button>
-                                        <?php endforeach; ?>
+                                    <div class="mb-2">
+                                        <small class="text-muted">Problemas comunes (clic para seleccionar):</small>
+                                        <div class="common-issues-buttons mt-1">
+                                            <?php
+                                            $current_category = '';
+                                            foreach ($common_issues as $issue):
+                                                if ($current_category !== $issue['category']):
+                                                    if ($current_category !== '') echo '<br>';
+                                                    $current_category = $issue['category'];
+                                                    ?>
+                                                    <small class="text-primary fw-bold"><?= htmlspecialchars($issue['category']) ?>:</small>
+                                                <?php endif; ?>
+                                                <button type="button"
+                                                        class="btn btn-outline-secondary btn-sm me-1 mb-1 common-issue-btn"
+                                                        data-issue="<?= htmlspecialchars($issue['issue_text']) ?>">
+                                                    <?= htmlspecialchars($issue['issue_text']) ?>
+                                                </button>
+                                            <?php endforeach; ?>
+                                        </div>
                                     </div>
-                                </div>
                                 <?php endif; ?>
-                                
-                                <textarea class="form-control" 
-                                          id="issue_description" 
-                                          name="issue_description" 
-                                          rows="4" 
+
+                                <textarea class="form-control"
+                                          id="issue_description"
+                                          name="issue_description"
+                                          rows="4"
                                           placeholder="Describe detalladamente el problema del dispositivo..."
                                           required><?= htmlspecialchars($_POST['issue_description'] ?? '') ?></textarea>
                                 <div class="invalid-feedback">
@@ -346,13 +346,13 @@ require_once INCLUDES_PATH . 'header.php';
                                 <label for="estimated_cost" class="form-label">Coste Estimado (€)</label>
                                 <div class="input-group">
                                     <span class="input-group-text">€</span>
-                                    <input type="number" 
-                                           class="form-control" 
-                                           id="estimated_cost" 
-                                           name="estimated_cost" 
+                                    <input type="number"
+                                           class="form-control"
+                                           id="estimated_cost"
+                                           name="estimated_cost"
                                            placeholder="0.00"
                                            value="<?= htmlspecialchars($_POST['estimated_cost'] ?? '') ?>"
-                                           step="0.01" 
+                                           step="0.01"
                                            min="0">
                                 </div>
                                 <div class="form-text">
@@ -361,10 +361,10 @@ require_once INCLUDES_PATH . 'header.php';
                             </div>
                             <div class="col-12 mb-3">
                                 <label for="notes" class="form-label">Notas Internas</label>
-                                <textarea class="form-control" 
-                                          id="notes" 
-                                          name="notes" 
-                                          rows="3" 
+                                <textarea class="form-control"
+                                          id="notes"
+                                          name="notes"
+                                          rows="3"
                                           placeholder="Notas adicionales para uso interno..."><?= htmlspecialchars($_POST['notes'] ?? '') ?></textarea>
                                 <div class="form-text">
                                     Información adicional solo visible para el personal.
@@ -376,7 +376,7 @@ require_once INCLUDES_PATH . 'header.php';
             </div>
 
             <!-- Panel lateral con acciones -->
-            <div class="col-lg-4">
+            <div class="col-12 col-lg-4">
                 <!-- Acciones -->
                 <div class="card mb-4">
                     <div class="card-header">
@@ -451,7 +451,6 @@ require_once INCLUDES_PATH . 'header.php';
                 </div>
             </div>
         </div>
-    </form>
 </div>
 
 <style>
@@ -671,9 +670,9 @@ function setupFormValidation(form) {
         }
         form.classList.add('was-validated');
     });
-    
-    // Validación en tiempo real
-    const inputs = form.querySelectorAll('input, select, textarea');
+
+    // Validación en tiempo real للحقول العادية فقط (بدون الهاتف)
+    const inputs = form.querySelectorAll('input:not(#customer_phone), select, textarea');
     inputs.forEach(input => {
         input.addEventListener('blur', function() {
             if (this.checkValidity()) {
@@ -686,6 +685,8 @@ function setupFormValidation(form) {
         });
     });
 }
+
+
 
 function updatePreviewOnChange() {
     const fields = [
@@ -740,23 +741,109 @@ function updateTicketPreview() {
     preview.issue.textContent = issue ? (issue.length > 30 ? issue.substring(0, 30) + '...' : issue) : '-';
 }
 
+// function setupPhoneFormatting() {
+//     const phoneInput = document.getElementById('customer_phone');
+//
+//     phoneInput.addEventListener('input', function() {
+//         let value = this.value.replace(/\s/g, '');
+//
+//         // إزالة أي أحرف غير رقمية ما عدا + في البداية
+//         value = value.replace(/[^\d+]/g, '');
+//
+//         // إذا لم يبدأ بـ +34 ولكن بدأ برقم 6-9
+//         if (/^[6789]/.test(value) && value.length >= 9) {
+//             // تنسيق للرقم الإسباني بدون +34
+//             if (value.length === 9) {
+//                 this.value = value.replace(/(\d{3})(\d{3})(\d{3})/, '$1 $2 $3');
+//             }
+//         }
+//         // إذا بدأ بـ +34
+//         else if (value.startsWith('+34')) {
+//             let number = value.substring(3);
+//             if (number.length >= 9) {
+//                 number = number.substring(0, 9);
+//                 this.value = '+34 ' + number.replace(/(\d{3})(\d{3})(\d{3})/, '$1 $2 $3');
+//             } else {
+//                 this.value = '+34 ' + number;
+//             }
+//         }
+//         // إذا بدأ بـ 34
+//         else if (value.startsWith('34') && !value.startsWith('+34')) {
+//             let number = value.substring(2);
+//             if (number.length >= 9) {
+//                 number = number.substring(0, 9);
+//                 this.value = '+34 ' + number.replace(/(\d{3})(\d{3})(\d{3})/, '$1 $2 $3');
+//             } else {
+//                 this.value = '+34 ' + number;
+//             }
+//         }
+//
+//         // تحقق فوري من صحة الرقم
+//         this.setCustomValidity('');
+//         if (this.value) {
+//             const cleanNumber = this.value.replace(/\s/g, '');
+//             const spanishPhonePattern = /^(\+34|34)?[6789]\d{8}$/;
+//
+//             if (!spanishPhonePattern.test(cleanNumber)) {
+//                 this.setCustomValidity('يرجى إدخال رقم هاتف إسباني صحيح');
+//             }
+//         }
+//     });
+//
+//     // تحقق عند blur أيضاً
+//     phoneInput.addEventListener('blur', function() {
+//         if (this.value) {
+//             const cleanNumber = this.value.replace(/\s/g, '');
+//             const spanishPhonePattern = /^(\+34|34)?[6789]\d{8}$/;
+//
+//             if (spanishPhonePattern.test(cleanNumber)) {
+//                 this.classList.remove('is-invalid');
+//                 this.classList.add('is-valid');
+//                 this.setCustomValidity('');
+//             } else {
+//                 this.classList.remove('is-valid');
+//                 this.classList.add('is-invalid');
+//                 this.setCustomValidity('يرجى إدخال رقم هاتف إسباني صحيح');
+//             }
+//         }
+//     });
+// }
+
+
 function setupPhoneFormatting() {
     const phoneInput = document.getElementById('customer_phone');
+    if (!phoneInput) return;
 
+    // دالة للتحقق من صحة الرقم الإسباني
+    function isValidSpanishPhone(phone) {
+        if (!phone) return false;
+        const cleanNumber = phone.replace(/[\s\-\.\(\)]/g, '');
+        const patterns = [
+            /^\+34[6789]\d{8}$/,    // +34xxxxxxxxx
+            /^0034[6789]\d{8}$/,    // 0034xxxxxxxxx
+            /^34[6789]\d{8}$/,      // 34xxxxxxxxx
+            /^[6789]\d{8}$/,        // xxxxxxxxx
+        ];
+        return patterns.some(pattern => pattern.test(cleanNumber));
+    }
+
+    // إزالة validation عند focus
+    phoneInput.addEventListener('focus', function() {
+        this.classList.remove('is-invalid', 'is-valid');
+        this.setCustomValidity('');
+    });
+
+    // تنسيق الرقم أثناء الكتابة
     phoneInput.addEventListener('input', function() {
         let value = this.value.replace(/\s/g, '');
-
-        // إزالة أي أحرف غير رقمية ما عدا + في البداية
         value = value.replace(/[^\d+]/g, '');
 
-        // إذا لم يبدأ بـ +34 ولكن بدأ برقم 6-9
+        // تنسيق حسب النمط
         if (/^[6789]/.test(value) && value.length >= 9) {
-            // تنسيق للرقم الإسباني بدون +34
             if (value.length === 9) {
                 this.value = value.replace(/(\d{3})(\d{3})(\d{3})/, '$1 $2 $3');
             }
         }
-        // إذا بدأ بـ +34
         else if (value.startsWith('+34')) {
             let number = value.substring(3);
             if (number.length >= 9) {
@@ -766,7 +853,6 @@ function setupPhoneFormatting() {
                 this.value = '+34 ' + number;
             }
         }
-        // إذا بدأ بـ 34
         else if (value.startsWith('34') && !value.startsWith('+34')) {
             let number = value.substring(2);
             if (number.length >= 9) {
@@ -777,35 +863,48 @@ function setupPhoneFormatting() {
             }
         }
 
-        // تحقق فوري من صحة الرقم
+        // إزالة validation errors أثناء الكتابة
+        this.classList.remove('is-invalid', 'is-valid');
         this.setCustomValidity('');
-        if (this.value) {
-            const cleanNumber = this.value.replace(/\s/g, '');
-            const spanishPhonePattern = /^(\+34|34)?[6789]\d{8}$/;
-
-            if (!spanishPhonePattern.test(cleanNumber)) {
-                this.setCustomValidity('يرجى إدخال رقم هاتف إسباني صحيح');
-            }
-        }
     });
 
-    // تحقق عند blur أيضاً
+    // التحقق فقط عند blur وإذا كان الحقل مليان
     phoneInput.addEventListener('blur', function() {
-        if (this.value) {
-            const cleanNumber = this.value.replace(/\s/g, '');
-            const spanishPhonePattern = /^(\+34|34)?[6789]\d{8}$/;
-
-            if (spanishPhonePattern.test(cleanNumber)) {
-                this.classList.remove('is-invalid');
-                this.classList.add('is-valid');
-                this.setCustomValidity('');
-            } else {
-                this.classList.remove('is-valid');
+        if (!this.value) {
+            // إذا الحقل فارغ ومطلوب
+            if (this.hasAttribute('required')) {
                 this.classList.add('is-invalid');
-                this.setCustomValidity('يرجى إدخال رقم هاتف إسباني صحيح');
+                this.setCustomValidity('هذا الحقل مطلوب');
             }
+            return;
+        }
+
+        // التحقق من صحة الرقم
+        if (isValidSpanishPhone(this.value)) {
+            this.classList.remove('is-invalid');
+            this.classList.add('is-valid');
+            this.setCustomValidity('');
+        } else {
+            this.classList.remove('is-valid');
+            this.classList.add('is-invalid');
+            this.setCustomValidity('رقم الهاتف غير صحيح');
         }
     });
+
+    // التحقق عند submit النموذج
+    const form = phoneInput.closest('form');
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            if (phoneInput.value && !isValidSpanishPhone(phoneInput.value)) {
+                e.preventDefault();
+                phoneInput.classList.add('is-invalid');
+                phoneInput.setCustomValidity('رقم الهاتف غير صحيح');
+                phoneInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                phoneInput.focus();
+                return false;
+            }
+        });
+    }
 }
 
 // Función global para actualizar modelos
