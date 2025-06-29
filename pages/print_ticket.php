@@ -1,7 +1,7 @@
 <?php
 /**
- * RepairPoint - Ticket POS Térmico Optimizado
- * Compatible con impresoras 58mm y 80mm
+ * RepairPoint - Ticket A5 Paper Single Page
+ * مُحسَّن للطباعة على ورق A5 في صفحة واحدة - أبيض وأسود
  */
 
 // Definir acceso seguro
@@ -25,17 +25,10 @@ if (!$repair_id) {
     die('ID de reparación no válido');
 }
 
-// Obtener tamaño de papel (58mm o 80mm)
-$paper_size = $_GET['size'] ?? '80mm';
-if (!in_array($paper_size, ['58mm', '80mm'])) {
-    $paper_size = '80mm';
-}
-
-// Obtener datos de la reparación
+// Obtener datos de la reparación con información de reapertura
 $db = getDB();
 $repair = $db->selectOne(
-    "SELECT r.*, b.name as brand_name, m.name as model_name, 
-            u.name as created_by_name, s.*
+    "SELECT r.*, b.name as brand_name, m.name as model_name, u.name as created_by_name, s.*
      FROM repairs r 
      JOIN brands b ON r.brand_id = b.id 
      JOIN models m ON r.model_id = m.id 
@@ -49,15 +42,26 @@ if (!$repair) {
     die('Reparación no encontrada');
 }
 
+// Calcular información de duración y garantía
+$repair_duration = calculateRepairDuration($repair['received_at'], $repair['delivered_at']);
+$warranty_days = $repair['warranty_days'] ?? 30;
+$warranty_days_left = 0;
+$is_under_warranty = false;
+
+if ($repair['delivered_at']) {
+    $warranty_days_left = calculateWarrantyDaysLeft($repair['delivered_at'], $warranty_days);
+    $is_under_warranty = isUnderWarranty($repair['delivered_at'], $warranty_days);
+}
+
 // Log de actividad
-logActivity('ticket_printed', "Ticket POS impreso para reparación #{$repair['reference']} ({$paper_size})", $_SESSION['user_id']);
+logActivity('ticket_printed', "Ticket A5 impreso para reparación #{$repair['reference']}", $_SESSION['user_id']);
 ?>
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ticket POS #<?= htmlspecialchars($repair['reference']) ?></title>
+    <title>Ticket #<?= htmlspecialchars($repair['reference']) ?></title>
 
     <!-- JsBarcode para códigos de barras -->
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
@@ -71,60 +75,60 @@ logActivity('ticket_printed', "Ticket POS impreso para reparación #{$repair['re
         }
 
         body {
-            font-family: 'Courier New', monospace;
+            font-family: 'Arial', sans-serif;
             background: white;
             color: #000;
-            padding: 0;
-            margin: 0;
-        }
-
-        /* Configuración para 80mm (por defecto) */
-        .ticket {
-            width: 80mm;
-            max-width: 80mm;
-            margin: 0 auto;
-            padding: 5mm;
-            font-size: 11px;
             line-height: 1.3;
+            font-size: 11px;
         }
 
-        /* Configuración para 58mm */
-        .ticket.size-58mm {
-            width: 58mm;
-            max-width: 58mm;
-            padding: 3mm;
-            font-size: 9px;
-            line-height: 1.2;
+        /* Configuración A5 Paper - Landscape */
+        .ticket {
+            width: 210mm;
+            max-height: 148mm;
+            margin: 0 auto;
+            padding: 4mm;
+            background: white;
+            overflow: hidden;
         }
 
-        /* Header del taller */
+        /* Header compacto */
         .header {
+            display: flex;
+            align-items: center;
+            border: 2px solid #000;
+            padding: 3mm;
+            margin-bottom: 3mm;
+            background: repeating-linear-gradient(
+                    45deg,
+                    transparent,
+                    transparent 2px,
+                    #f0f0f0 2px,
+                    #f0f0f0 4px
+            );
+        }
+
+        .header-logo {
+            flex: 0 0 15mm;
             text-align: center;
-            border-bottom: 1px solid #000;
-            padding-bottom: 5mm;
-            margin-bottom: 5mm;
         }
 
         .shop-logo {
-            max-width: 20mm;
-            max-height: 20mm;
-            margin-bottom: 2mm;
+            max-width: 12mm;
+            max-height: 12mm;
+            border: 1px solid #333;
         }
 
-        .size-58mm .shop-logo {
-            max-width: 15mm;
-            max-height: 15mm;
+        .header-info {
+            flex: 1;
+            margin-left: 3mm;
         }
 
         .shop-name {
-            font-weight: bold;
             font-size: 14px;
+            font-weight: bold;
+            margin-bottom: 1mm;
             text-transform: uppercase;
-            margin-bottom: 2mm;
-        }
-
-        .size-58mm .shop-name {
-            font-size: 12px;
         }
 
         .shop-contact {
@@ -132,459 +136,459 @@ logActivity('ticket_printed', "Ticket POS impreso para reparación #{$repair['re
             line-height: 1.2;
         }
 
-        .size-58mm .shop-contact {
-            font-size: 8px;
+        .header-ticket {
+            flex: 0 0 25mm;
+            text-align: center;
+            border: 2px solid #000;
+            padding: 2mm;
+            background: white;
         }
 
-        /* Título del ticket */
         .ticket-title {
-            text-align: center;
+            font-size: 9px;
             font-weight: bold;
+            margin-bottom: 1mm;
+        }
+
+        .ticket-reference {
             font-size: 12px;
-            text-transform: uppercase;
-            margin: 5mm 0;
-            border-top: 1px solid #000;
-            border-bottom: 1px solid #000;
-            padding: 2mm 0;
-        }
-
-        .size-58mm .ticket-title {
-            font-size: 10px;
-            margin: 3mm 0;
-        }
-
-        /* Referencia destacada */
-        .reference {
-            text-align: center;
             font-weight: bold;
-            font-size: 16px;
-            margin: 3mm 0;
-            letter-spacing: 2px;
-        }
-
-        .size-58mm .reference {
-            font-size: 14px;
             letter-spacing: 1px;
         }
 
-        /* Código de barras */
-        .barcode-section {
-            text-align: center;
-            margin: 5mm 0;
-            border: 1px dashed #000;
-            padding: 3mm;
+        .ticket-date {
+            font-size: 7px;
+            margin-top: 1mm;
         }
 
-        .size-58mm .barcode-section {
-            margin: 3mm 0;
+        /* Layout principal - optimizado para landscape */
+        .main-content {
+            display: flex;
+            gap: 4mm;
+            margin-bottom: 3mm;
+            height: auto;
+        }
+
+        .content-left {
+            flex: 3;
+        }
+
+        .content-right {
+            flex: 2;
+        }
+
+        /* Secciones compactas */
+        .section {
+            margin-bottom: 2mm;
+            border: 1px solid #000;
+            overflow: hidden;
+        }
+
+        .section-header {
+            background: #000;
+            color: white;
+            padding: 1mm 2mm;
+            font-size: 9px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .section-content {
             padding: 2mm;
+            background: white;
+        }
+
+        /* Customer info compacto */
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1mm;
+            font-size: 9px;
+        }
+
+        .info-item {
+            border-bottom: 1px dotted #999;
+            padding-bottom: 0.5mm;
+        }
+
+        .info-label {
+            font-weight: bold;
+            font-size: 8px;
+            text-transform: uppercase;
+        }
+
+        .info-value {
+            font-size: 9px;
+            margin-top: 0.5mm;
+        }
+
+        /* Device info */
+        .device-box {
+            background: repeating-linear-gradient(
+                    90deg,
+                    white,
+                    white 5mm,
+                    #f8f8f8 5mm,
+                    #f8f8f8 10mm
+            );
+            border: 1px solid #333;
+            padding: 2mm;
+            text-align: center;
+        }
+
+        .device-brand {
+            font-size: 12px;
+            font-weight: bold;
+            margin-bottom: 1mm;
+        }
+
+        .device-model {
+            font-size: 10px;
+        }
+
+        /* Problem description compacto */
+        .problem-box {
+            background: white;
+            border: 1px dashed #333;
+            padding: 2mm;
+            margin: 1mm 0;
+        }
+
+        .problem-title {
+            font-size: 8px;
+            font-weight: bold;
+            margin-bottom: 1mm;
+            text-transform: uppercase;
+        }
+
+        .problem-text {
+            font-size: 9px;
+            line-height: 1.3;
+            font-style: italic;
+        }
+
+        /* Status badges para B&W */
+        .status-box {
+            text-align: center;
+            margin: 1mm 0;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 1mm 2mm;
+            border: 1px solid #333;
+            font-size: 8px;
+            font-weight: bold;
+            text-transform: uppercase;
+            margin: 0.5mm;
+        }
+
+        .status-pending { background: repeating-linear-gradient(45deg, white, white 1px, #f0f0f0 1px, #f0f0f0 2px); }
+        .status-in_progress { background: white; border-style: double; }
+        .status-completed { background: #f0f0f0; }
+        .status-delivered { background: #000; color: white; }
+        .status-reopened { background: repeating-linear-gradient(45deg, white, white 2px, #000 2px, #000 3px); color: white; }
+
+        .priority-high { border: 2px solid #000; }
+        .priority-medium { border: 1px solid #000; }
+        .priority-low { border: 1px dotted #000; }
+
+        /* Costs compacto */
+        .costs-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1mm;
+        }
+
+        .cost-item {
+            text-align: center;
+            padding: 1mm;
+            border: 1px solid #333;
+            background: #f8f8f8;
+        }
+
+        .cost-label {
+            font-size: 7px;
+            text-transform: uppercase;
+            margin-bottom: 0.5mm;
+        }
+
+        .cost-value {
+            font-size: 10px;
+            font-weight: bold;
+        }
+
+        /* Warranty section compacto */
+        .warranty-section {
+            background: repeating-linear-gradient(
+                    0deg,
+                    white,
+                    white 1mm,
+                    #f0f0f0 1mm,
+                    #f0f0f0 2mm
+            );
+            border: 2px solid #000;
+            padding: 2mm;
+            margin: 1mm 0;
+        }
+
+        .warranty-header {
+            text-align: center;
+            font-weight: bold;
+            margin-bottom: 1mm;
+            font-size: 9px;
+            text-transform: uppercase;
+        }
+
+        .warranty-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1mm;
+            font-size: 8px;
+        }
+
+        .warranty-item {
+            text-align: center;
+            border: 1px solid #333;
+            padding: 1mm;
+            background: white;
+        }
+
+        .warranty-label {
+            font-size: 6px;
+            text-transform: uppercase;
+        }
+
+        .warranty-value {
+            font-weight: bold;
+            margin-top: 0.5mm;
+        }
+
+        /* Reopen section para B&W */
+        .reopen-section {
+            background: repeating-linear-gradient(
+                    45deg,
+                    white,
+                    white 3px,
+                    #000 3px,
+                    #000 6px
+            );
+            border: 3px solid #000;
+            padding: 2mm;
+            margin: 2mm 0;
+        }
+
+        .reopen-header {
+            text-align: center;
+            font-weight: bold;
+            margin-bottom: 1mm;
+            font-size: 10px;
+            text-transform: uppercase;
+            background: white;
+            padding: 1mm;
+        }
+
+        .reopen-alert {
+            background: #000;
+            color: white;
+            padding: 1mm;
+            margin-bottom: 1mm;
+            text-align: center;
+        }
+
+        .reopen-alert-text {
+            font-size: 9px;
+            font-weight: bold;
+        }
+
+        .reopen-details {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1mm;
+            font-size: 8px;
+        }
+
+        .reopen-item {
+            border: 1px solid #000;
+            padding: 1mm;
+            background: white;
+        }
+
+        .reopen-label {
+            font-weight: bold;
+            font-size: 7px;
+            text-transform: uppercase;
+        }
+
+        .reopen-value {
+            margin-top: 0.5mm;
+        }
+
+        .reopen-reason {
+            grid-column: 1 / -1;
+            background: white;
+            border: 1px dashed #000;
+            padding: 1mm;
+            margin-top: 1mm;
+        }
+
+        .reopen-reason-title {
+            font-weight: bold;
+            font-size: 7px;
+            margin-bottom: 0.5mm;
+            text-transform: uppercase;
+        }
+
+        .reopen-reason-text {
+            font-size: 8px;
+            font-style: italic;
+        }
+
+        /* Barcode section compacto */
+        .barcode-section {
+            text-align: center;
+            border: 2px dashed #000;
+            padding: 2mm;
+            margin: 2mm 0;
+            background: white;
+        }
+
+        .barcode-title {
+            font-size: 8px;
+            font-weight: bold;
+            margin-bottom: 1mm;
+            text-transform: uppercase;
         }
 
         .barcode-svg {
-            max-width: 100%;
+            max-width: 60mm;
             height: auto;
-        }
-
-        .barcode-text {
-            font-size: 8px;
-            margin-top: 1mm;
-            font-weight: bold;
-        }
-
-        .size-58mm .barcode-text {
-            font-size: 7px;
-        }
-
-        /* Secciones de información */
-        .section {
-            margin: 4mm 0;
-            border-bottom: 1px dashed #000;
-            padding-bottom: 3mm;
-        }
-
-        .section:last-of-type {
-            border-bottom: none;
-        }
-
-        .size-58mm .section {
-            margin: 3mm 0;
-            padding-bottom: 2mm;
-        }
-
-        .section-title {
-            font-weight: bold;
-            font-size: 10px;
-            text-transform: uppercase;
-            margin-bottom: 2mm;
-            text-decoration: underline;
-        }
-
-        .size-58mm .section-title {
-            font-size: 9px;
-            margin-bottom: 1mm;
-        }
-
-        /* Filas de información */
-        .row {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 1mm;
-            word-wrap: break-word;
-        }
-
-        .label {
-            font-weight: bold;
-            flex: 0 0 45%;
-            text-align: left;
-        }
-
-        .value {
-            flex: 0 0 50%;
-            text-align: right;
-            word-break: break-word;
-        }
-
-        /* Para 58mm, usar layout vertical en vez de horizontal */
-        .size-58mm .row {
-            display: block;
-            margin-bottom: 2mm;
-        }
-
-        .size-58mm .label {
-            display: block;
-            margin-bottom: 0.5mm;
-        }
-
-        .size-58mm .value {
-            display: block;
-            text-align: left;
-            margin-left: 5mm;
-        }
-
-        /* Estados con símbolos */
-        .status-pending::before { content: "⏳ "; }
-        .status-in_progress::before { content: "🔧 "; }
-        .status-completed::before { content: "✅ "; }
-        .status-delivered::before { content: "📦 "; }
-
-        /* Prioridades con símbolos */
-        .priority-high::before { content: "🔴 "; }
-        .priority-medium::before { content: "🟡 "; }
-        .priority-low::before { content: "🟢 "; }
-
-        /* Problema destacado */
-        .issue-box {
-            border: 1px solid #000;
-            padding: 2mm;
-            margin: 2mm 0;
-            background: #f0f0f0;
-            word-wrap: break-word;
-            font-style: italic;
-        }
-
-        .size-58mm .issue-box {
-            padding: 1mm;
             margin: 1mm 0;
         }
 
-        /* Área de notas */
-        .notes-area {
-            border: 1px dashed #000;
-            height: 15mm;
-            margin: 3mm 0;
+        .barcode-number {
+            font-size: 9px;
+            font-weight: bold;
+            letter-spacing: 1px;
+            margin-top: 1mm;
+        }
+
+        /* Timeline compacto */
+        .timeline {
             position: relative;
+            padding-left: 5mm;
         }
 
-        .size-58mm .notes-area {
-            height: 10mm;
-            margin: 2mm 0;
-        }
-
-        .notes-title {
+        .timeline::before {
+            content: '';
             position: absolute;
-            top: 1mm;
             left: 1mm;
+            top: 0;
+            bottom: 0;
+            width: 1px;
+            background: #333;
+        }
+
+        .timeline-item {
+            position: relative;
+            margin-bottom: 2mm;
+            padding-left: 2mm;
+            font-size: 8px;
+        }
+
+        .timeline-marker {
+            position: absolute;
+            left: -3mm;
+            top: 1mm;
+            width: 4px;
+            height: 4px;
+            border: 1px solid #000;
+            background: white;
+        }
+
+        .timeline-marker.delivered,
+        .timeline-marker.completed { background: #000; }
+        .timeline-marker.reopened { background: repeating-linear-gradient(45deg, white, white 1px, #000 1px, #000 2px); }
+
+        .timeline-content {
+            background: white;
+            border: 1px solid #ddd;
+            padding: 1mm;
+        }
+
+        .timeline-title {
             font-size: 8px;
             font-weight: bold;
         }
 
-        .notes-lines {
-            position: absolute;
-            top: 4mm;
-            left: 1mm;
-            right: 1mm;
-            bottom: 1mm;
-            background-image: repeating-linear-gradient(
-                    transparent,
-                    transparent 2.5mm,
-                    #ccc 2.5mm,
-                    #ccc 2.6mm
-            );
+        .timeline-date {
+            font-size: 7px;
+            color: #666;
         }
 
-        /* Footer */
+        /* Footer compacto */
         .footer {
-            text-align: center;
-            border-top: 2px solid #000;
-            padding-top: 3mm;
-            margin-top: 5mm;
-            font-size: 9px;
-        }
-
-        .size-58mm .footer {
-            padding-top: 2mm;
             margin-top: 3mm;
-            font-size: 8px;
+            border-top: 2px solid #000;
+            padding-top: 2mm;
+            text-align: center;
         }
 
         .footer-thanks {
+            font-size: 10px;
             font-weight: bold;
-            margin-bottom: 2mm;
+            margin-bottom: 1mm;
+        }
+
+        .footer-message {
+            font-size: 8px;
+            margin-bottom: 1mm;
         }
 
         .footer-info {
-            font-size: 7px;
-            margin-top: 2mm;
-        }
-
-        .size-58mm .footer-info {
             font-size: 6px;
-        }
-
-        /* Línea de corte */
-        .cut-line {
-            text-align: center;
-            margin: 5mm 0;
-            padding: 2mm 0;
-            border-top: 1px dashed #000;
-            border-bottom: 1px dashed #000;
-            font-size: 10px;
-            font-weight: bold;
-        }
-
-        .size-58mm .cut-line {
-            margin: 3mm 0;
-            font-size: 8px;
-        }
-
-        /* Sección del cliente (separable) */
-        .customer-section {
-            border: 2px dashed #000;
-            margin-top: 3mm;
-            padding: 3mm;
-            background: repeating-linear-gradient(
-                    45deg,
-                    transparent,
-                    transparent 2px,
-                    rgba(0,0,0,0.1) 2px,
-                    rgba(0,0,0,0.1) 4px
-            );
-        }
-
-        .size-58mm .customer-section {
-            margin-top: 2mm;
-            padding: 2mm;
-        }
-
-        .customer-header {
-            text-align: center;
-            border-bottom: 1px solid #000;
-            padding-bottom: 2mm;
-            margin-bottom: 3mm;
-        }
-
-        .size-58mm .customer-header {
-            padding-bottom: 1mm;
-            margin-bottom: 2mm;
-        }
-
-        .customer-title {
-            font-weight: bold;
-            font-size: 10px;
-            text-transform: uppercase;
-        }
-
-        .size-58mm .customer-title {
-            font-size: 9px;
-        }
-
-        .customer-ref {
-            font-weight: bold;
-            font-size: 14px;
-            margin-top: 1mm;
-            letter-spacing: 1px;
-        }
-
-        .size-58mm .customer-ref {
-            font-size: 12px;
-        }
-
-        .customer-info {
-            margin-bottom: 3mm;
-        }
-
-        .size-58mm .customer-info {
-            margin-bottom: 2mm;
-        }
-
-        .customer-row {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 1mm;
-            font-size: 9px;
-        }
-
-        .size-58mm .customer-row {
-            display: block;
-            margin-bottom: 1.5mm;
-            font-size: 8px;
-        }
-
-        .customer-label {
-            font-weight: bold;
-            flex: 0 0 40%;
-        }
-
-        .customer-value {
-            flex: 0 0 55%;
-            text-align: right;
-            word-break: break-word;
-        }
-
-        .size-58mm .customer-label {
-            display: block;
-            margin-bottom: 0.5mm;
-        }
-
-        .size-58mm .customer-value {
-            display: block;
-            text-align: left;
-            margin-left: 3mm;
-        }
-
-        .customer-problem {
-            border: 1px solid #000;
-            padding: 2mm;
-            margin: 2mm 0;
-            background: white;
-        }
-
-        .size-58mm .customer-problem {
-            padding: 1mm;
-            margin: 1mm 0;
-        }
-
-        .customer-problem-title {
-            font-weight: bold;
-            font-size: 8px;
-            margin-bottom: 1mm;
-            text-transform: uppercase;
-        }
-
-        .customer-problem-text {
-            font-size: 8px;
-            line-height: 1.2;
-            font-style: italic;
-        }
-
-        .size-58mm .customer-problem-text {
-            font-size: 7px;
-        }
-
-        .customer-barcode {
-            text-align: center;
-            margin: 3mm 0;
-            border: 1px solid #000;
-            padding: 2mm;
-            background: white;
-        }
-
-        .size-58mm .customer-barcode {
-            margin: 2mm 0;
-            padding: 1mm;
-        }
-
-        .customer-barcode-svg {
-            max-width: 100%;
-            height: auto;
-        }
-
-        .customer-barcode-text {
-            font-size: 8px;
-            font-weight: bold;
-            margin-top: 1mm;
-            letter-spacing: 1px;
-        }
-
-        .size-58mm .customer-barcode-text {
-            font-size: 7px;
-        }
-
-        .customer-contact {
-            text-align: center;
-            border-top: 1px solid #000;
-            padding-top: 2mm;
-            font-size: 8px;
-        }
-
-        .size-58mm .customer-contact {
+            border-top: 1px solid #333;
             padding-top: 1mm;
-            font-size: 7px;
         }
 
-        .customer-shop-name {
-            font-weight: bold;
-            margin-bottom: 1mm;
-        }
-
-        .customer-shop-phone {
-            margin-bottom: 1mm;
-        }
-
-        .customer-note {
-            font-style: italic;
-            font-size: 7px;
-            margin-top: 1mm;
-        }
-
-        .size-58mm .customer-note {
-            font-size: 6px;
-        }
-
-        /* Botones de control (solo pantalla) */
+        /* Controls simplificados */
         .controls {
             position: fixed;
             top: 10px;
             right: 10px;
-            background: rgba(0,0,0,0.8);
+            background: rgba(0,0,0,0.9);
             color: white;
             padding: 10px;
-            border-radius: 8px;
-            font-family: Arial, sans-serif;
-            font-size: 12px;
+            border-radius: 6px;
+            font-size: 11px;
             z-index: 1000;
         }
 
         .controls button {
-            background: #007bff;
+            background: #333;
             color: white;
             border: none;
-            padding: 8px 12px;
+            padding: 6px 10px;
             margin: 2px;
-            border-radius: 4px;
+            border-radius: 3px;
             cursor: pointer;
-            font-size: 11px;
+            font-size: 10px;
         }
 
         .controls button:hover {
-            background: #0056b3;
+            background: #555;
         }
 
-        .controls button.active {
-            background: #28a745;
+        .controls button.print {
+            background: #000;
+            font-weight: bold;
         }
 
-        /* Estilos de impresión */
+        .controls button.close {
+            background: #666;
+        }
+
+        /* Print styles optimizados */
         @media print {
             body {
                 margin: 0;
@@ -597,377 +601,381 @@ logActivity('ticket_printed', "Ticket POS impreso para reparación #{$repair['re
 
             .ticket {
                 margin: 0;
-                padding: 2mm;
+                padding: 3mm;
+                max-height: none;
             }
 
-            /* Forzar tamaños específicos para impresión */
             @page {
-                margin: 0;
-                size: 80mm auto;
+                size: A5 portrait;
+                margin: 3mm;
             }
 
-            .size-58mm {
-                width: 58mm !important;
-                max-width: 58mm !important;
-            }
-        }
-
-        /* Media queries específicas para impresoras térmicas */
-        @media print and (max-width: 58mm) {
-            .ticket {
-                width: 58mm !important;
-                font-size: 9px !important;
-            }
-        }
-
-        @media print and (max-width: 80mm) {
-            .ticket {
-                width: 80mm !important;
-                font-size: 11px !important;
-            }
-        }
-
-        /* Optimización para impresión térmica */
-        @media print {
+            /* Asegurar que todo esté en B&W */
             * {
                 -webkit-print-color-adjust: exact !important;
                 color-adjust: exact !important;
+                color: #000 !important;
             }
 
-            .barcode-section, .issue-box {
-                background: white !important;
-                border: 1px solid #000 !important;
+            .section-header {
+                background: #000 !important;
+                color: white !important;
+            }
+
+            .reopen-alert {
+                background: #000 !important;
+                color: white !important;
+            }
+
+            .status-delivered {
+                background: #000 !important;
+                color: white !important;
+            }
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .ticket {
+                width: 100%;
+                padding: 3mm;
+            }
+
+            .header {
+                flex-direction: column;
+                text-align: center;
+            }
+
+            .main-content {
+                flex-direction: column;
+            }
+
+            .info-grid,
+            .costs-grid,
+            .warranty-grid {
+                grid-template-columns: 1fr;
             }
         }
     </style>
 </head>
 <body>
-<!-- Controles de tamaño (solo en pantalla) -->
+<!-- Controls simplificados -->
 <div class="controls">
-    <div style="margin-bottom: 8px; font-weight: bold;">Tamaño de Papel:</div>
-    <button onclick="changePaperSize('58mm')" id="btn-58mm">58mm</button>
-    <button onclick="changePaperSize('80mm')" id="btn-80mm" class="active">80mm</button>
-    <br><br>
-    <button onclick="window.print()" style="background: #28a745;">🖨️ Imprimir</button>
-    <button onclick="window.close()" style="background: #dc3545;">❌ Cerrar</button>
+    <button onclick="window.print()" class="print">🖨️ Imprimir</button>
+    <button onclick="window.close()" class="close">❌ Cerrar</button>
 </div>
 
-<div class="ticket size-<?= $paper_size ?>" id="ticket">
-    <!-- Header del taller -->
+<div class="ticket" id="ticket">
+    <!-- Header compacto -->
     <div class="header">
-        <?php if ($repair['logo']): ?>
-            <img src="<?= url(htmlspecialchars($repair['logo'])) ?>" alt="Logo" class="shop-logo">
-        <?php endif; ?>
-
-        <div class="shop-name"><?= htmlspecialchars($repair['name']) ?></div>
-
-        <div class="shop-contact">
-            <?php if ($repair['address']): ?>
-                <?= htmlspecialchars($repair['address']) ?><br>
-            <?php endif; ?>
-
-            Tel: <?= htmlspecialchars($repair['phone1']) ?>
-
-            <?php if ($repair['phone2']): ?>
-                / <?= htmlspecialchars($repair['phone2']) ?>
-            <?php endif; ?>
-
-            <?php if ($repair['email']): ?>
-                <br><?= htmlspecialchars($repair['email']) ?>
+        <div class="header-logo">
+            <?php if (!empty($repair['logo'])): ?>
+                <img src="<?= url(htmlspecialchars($repair['logo'])) ?>" alt="Logo" class="shop-logo">
+            <?php else: ?>
+                <div style="width: 12mm; height: 12mm; border: 1px solid #333; display: flex; align-items: center; justify-content: center; font-size: 7px;">LOGO</div>
             <?php endif; ?>
         </div>
-    </div>
 
-    <!-- Título -->
-    <div class="ticket-title">*** TICKET REPARACION ***</div>
-
-    <!-- Referencia -->
-    <div class="reference">#<?= htmlspecialchars($repair['reference']) ?></div>
-
-    <!-- Código de barras -->
-    <div class="barcode-section">
-        <svg id="barcode" class="barcode-svg"></svg>
-        <div class="barcode-text">ID: <?= $repair['id'] ?> | <?= htmlspecialchars($repair['reference']) ?></div>
-    </div>
-
-    <!-- Cliente -->
-    <div class="section">
-        <div class="section-title">CLIENTE</div>
-        <div class="row">
-            <span class="label">Nombre:</span>
-            <span class="value" style="color: black; font-weight: bold;">
-        <?= htmlspecialchars($repair['customer_name']) ?>
-    </span>
-        </div>
-        <div class="row">
-            <span class="label">Telefono:</span>
-            <span class="value" style="color: black; font-weight: bold;"><?= htmlspecialchars($repair['customer_phone']) ?></span>
-        </div>
-    </div>
-
-    <!-- Dispositivo -->
-    <div class="section">
-        <div class="section-title">DISPOSITIVO</div>
-        <div class="row">
-            <span class="label">Marca:</span>
-            <span class="value"><?= htmlspecialchars($repair['brand_name']) ?></span>
-        </div>
-        <div class="row">
-            <span class="label">Modelo:</span>
-            <span class="value"><?= htmlspecialchars($repair['model_name']) ?></span>
-        </div>
-    </div>
-
-    <!-- Problema -->
-    <div class="section">
-        <div class="section-title">PROBLEMA REPORTADO</div>
-        <div class="issue-box">
-            <?= nl2br(htmlspecialchars($repair['issue_description'])) ?>
-        </div>
-    </div>
-
-    <!-- Fechas -->
-    <div class="section">
-        <div class="section-title">FECHAS</div>
-        <div class="row">
-            <span class="label">Recibido:</span>
-            <span class="value"><?= formatDate($repair['received_at'], 'd/m/Y H:i') ?></span>
-        </div>
-
-        <?php if ($repair['estimated_completion']): ?>
-            <div class="row">
-                <span class="label">Est. Entrega:</span>
-                <span class="value"><?= formatDate($repair['estimated_completion'], 'd/m/Y') ?></span>
+        <div class="header-info">
+            <div class="shop-name"><?= htmlspecialchars($repair['name']) ?></div>
+            <div class="shop-contact">
+                <?php if (!empty($repair['address'])): ?>
+                    <?= htmlspecialchars($repair['address']) ?><br>
+                <?php endif; ?>
+                Tel: <?= htmlspecialchars($repair['phone1']) ?>
+                <?php if (!empty($repair['phone2'])): ?>
+                    / <?= htmlspecialchars($repair['phone2']) ?>
+                <?php endif; ?>
+                <?php if (!empty($repair['email'])): ?>
+                    <br><?= htmlspecialchars($repair['email']) ?>
+                <?php endif; ?>
             </div>
-        <?php endif; ?>
+        </div>
 
-        <?php if ($repair['completed_at']): ?>
-            <div class="row">
-                <span class="label">Completado:</span>
-                <span class="value"><?= formatDate($repair['completed_at'], 'd/m/Y H:i') ?></span>
-            </div>
-        <?php endif; ?>
-
-        <?php if ($repair['delivered_at']): ?>
-            <div class="row">
-                <span class="label">Entregado:</span>
-                <span class="value"><?= formatDate($repair['delivered_at'], 'd/m/Y H:i') ?></span>
-            </div>
-        <?php endif; ?>
+        <div class="header-ticket">
+            <div class="ticket-title">REPARACION</div>
+            <div class="ticket-reference">#<?= htmlspecialchars($repair['reference']) ?></div>
+            <div class="ticket-date"><?= formatDate($repair['received_at'], 'd/m/Y') ?></div>
+        </div>
     </div>
 
-    <!-- Costes -->
-    <?php if ($repair['estimated_cost'] || $repair['actual_cost']): ?>
-        <div class="section">
-            <div class="section-title">COSTES</div>
+    <!-- Contenido principal compacto -->
+    <div class="main-content">
+        <!-- Columna izquierda -->
+        <div class="content-left">
+            <!-- Cliente y dispositivo en una sección -->
+            <div class="section">
+                <div class="section-header">CLIENTE Y DISPOSITIVO</div>
+                <div class="section-content">
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <div class="info-label">Nombre:</div>
+                            <div class="info-value"><?= htmlspecialchars($repair['customer_name']) ?></div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">Teléfono:</div>
+                            <div class="info-value"><?= htmlspecialchars($repair['customer_phone']) ?></div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">Marca:</div>
+                            <div class="info-value"><?= htmlspecialchars($repair['brand_name']) ?></div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">Modelo:</div>
+                            <div class="info-value"><?= htmlspecialchars($repair['model_name']) ?></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
-            <?php if ($repair['estimated_cost']): ?>
-                <div class="row">
-                    <span class="label">Estimado:</span>
-                    <span class="value">€<?= number_format($repair['estimated_cost'], 2) ?></span>
+            <!-- Problema -->
+            <div class="section">
+                <div class="section-header">PROBLEMA REPORTADO</div>
+                <div class="section-content">
+                    <div class="problem-box">
+                        <div class="problem-text"><?= nl2br(htmlspecialchars($repair['issue_description'])) ?></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Estado y costes -->
+            <div class="section">
+                <div class="section-header">ESTADO Y COSTES</div>
+                <div class="section-content">
+                    <div class="status-box">
+                            <span class="status-badge status-<?= $repair['status'] ?>">
+                                <?= getStatusName($repair['status']) ?>
+                            </span>
+                        <span class="status-badge priority-<?= $repair['priority'] ?>">
+                                <?= ucfirst($repair['priority']) ?>
+                            </span>
+                    </div>
+
+                    <?php if (!empty($repair['estimated_cost']) || !empty($repair['actual_cost'])): ?>
+                        <div class="costs-grid" style="margin-top: 2mm;">
+                            <?php if (!empty($repair['estimated_cost'])): ?>
+                                <div class="cost-item">
+                                    <div class="cost-label">Estimado</div>
+                                    <div class="cost-value">€<?= number_format($repair['estimated_cost'], 2) ?></div>
+                                </div>
+                            <?php endif; ?>
+
+                            <?php if (!empty($repair['actual_cost'])): ?>
+                                <div class="cost-item">
+                                    <div class="cost-label">Final</div>
+                                    <div class="cost-value">€<?= number_format($repair['actual_cost'], 2) ?></div>
+                                </div>
+                            <?php endif; ?>
+                        </div>
+                    <?php endif; ?>
+                </div>
+            </div>
+
+            <!-- Información de reapertura - Solo si está reabierto -->
+            <?php if (!empty($repair['is_reopened'])): ?>
+                <div class="reopen-section">
+                    <div class="reopen-header">DISPOSITIVO DEVUELTO EN GARANTIA</div>
+
+                    <div class="reopen-alert">
+                        <div class="reopen-alert-text">REPARACION REABIERTA</div>
+                    </div>
+
+                    <div class="reopen-details">
+                        <?php if (!empty($repair['reopen_type'])): ?>
+                            <div class="reopen-item">
+                                <div class="reopen-label">Tipo:</div>
+                                <div class="reopen-value">
+                                    <?php
+                                    $reopen_config = getConfig('reopen_types');
+                                    echo $reopen_config[$repair['reopen_type']]['name'];
+                                    ?>
+                                </div>
+                            </div>
+                        <?php endif; ?>
+
+                        <?php if (!empty($repair['reopen_date'])): ?>
+                            <div class="reopen-item">
+                                <div class="reopen-label">Fecha:</div>
+                                <div class="reopen-value"><?= formatDate($repair['reopen_date'], 'd/m/Y') ?></div>
+                            </div>
+                        <?php endif; ?>
+
+                        <?php if (!empty($repair['reopen_reason'])): ?>
+                            <div class="reopen-reason">
+                                <div class="reopen-reason-title">Motivo:</div>
+                                <div class="reopen-reason-text"><?= htmlspecialchars($repair['reopen_reason']) ?></div>
+                            </div>
+                        <?php endif; ?>
+                    </div>
                 </div>
             <?php endif; ?>
+        </div>
 
-            <?php if ($repair['actual_cost']): ?>
-                <div class="row">
-                    <span class="label">FINAL:</span>
-                    <span class="value"><strong>€<?= number_format($repair['actual_cost'], 2) ?></strong></span>
+        <!-- Columna derecha -->
+        <div class="content-right">
+            <!-- Código de barras -->
+            <div class="barcode-section">
+                <div class="barcode-title">CODIGO IDENTIFICACION</div>
+                <svg id="barcode" class="barcode-svg"></svg>
+                <div class="barcode-number"><?= $repair['reference'] ?></div>
+            </div>
+
+            <!-- Timeline compacto -->
+            <div class="section">
+                <div class="section-header">CRONOLOGIA</div>
+                <div class="section-content">
+                    <div class="timeline">
+                        <div class="timeline-item">
+                            <div class="timeline-marker pending"></div>
+                            <div class="timeline-content">
+                                <div class="timeline-title">Recibido</div>
+                                <div class="timeline-date"><?= formatDate($repair['received_at'], 'd/m/Y H:i') ?></div>
+                            </div>
+                        </div>
+
+                        <?php if (!empty($repair['completed_at'])): ?>
+                            <div class="timeline-item">
+                                <div class="timeline-marker completed"></div>
+                                <div class="timeline-content">
+                                    <div class="timeline-title">Completado</div>
+                                    <div class="timeline-date"><?= formatDate($repair['completed_at'], 'd/m/Y H:i') ?></div>
+                                </div>
+                            </div>
+                        <?php endif; ?>
+
+                        <?php if (!empty($repair['delivered_at'])): ?>
+                            <div class="timeline-item">
+                                <div class="timeline-marker delivered"></div>
+                                <div class="timeline-content">
+                                    <div class="timeline-title">Entregado</div>
+                                    <div class="timeline-date"><?= formatDate($repair['delivered_at'], 'd/m/Y H:i') ?></div>
+                                </div>
+                            </div>
+                        <?php endif; ?>
+
+                        <?php if (!empty($repair['reopen_date'])): ?>
+                            <div class="timeline-item">
+                                <div class="timeline-marker reopened"></div>
+                                <div class="timeline-content">
+                                    <div class="timeline-title">Reabierto</div>
+                                    <div class="timeline-date"><?= formatDate($repair['reopen_date'], 'd/m/Y H:i') ?></div>
+                                </div>
+                            </div>
+                        <?php endif; ?>
+                    </div>
                 </div>
-            <?php endif; ?>
-        </div>
-    <?php endif; ?>
+            </div>
 
-    <!-- Área de notas -->
-    <div class="section">
-        <div class="section-title">NOTAS ADICIONALES</div>
-        <div class="notes-area">
-            <div class="notes-title">Escribir aqui:</div>
-            <div class="notes-lines"></div>
+            <!-- Garantía compacta -->
+            <div class="warranty-section">
+                <div class="warranty-header">GARANTIA</div>
+                <div class="warranty-grid">
+                    <div class="warranty-item">
+                        <div class="warranty-label">Dias</div>
+                        <div class="warranty-value"><?= $warranty_days ?></div>
+                    </div>
+
+                    <div class="warranty-item">
+                        <div class="warranty-label">Estado</div>
+                        <div class="warranty-value">
+                            <?php if (!empty($repair['delivered_at'])): ?>
+                                <?= $is_under_warranty ? 'VALIDA' : 'EXPIRADA' ?>
+                            <?php else: ?>
+                                PENDIENTE
+                            <?php endif; ?>
+                        </div>
+                    </div>
+
+                    <div class="warranty-item">
+                        <div class="warranty-label">Restante</div>
+                        <div class="warranty-value">
+                            <?= !empty($repair['delivered_at']) ? ($is_under_warranty ? $warranty_days_left : '0') : '-' ?>
+                        </div>
+                    </div>
+
+                    <div class="warranty-item">
+                        <div class="warranty-label">Expira</div>
+                        <div class="warranty-value">
+                            <?php if (!empty($repair['delivered_at'])): ?>
+                                <?= date('d/m/y', strtotime($repair['delivered_at'] . " +{$warranty_days} days")) ?>
+                            <?php else: ?>
+                                -
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
-    <!-- Info técnica -->
-    <div class="section">
-        <div class="section-title">INFO TECNICA</div>
-        <div class="row">
-            <span class="label">Tecnico:</span>
-            <span class="value"><?= htmlspecialchars($repair['created_by_name']) ?></span>
-        </div>
-        <div class="row">
-            <span class="label">Impreso:</span>
-            <span class="value"><?= date('d/m/Y H:i') ?></span>
-        </div>
-    </div>
-
-    <!-- Footer -->
+    <!-- Footer compacto -->
     <div class="footer">
-        <div class="footer-thanks">
-            *** GRACIAS POR SU CONFIANZA ***
-        </div>
-        <div>
-            Conserve este ticket para recoger<br>
-            el dispositivo reparado.
+        <div class="footer-thanks">*** GRACIAS POR CONFIAR EN NUESTRO SERVICIO ***</div>
+        <div class="footer-message">
+            Conserve este ticket para recoger su dispositivo reparado
         </div>
         <div class="footer-info">
-            <?= APP_NAME ?> | <?= date('d/m/Y H:i') ?>
-        </div>
-    </div>
-
-    <!-- Línea de corte -->
-    <div class="cut-line">
-        <span>✂️ ✂️ ✂️ ✂️ ✂️ ✂️ ✂️ ✂️ ✂️ ✂️ ✂️</span>
-    </div>
-
-    <!-- Sección para el cliente (separable) -->
-    <div class="customer-section">
-        <div class="customer-header">
-            <div class="customer-title">*** COMPROBANTE CLIENTE ***</div>
-            <div class="customer-ref">#<?= htmlspecialchars($repair['reference']) ?></div>
-        </div>
-
-        <!-- Info básica del cliente -->
-        <div class="customer-info">
-            <div class="customer-row">
-                <span class="customer-label">Cliente:</span>
-                <span class="customer-value"><?= htmlspecialchars($repair['customer_name']) ?></span>
-            </div>
-            <div class="customer-row">
-                <span class="customer-label">Telefono:</span>
-                <span class="customer-value"><?= htmlspecialchars($repair['customer_phone']) ?></span>
-            </div>
-            <div class="customer-row">
-                <span class="customer-label">Fecha:</span>
-                <span class="customer-value"><?= formatDate($repair['received_at'], 'd/m/Y') ?></span>
-            </div>
-            <div class="customer-row">
-                <span class="customer-label">Dispositivo:</span>
-                <span class="customer-value"><?= htmlspecialchars($repair['brand_name'] . ' ' . $repair['model_name']) ?></span>
-            </div>
-        </div>
-
-        <!-- Problema resumido -->
-        <div class="customer-problem">
-            <div class="customer-problem-title">Problema:</div>
-            <div class="customer-problem-text">
-                <?= htmlspecialchars(substr($repair['issue_description'], 0, 100)) ?><?= strlen($repair['issue_description']) > 100 ? '...' : '' ?>
-            </div>
-        </div>
-
-        <!-- Código de barras para el cliente -->
-        <div class="customer-barcode">
-            <svg id="customer-barcode" class="customer-barcode-svg"></svg>
-            <div class="customer-barcode-text"><?= htmlspecialchars($repair['reference']) ?></div>
-        </div>
-
-        <!-- Info de contacto -->
-        <div class="customer-contact">
-            <div class="customer-shop-name"><?= htmlspecialchars($repair['name']) ?></div>
-            <div class="customer-shop-phone">Tel: <?= htmlspecialchars($repair['phone1']) ?></div>
-            <div class="customer-note">Presente este comprobante para recoger</div>
+            Tecnico: <?= htmlspecialchars($repair['created_by_name']) ?> | Duracion: <?= formatDurationSpanish($repair_duration) ?> | <?= date('d/m/Y H:i') ?>
         </div>
     </div>
 </div>
 
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        // Establecer tamaño inicial
-        const urlParams = new URLSearchParams(window.location.search);
-        const size = urlParams.get('size') || '80mm';
-        changePaperSize(size);
-
-        // Generar código de barras
         generateBarcode();
     });
 
-    function changePaperSize(size) {
-        const ticket = document.getElementById('ticket');
-        const buttons = document.querySelectorAll('.controls button');
-
-        // Remover clases de tamaño
-        ticket.classList.remove('size-58mm', 'size-80mm');
-
-        // Agregar nueva clase
-        ticket.classList.add('size-' + size);
-
-        // Actualizar botones activos
-        buttons.forEach(btn => btn.classList.remove('active'));
-        document.getElementById('btn-' + size).classList.add('active');
-
-        // Regenerar código de barras con nuevo tamaño
-        setTimeout(() => {
-            generateBarcode();
-        }, 100);
-
-        console.log('Cambiado a tamaño:', size);
-    }
-
     function generateBarcode() {
         try {
-            const barcodeData = '<?= $repair['id'] . $repair['reference'] ?>';
-            const isSmall = document.getElementById('ticket').classList.contains('size-58mm');
+            const barcodeData = '<?= $repair['reference'] ?>';
 
-            // Código de barras principal
             JsBarcode("#barcode", barcodeData, {
                 format: "CODE128",
-                width: isSmall ? 1 : 1.5,
-                height: isSmall ? 25 : 35,
+                width: 1.2,
+                height: 30,
                 displayValue: false,
                 background: "#ffffff",
                 lineColor: "#000000",
                 margin: 1
             });
 
-            // Código de barras del cliente (más pequeño)
-            JsBarcode("#customer-barcode", barcodeData, {
-                format: "CODE128",
-                width: isSmall ? 0.8 : 1,
-                height: isSmall ? 20 : 25,
-                displayValue: false,
-                background: "#ffffff",
-                lineColor: "#000000",
-                margin: 1
-            });
-
-            console.log('Códigos de barras generados:', barcodeData);
+            console.log('Código de barras generado:', barcodeData);
         } catch (error) {
-            console.error('Error generando códigos de barras:', error);
+            console.error('Error generando código de barras:', error);
             document.querySelector('.barcode-section').innerHTML =
-                '<div style="text-align: center; font-weight: bold;">Error en código</div>';
-            document.querySelector('.customer-barcode').innerHTML =
                 '<div style="text-align: center; font-weight: bold;">Error en código</div>';
         }
     }
 
     // Atajos de teclado
     document.addEventListener('keydown', function(e) {
+        // Ctrl+P para imprimir
         if ((e.ctrlKey || e.metaKey) && e.key === 'p') {
             e.preventDefault();
             window.print();
         }
 
+        // Escape para cerrar
         if (e.key === 'Escape') {
             window.close();
         }
-
-        // Cambiar tamaños con teclas
-        if (e.key === '1') {
-            changePaperSize('58mm');
-        }
-        if (e.key === '2') {
-            changePaperSize('80mm');
-        }
     });
 
-    // Auto-cerrar después de imprimir
+    // Auto-cerrar después de imprimir (opcional)
     window.addEventListener('afterprint', function() {
         setTimeout(() => {
-            if (confirm('¿Cerrar ventana?')) {
+            if (confirm('¿Desea cerrar la ventana de impresión?')) {
                 window.close();
             }
         }, 1000);
     });
 
-    console.log('Ticket POS cargado - Tamaño: <?= $paper_size ?>');
+    // Log de información
+    console.log('Ticket A5 Single Page cargado exitosamente');
+    console.log('Reparación ID:', <?= $repair['id'] ?>);
+    console.log('Reference:', '<?= $repair['reference'] ?>');
+    <?php if (!empty($repair['is_reopened'])): ?>
+    console.log('Reparación reabierta - Tipo:', '<?= $repair['reopen_type'] ?? 'N/A' ?>');
+    <?php endif; ?>
 </script>
 </body>
 </html>

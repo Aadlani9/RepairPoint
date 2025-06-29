@@ -908,4 +908,83 @@ function getShopLogo($shop_data) {
     return asset('images/default-logo.png');
 }
 
+
+/**
+ * حساب مدة الإصلاح بالأيام بشكل صحيح
+ */
+function calculateRepairDuration($received_at, $delivered_at = null) {
+    if (empty($received_at)) return 0;
+
+    try {
+        $start = new DateTime($received_at);
+        $end = $delivered_at ? new DateTime($delivered_at) : new DateTime();
+
+        $interval = $start->diff($end);
+        return $interval->days;
+    } catch (Exception $e) {
+        error_log("Error calculating repair duration: " . $e->getMessage());
+        return 0;
+    }
+}
+
+/**
+ * حساب أيام الضمانة المتبقية
+ */
+function calculateWarrantyDaysLeft($delivered_at, $warranty_days = 30) {
+    if (empty($delivered_at)) return 0;
+
+    try {
+        $delivery_date = new DateTime($delivered_at);
+        $warranty_expires = clone $delivery_date;
+        $warranty_expires->add(new DateInterval("P{$warranty_days}D"));
+
+        $now = new DateTime();
+
+        if ($now > $warranty_expires) {
+            return 0; // انتهت الضمانة
+        }
+
+        $interval = $now->diff($warranty_expires);
+        return $interval->days;
+    } catch (Exception $e) {
+        error_log("Error calculating warranty days: " . $e->getMessage());
+        return 0;
+    }
+}
+
+/**
+ * التحقق من صلاحية الضمانة
+ */
+function isUnderWarranty($delivered_at, $warranty_days = 30) {
+    return calculateWarrantyDaysLeft($delivered_at, $warranty_days) > 0;
+}
+
+/**
+ * تنسيق عرض المدة بالإسبانية
+ */
+function formatDurationSpanish($days) {
+    if ($days == 0) return '0 días';
+    if ($days == 1) return '1 día';
+    return $days . ' días';
+}
+
+/**
+ * تنسيق عرض الضمانة
+ */
+function formatWarrantyStatus($delivered_at, $warranty_days = 30) {
+    if (empty($delivered_at)) {
+        return '<span class="badge bg-secondary">Sin entregar</span>';
+    }
+
+    $days_left = calculateWarrantyDaysLeft($delivered_at, $warranty_days);
+
+    if ($days_left > 7) {
+        return '<span class="badge bg-success">Garantía válida (' . $days_left . ' días)</span>';
+    } elseif ($days_left > 0) {
+        return '<span class="badge bg-warning">Garantía expira pronto (' . $days_left . ' días)</span>';
+    } else {
+        return '<span class="badge bg-danger">Garantía expirada</span>';
+    }
+}
+
 ?>

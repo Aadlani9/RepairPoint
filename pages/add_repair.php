@@ -19,6 +19,8 @@ $current_user = getCurrentUser();
 $shop_id = $_SESSION['shop_id'];
 
 // Procesar formulario
+// في add_repair.php، استبدل قسم معالجة الفورم بهذا الكود:
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Verificar CSRF token
     if (!verifyCSRFToken($_POST['csrf_token'] ?? '')) {
@@ -27,18 +29,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Validar datos
         $required_fields = ['customer_name', 'customer_phone', 'brand_id', 'model_id', 'issue_description'];
         $errors = validateRequired($_POST, $required_fields);
-        
+
         if (empty($errors)) {
             $db = getDB();
-            
+
             // Sanitizar datos
             $data = sanitizeArray($_POST);
-            
+
             // Validar teléfono
             if (!isValidPhone($data['customer_phone'])) {
                 $errors[] = 'El formato del teléfono no es válido';
             }
-            
+
+            // Validar días de garantía
+            $warranty_days = intval($data['warranty_days'] ?? 30);
+            $warranty_config = getConfig('warranty');
+            if ($warranty_days < $warranty_config['min_days'] || $warranty_days > $warranty_config['max_days']) {
+                $warranty_days = $warranty_config['default_days'];
+            }
+
             // Verificar que la marca y modelo existen
             $model = $db->selectOne(
                 "SELECT m.*, b.name as brand_name FROM models m 
@@ -46,25 +55,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                  WHERE m.id = ? AND m.brand_id = ?",
                 [$data['model_id'], $data['brand_id']]
             );
-            
+
             if (!$model) {
                 $errors[] = 'Marca o modelo no válido';
             }
-            
+
             if (empty($errors)) {
                 try {
                     $db->beginTransaction();
-                    
+
                     // Generar referencia única
                     $reference = generateRepairReference();
-                    
+
                     // Insertar reparación
                     $repair_id = $db->insert(
                         "INSERT INTO repairs (
                             reference, customer_name, customer_phone, brand_id, model_id, 
-                            issue_description, estimated_cost, priority, status, 
+                            issue_description, estimated_cost, priority, status, warranty_days,
                             received_at, created_by, shop_id, notes
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', NOW(), ?, ?, ?)",
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, NOW(), ?, ?, ?)",
                         [
                             $reference,
                             $data['customer_name'],
@@ -74,19 +83,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             $data['issue_description'],
                             !empty($data['estimated_cost']) ? $data['estimated_cost'] : null,
                             $data['priority'] ?? 'medium',
+                            $warranty_days,
                             $_SESSION['user_id'],
                             $shop_id,
                             $data['notes'] ?? null
                         ]
                     );
-                    
+
                     if ($repair_id) {
                         $db->commit();
-                        
-                        logActivity('repair_created', "Nueva reparación #$reference creada", $_SESSION['user_id']);
-                        
+
+                        logActivity('repair_created', "Nueva reparación #$reference creada con garantía de $warranty_days días", $_SESSION['user_id']);
+
                         setMessage('Reparación registrada correctamente con referencia #' . $reference, MSG_SUCCESS);
-                        
+
                         // Redirigir según la opción elegida
                         if (isset($_POST['action']) && $_POST['action'] === 'print') {
                             header('Location: ' . url('pages/print_ticket.php?id=' . $repair_id));
@@ -106,7 +116,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             }
         }
-        
+
         if (!empty($errors)) {
             setMessage(implode('<br>', $errors), MSG_ERROR);
         }
@@ -117,6 +127,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $db = getDB();
 $brands = $db->select("SELECT * FROM brands ORDER BY name");
 $common_issues = $db->select("SELECT * FROM common_issues ORDER BY category, issue_text");
+
+// أضف هذه الأسطر الجديدة هنا 👇
+$warranty_config = getConfig('warranty');
+$default_warranty = $warranty_config['default_days'];
+$min_warranty = $warranty_config['min_days'];
+$max_warranty = $warranty_config['max_days'];
+
+// Incluir header
+require_once INCLUDES_PATH . 'header.php';
+
+
 
 // Incluir header
 require_once INCLUDES_PATH . 'header.php';
@@ -359,6 +380,30 @@ require_once INCLUDES_PATH . 'header.php';
                                     Estimación inicial del coste de reparación.
                                 </div>
                             </div>
+
+                            <div class="col-md-6 mb-3">
+                                <label for="warranty_days" class="form-label">
+                                    Días de Garantía
+                                    <i class="bi bi-info-circle text-muted"
+                                       title="Días de garantía gratuita después de la entrega"></i>
+                                </label>
+                                <div class="input-group">
+                                    <input type="number"
+                                           class="form-control"
+                                           id="warranty_days"
+                                           name="warranty_days"
+                                           value="<?= htmlspecialchars($_POST['warranty_days'] ?? $default_warranty) ?>"
+                                           min="<?= $min_warranty ?>"
+                                           max="<?= $max_warranty ?>"
+                                           step="1">
+                                    <span class="input-group-text">días</span>
+                                </div>
+                                <div class="form-text">
+                                    Garantía por defecto: <?= $default_warranty ?> días.
+                                    Rango permitido: <?= $min_warranty ?>-<?= $max_warranty ?> días.
+                                </div>
+                            </div>
+
                             <div class="col-12 mb-3">
                                 <label for="notes" class="form-label">Notas Internas</label>
                                 <textarea class="form-control"

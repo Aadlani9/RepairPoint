@@ -519,3 +519,25 @@ COMMIT;
 END//
 
 DELIMITER ;
+
+
+
+-- إضافة حقول الضمانة وإعادة الفتح لجدول repairs
+ALTER TABLE repairs
+    ADD COLUMN warranty_days INT DEFAULT 30 COMMENT 'عدد أيام الضمانة',
+ADD COLUMN reopen_type ENUM('warranty', 'paid', 'goodwill') NULL COMMENT 'نوع إعادة الفتح',
+ADD COLUMN reopen_reason TEXT COMMENT 'سبب إعادة الفتح',
+ADD COLUMN reopen_notes TEXT COMMENT 'ملاحظات إعادة الفتح',
+ADD COLUMN reopen_date DATETIME COMMENT 'تاريخ إعادة الفتح',
+ADD COLUMN parent_repair_id INT COMMENT 'معرف الإصلاح الأصلي في حالة إعادة الفتح',
+ADD COLUMN is_reopened BOOLEAN DEFAULT FALSE COMMENT 'تم إعادة فتحه أم لا';
+
+-- إضافة فهرس للبحث السريع
+ALTER TABLE repairs ADD INDEX idx_reopen_status (is_reopened, status);
+ALTER TABLE repairs ADD INDEX idx_warranty (delivered_at, warranty_days);
+
+-- إضافة حالة جديدة للإصلاحات المعاد فتحها
+ALTER TABLE repairs MODIFY COLUMN status ENUM('pending', 'in_progress', 'completed', 'delivered', 'reopened') DEFAULT 'pending';
+
+-- تحديث الإصلاحات الموجودة لتحتوي على ضمانة افتراضية
+UPDATE repairs SET warranty_days = 30 WHERE warranty_days IS NULL;

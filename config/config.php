@@ -124,21 +124,32 @@ function getConfig($key = null) {
             'pending' => ['name' => 'Pendiente', 'color' => 'warning'],
             'in_progress' => ['name' => 'En Proceso', 'color' => 'info'],
             'completed' => ['name' => 'Completado', 'color' => 'success'],
-            'delivered' => ['name' => 'Entregado', 'color' => 'primary']
+            'delivered' => ['name' => 'Entregado', 'color' => 'primary'],
+            'reopened' => ['name' => 'Reabierto', 'color' => 'danger']
         ],
         'repair_priority' => [
             'low' => ['name' => 'Baja', 'color' => 'secondary'],
             'medium' => ['name' => 'Media', 'color' => 'warning'],
             'high' => ['name' => 'Alta', 'color' => 'danger']
         ],
+        'reopen_types' => [
+            'warranty' => ['name' => 'Garantía', 'color' => 'success', 'cost' => false],
+            'paid' => ['name' => 'Reparación Pagada', 'color' => 'warning', 'cost' => true],
+            'goodwill' => ['name' => 'Buena Voluntad', 'color' => 'info', 'cost' => false]
+        ],
+        'warranty' => [
+            'default_days' => 30,
+            'min_days' => 7,
+            'max_days' => 365
+        ],
         'roles' => [
             'admin' => [
                 'name' => 'Administrador',
-                'permissions' => ['manage_users', 'manage_repairs', 'delete_repairs', 'view_reports', 'manage_settings']
+                'permissions' => ['manage_users', 'manage_repairs', 'delete_repairs', 'view_reports', 'manage_settings', 'reopen_repairs']
             ],
             'staff' => [
                 'name' => 'Personal',
-                'permissions' => ['manage_repairs', 'view_reports']
+                'permissions' => ['manage_repairs', 'view_reports', 'reopen_repairs']
             ]
         ]
     ];
