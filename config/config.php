@@ -96,7 +96,7 @@ define('ALLOWED_IMAGE_TYPES', ['jpg', 'jpeg', 'png', 'gif']);
 // CONFIGURACIÓN DE PAGINACIÓN
 // ===================================================
 
-define('RECORDS_PER_PAGE', 5);
+define('RECORDS_PER_PAGE', 10);
 
 // ===================================================
 // MODO DEBUG
@@ -270,7 +270,11 @@ class SimpleDB {
     }
 
     public function rollback() {
-        return $this->pdo->rollBack();
+        // التحقق من وجود transaction نشط
+        if ($this->pdo->inTransaction()) {
+            return $this->pdo->rollBack();
+        }
+        return false; // لا يوجد transaction نشط
     }
 }
 

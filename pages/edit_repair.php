@@ -708,261 +708,379 @@ require_once INCLUDES_PATH . 'header.php';
 }
 </style>
 
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const phoneInput = document.getElementById('customer_phone');
-        if (!phoneInput) return;
+    <script>
+        // JavaScript المحسن لحل مشكلة تحميل النماذج
+        <?php echo file_get_contents('edit_repair_fixed_js.js'); ?>
+    </script>
 
-        // دالة للتحقق من صحة الرقم (مع أو بدون مسافات)
-        function isValidPhone(phone) {
-            if (!phone) return false;
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🚀 Edit Repair - DOM Ready');
 
-            // إزالة المسافات والرموز للتحقق
-            const clean = phone.replace(/[\s\-\.\(\)]/g, '');
+            // إعداد التحقق من صحة النموذج
+            setupFormValidation();
 
-            // أنماط صحيحة
-            const patterns = [
-                /^\+34[6789]\d{8}$/,    // +34xxxxxxxxx
-                /^0034[6789]\d{8}$/,    // 0034xxxxxxxxx
-                /^34[6789]\d{8}$/,      // 34xxxxxxxxx
-                /^[6789]\d{8}$/,        // xxxxxxxxx
-            ];
+            // إعداد تحميل الموديلات - هذا هو الأهم
+            setupBrandModelHandling();
 
-            return patterns.some(pattern => pattern.test(clean));
+            // إعداد الهاتف
+            setupPhoneFormatting();
+
+            // إعداد الأزرار الشائعة
+            setupCommonIssues();
+
+            // إعداد كشف التغييرات
+            setupChangeDetection();
+
+            // تحميل الموديلات فوراً عند تحميل الصفحة
+            loadInitialModels();
+
+            console.log('✅ Edit Repair - All initialized');
+        });
+
+        /**
+         * تحميل الموديلات الأولية عند تحميل الصفحة
+         */
+        function loadInitialModels() {
+            const brandSelect = document.getElementById('brand_id');
+            const modelSelect = document.getElementById('model_id');
+            const currentModelId = <?php echo intval($repair['model_id']); ?>;
+
+            console.log('📱 Loading initial models:', {
+                brandId: brandSelect ? brandSelect.value : 'NOT_FOUND',
+                currentModelId: currentModelId
+            });
+
+            // إذا كان هناك brand محدد، حمّل النماذج
+            if (brandSelect && brandSelect.value) {
+                loadModels(brandSelect.value, modelSelect, currentModelId);
+            }
         }
 
-        // منع validation تلقائي عند التحميل
-        phoneInput.addEventListener('focus', function() {
-            this.classList.remove('is-invalid', 'is-valid');
-            this.setCustomValidity('');
-        });
+        /**
+         * إعداد تحميل الموديلات حسب الماركة
+         */
+        function setupBrandModelHandling() {
+            const brandSelect = document.getElementById('brand_id');
+            const modelSelect = document.getElementById('model_id');
 
-        // التحقق فقط عند blur
-        phoneInput.addEventListener('blur', function() {
-            if (!this.value) {
-                // حقل فارغ ومطلوب
-                this.classList.add('is-invalid');
-                this.setCustomValidity('هذا الحقل مطلوب');
-            } else if (isValidPhone(this.value)) {
-                // رقم صحيح
-                this.classList.remove('is-invalid');
-                this.classList.add('is-valid');
-                this.setCustomValidity('');
-            } else {
-                // رقم خطأ
-                this.classList.add('is-invalid');
-                this.classList.remove('is-valid');
-                this.setCustomValidity('رقم الهاتف غير صحيح');
+            if (!brandSelect || !modelSelect) {
+                console.error('❌ Brand or Model select not found');
+                return;
             }
-        });
 
-        // منع validation أثناء الكتابة
-        phoneInput.addEventListener('input', function() {
-            this.classList.remove('is-invalid', 'is-valid');
-            this.setCustomValidity('');
-        });
+            // استمع لتغيير الماركة
+            brandSelect.addEventListener('change', function() {
+                const brandId = this.value;
+                console.log('🏷️ Brand changed:', brandId);
 
-        // إزالة أي validation في البداية
-        setTimeout(function() {
-            phoneInput.classList.remove('is-invalid', 'is-valid');
-            phoneInput.setCustomValidity('');
-        }, 100);
-    });
-
-function initEditForm() {
-    const form = document.querySelector('.needs-validation');
-    
-    // Prevenir envío accidental
-    window.addEventListener('beforeunload', function(e) {
-        if (hasUnsavedChanges()) {
-            e.preventDefault();
-            e.returnValue = '';
-        }
-    });
-    
-    // Validación al enviar
-    form.addEventListener('submit', function(event) {
-        if (!form.checkValidity()) {
-            event.preventDefault();
-            event.stopPropagation();
-        }
-        form.classList.add('was-validated');
-    });
-}
-
-function setupFormValidation() {
-    const inputs = document.querySelectorAll('input, select, textarea');
-    
-    inputs.forEach(input => {
-        input.addEventListener('blur', function() {
-            if (this.checkValidity()) {
-                this.classList.remove('is-invalid');
-                this.classList.add('is-valid');
-            } else {
-                this.classList.remove('is-valid');
-                this.classList.add('is-invalid');
-            }
-        });
-        
-        input.addEventListener('input', function() {
-            if (this.classList.contains('is-invalid') && this.checkValidity()) {
-                this.classList.remove('is-invalid');
-                this.classList.add('is-valid');
-            }
-        });
-    });
-}
-
-function setupCommonIssues() {
-    const commonIssueButtons = document.querySelectorAll('.common-issue-btn');
-    const issueTextarea = document.getElementById('issue_description');
-    
-    commonIssueButtons.forEach(button => {
-        button.addEventListener('click', function() {
-            const issueText = this.getAttribute('data-issue');
-            
-            if (issueTextarea.value.trim() === '') {
-                issueTextarea.value = issueText;
-            } else {
-                const confirmation = confirm('¿Quieres reemplazar el texto actual con este problema común?');
-                if (confirmation) {
-                    issueTextarea.value = issueText;
+                if (brandId) {
+                    loadModels(brandId, modelSelect);
+                } else {
+                    // إذا لم يتم اختيار ماركة، امسح النماذج
+                    modelSelect.innerHTML = '<option value="">Selecciona una marca primero</option>';
+                    modelSelect.disabled = true;
                 }
+            });
+
+            // استمع لتغيير النموذج
+            modelSelect.addEventListener('change', function() {
+                console.log('📱 Model changed:', this.value);
+                // إزالة أي رسائل خطأ سابقة
+                this.classList.remove('is-invalid');
+                if (this.value) {
+                    this.classList.add('is-valid');
+                }
+            });
+        }
+
+        /**
+         * تحميل النماذج من API
+         */
+        async function loadModels(brandId, modelSelect, selectedModelId = null) {
+            if (!brandId) {
+                modelSelect.innerHTML = '<option value="">Selecciona una marca primero</option>';
+                modelSelect.disabled = true;
+                return;
             }
-            
-            issueTextarea.focus();
-            markAsChanged(issueTextarea);
-        });
-    });
-}
 
-    function loadModelsForBrand() {
-        const brandSelect = document.getElementById('brand_id');
-        const modelSelect = document.getElementById('model_id');
-        const currentModelId = <?= intval($repair['model_id']) ?>;
+            console.log('🔄 Loading models for brand:', brandId, 'Selected:', selectedModelId);
 
-        brandSelect.addEventListener('change', function() {
-            loadModels(this.value, modelSelect);
-        });
+            try {
+                // إظهار مؤشر التحميل
+                modelSelect.innerHTML = '<option value="">Cargando modelos...</option>';
+                modelSelect.disabled = true;
 
-        // Cargar modelos iniciales
-        if (brandSelect.value) {
-            loadModels(brandSelect.value, modelSelect, currentModelId);
-        }
-    }
+                // بناء URL للـ API
+                const apiUrl = '<?php echo url('api/models.php'); ?>?brand_id=' + brandId + '&action=get_by_brand';
+                console.log('🌐 API URL:', apiUrl);
 
+                // تحميل النماذج من API
+                const response = await fetch(apiUrl, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
 
-    async function loadModels(brandId, modelSelect, selectedModelId = null) {
-        if (!brandId) {
-            modelSelect.innerHTML = '<option value="">Selecciona una marca primero</option>';
-            modelSelect.disabled = true;
-            return;
-        }
+                if (!response.ok) {
+                    throw new Error('HTTP error! status: ' + response.status);
+                }
 
-        try {
-            modelSelect.innerHTML = '<option value="">Cargando...</option>';
-            modelSelect.disabled = true;
+                const data = await response.json();
+                console.log('📊 API Response:', data);
 
-            const response = await fetch(`<?= url('api/models.php') ?>?brand_id=${brandId}`);
-            const data = await response.json();
+                // مسح النماذج الحالية
+                modelSelect.innerHTML = '<option value="">Selecciona un modelo</option>';
 
-            modelSelect.innerHTML = '<option value="">Selecciona un modelo</option>';
+                if (data.success && data.data && data.data.length > 0) {
+                    // إضافة النماذج
+                    data.data.forEach(function(model) {
+                        const option = document.createElement('option');
+                        option.value = model.id;
+                        option.textContent = model.name;
 
-            if (data.success && data.data) {
-                data.data.forEach(model => {
-                    const option = document.createElement('option');
-                    option.value = model.id;
-                    option.textContent = model.name;
+                        // تحديد النموذج المحدد مسبقاً
+                        if (selectedModelId && model.id == selectedModelId) {
+                            option.selected = true;
+                            console.log('✅ Selected model:', model.name);
+                        }
 
-                    if (selectedModelId && model.id == selectedModelId) {
-                        option.selected = true;
+                        modelSelect.appendChild(option);
+                    });
+
+                    // تفعيل القائمة
+                    modelSelect.disabled = false;
+
+                    // إزالة أي رسائل خطأ
+                    modelSelect.classList.remove('is-invalid');
+                    if (modelSelect.value) {
+                        modelSelect.classList.add('is-valid');
                     }
 
-                    modelSelect.appendChild(option);
+                    console.log('✅ Models loaded successfully:', data.data.length);
+                } else {
+                    // لا توجد نماذج أو فشل في التحميل
+                    modelSelect.innerHTML = '<option value="">No hay modelos disponibles</option>';
+                    modelSelect.disabled = true;
+                    console.log('⚠️ No models found for brand:', brandId);
+
+                    // إذا كان لدينا debug info، اطبعها
+                    if (data.debug) {
+                        console.log('🐛 Debug info:', data.debug);
+                    }
+                }
+
+            } catch (error) {
+                console.error('❌ Error loading models:', error);
+
+                // إظهار رسالة خطأ
+                modelSelect.innerHTML = '<option value="">Error al cargar modelos</option>';
+                modelSelect.disabled = true;
+
+                // إظهار notification للمستخدم
+                showNotification('Error al cargar los modelos. Por favor, recarga la página.', 'error');
+            }
+        }
+
+        /**
+         * إعداد التحقق من صحة النموذج
+         */
+        function setupFormValidation() {
+            const form = document.querySelector('.needs-validation');
+
+            if (!form) return;
+
+            // منع الإرسال الافتراضي إذا كان النموذج غير صالح
+            form.addEventListener('submit', function(event) {
+                // تحقق خاص للنموذج المحدد
+                const modelSelect = document.getElementById('model_id');
+                if (!modelSelect.value) {
+                    event.preventDefault();
+                    event.stopPropagation();
+
+                    modelSelect.classList.add('is-invalid');
+                    modelSelect.focus();
+
+                    showNotification('Por favor, selecciona un modelo de teléfono', 'warning');
+                    return false;
+                }
+
+                // التحقق العام من صحة النموذج
+                if (!form.checkValidity()) {
+                    event.preventDefault();
+                    event.stopPropagation();
+
+                    // البحث عن أول حقل غير صالح والتركيز عليه
+                    const firstInvalidField = form.querySelector('.form-control:invalid, .form-select:invalid');
+                    if (firstInvalidField) {
+                        firstInvalidField.focus();
+                    }
+                }
+
+                form.classList.add('was-validated');
+            });
+        }
+
+        /**
+         * إعداد تنسيق الهاتف
+         */
+        function setupPhoneFormatting() {
+            const phoneInput = document.getElementById('customer_phone');
+            if (!phoneInput) return;
+
+            // دالة للتحقق من صحة الرقم
+            function isValidPhone(phone) {
+                if (!phone) return false;
+
+                const clean = phone.replace(/[\s\-\.\(\)]/g, '');
+                const patterns = [
+                    /^\+34[6789]\d{8}$/,    // +34xxxxxxxxx
+                    /^0034[6789]\d{8}$/,    // 0034xxxxxxxxx
+                    /^34[6789]\d{8}$/,      // 34xxxxxxxxx
+                    /^[6789]\d{8}$/         // xxxxxxxxx
+                ];
+
+                return patterns.some(function(pattern) {
+                    return pattern.test(clean);
                 });
             }
 
-            modelSelect.disabled = false;
-        } catch (error) {
-            console.error('Error cargando modelos:', error);
-            modelSelect.innerHTML = '<option value="">Error al cargar modelos</option>';
-            modelSelect.disabled = false;
+            // إزالة validation تلقائي عند التحميل
+            phoneInput.addEventListener('focus', function() {
+                this.classList.remove('is-invalid', 'is-valid');
+                this.setCustomValidity('');
+            });
 
-            if (typeof Utils !== 'undefined') {
-                Utils.showNotification('Error al cargar los modelos', 'error');
+            // التحقق فقط عند blur
+            phoneInput.addEventListener('blur', function() {
+                if (!this.value) {
+                    this.classList.add('is-invalid');
+                    this.setCustomValidity('Este campo es obligatorio');
+                } else if (isValidPhone(this.value)) {
+                    this.classList.remove('is-invalid');
+                    this.classList.add('is-valid');
+                    this.setCustomValidity('');
+                } else {
+                    this.classList.add('is-invalid');
+                    this.classList.remove('is-valid');
+                    this.setCustomValidity('Número de teléfono no válido');
+                }
+            });
+
+            // منع validation أثناء الكتابة
+            phoneInput.addEventListener('input', function() {
+                this.classList.remove('is-invalid', 'is-valid');
+                this.setCustomValidity('');
+            });
+        }
+
+        /**
+         * إعداد الأزرار الشائعة
+         */
+        function setupCommonIssues() {
+            const commonIssueButtons = document.querySelectorAll('.common-issue-btn');
+            const issueTextarea = document.getElementById('issue_description');
+
+            if (!issueTextarea) return;
+
+            commonIssueButtons.forEach(function(button) {
+                button.addEventListener('click', function() {
+                    const issueText = this.getAttribute('data-issue');
+
+                    if (issueTextarea.value.trim() === '') {
+                        issueTextarea.value = issueText;
+                    } else {
+                        const confirmation = confirm('¿Quieres reemplazar el texto actual con este problema común?');
+                        if (confirmation) {
+                            issueTextarea.value = issueText;
+                        }
+                    }
+
+                    issueTextarea.focus();
+                    markAsChanged(issueTextarea);
+                });
+            });
+        }
+
+        /**
+         * إعداد كشف التغييرات
+         */
+        function setupChangeDetection() {
+            const inputs = document.querySelectorAll('input, select, textarea');
+            const originalValues = {};
+
+            // حفظ القيم الأصلية
+            inputs.forEach(function(input) {
+                originalValues[input.name] = input.value;
+            });
+
+            // كشف التغييرات
+            inputs.forEach(function(input) {
+                input.addEventListener('input', function() {
+                    if (this.value !== originalValues[this.name]) {
+                        markAsChanged(this);
+                    } else {
+                        markAsUnchanged(this);
+                    }
+                });
+
+                input.addEventListener('change', function() {
+                    if (this.value !== originalValues[this.name]) {
+                        markAsChanged(this);
+                    } else {
+                        markAsUnchanged(this);
+                    }
+                });
+            });
+        }
+
+        /**
+         * تمييز الحقول المتغيرة
+         */
+        function markAsChanged(element) {
+            element.classList.add('changed');
+        }
+
+        function markAsUnchanged(element) {
+            element.classList.remove('changed');
+        }
+
+        /**
+         * التحقق من وجود تغييرات غير محفوظة
+         */
+        function hasUnsavedChanges() {
+            return document.querySelectorAll('.changed').length > 0;
+        }
+
+        /**
+         * إظهار notification
+         */
+        function showNotification(message, type, duration) {
+            type = type || 'info';
+            duration = duration || 5000;
+
+            if (typeof Utils !== 'undefined' && Utils.showNotification) {
+                Utils.showNotification(message, type, duration);
+            } else {
+                // fallback بسيط
+                alert(message);
             }
         }
-    }
 
-function setupChangeDetection() {
-    const inputs = document.querySelectorAll('input, select, textarea');
-    const originalValues = {};
-    
-    // Guardar valores originales
-    inputs.forEach(input => {
-        originalValues[input.name] = input.value;
-    });
-    
-    // Detectar cambios
-    inputs.forEach(input => {
-        input.addEventListener('input', function() {
-            if (this.value !== originalValues[this.name]) {
-                markAsChanged(this);
-            } else {
-                markAsUnchanged(this);
+        // اختصارات لوحة المفاتيح
+        document.addEventListener('keydown', function(e) {
+            // Ctrl/Cmd + S للحفظ
+            if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+                e.preventDefault();
+                const saveButton = document.querySelector('button[name="action"][value="save"]');
+                if (saveButton) {
+                    saveButton.click();
+                }
             }
         });
-        
-        input.addEventListener('change', function() {
-            if (this.value !== originalValues[this.name]) {
-                markAsChanged(this);
-            } else {
-                markAsUnchanged(this);
-            }
-        });
-    });
-}
-
-function markAsChanged(element) {
-    element.classList.add('changed');
-}
-
-function markAsUnchanged(element) {
-    element.classList.remove('changed');
-}
-
-function hasUnsavedChanges() {
-    return document.querySelectorAll('.changed').length > 0;
-}
-
-// Atajos de teclado
-document.addEventListener('keydown', function(e) {
-    // Ctrl/Cmd + S para guardar
-    if ((e.ctrlKey || e.metaKey) && e.key === 's') {
-        e.preventDefault();
-        document.querySelector('button[name="action"][value="save"]').click();
-    }
-    
-    // Escape para cancelar
-    if (e.key === 'Escape') {
-        if (hasUnsavedChanges()) {
-            const confirm = window.confirm('Hay cambios sin guardar. ¿Estás seguro de que quieres salir?');
-            if (confirm) {
-                window.location.href = '<?= url('pages/repair_details.php?id=' . $repair['id']) ?>';
-            }
-        } else {
-            window.location.href = '<?= url('pages/repair_details.php?id=' . $repair['id']) ?>';
-        }
-    }
-});
-
-// Auto-guardar cada 5 minutos
-setInterval(function() {
-    if (hasUnsavedChanges()) {
-        Utils.showNotification('Tienes cambios sin guardar', 'warning', 3000);
-    }
-}, 300000);
-</script>
+    </script>
 
 <?php
 // Incluir footer

@@ -173,10 +173,17 @@ function isValidPhone($phone) {
  * تنسيق رقم الهاتف للعرض
  */
 function formatPhoneNumber($phone) {
+    if (empty($phone)) return '';
+
     $clean_phone = preg_replace('/[\s\-\.\(\)]/', '', $phone);
 
     // إذا كان الرقم يبدأ بـ +34
     if (preg_match('/^\+34([6789]\d{8})$/', $clean_phone, $matches)) {
+        return '+34 ' . substr($matches[1], 0, 3) . ' ' . substr($matches[1], 3, 3) . ' ' . substr($matches[1], 6, 3);
+    }
+
+    // إذا كان الرقم يبدأ بـ 0034
+    if (preg_match('/^0034([6789]\d{8})$/', $clean_phone, $matches)) {
         return '+34 ' . substr($matches[1], 0, 3) . ' ' . substr($matches[1], 3, 3) . ' ' . substr($matches[1], 6, 3);
     }
 
@@ -191,6 +198,61 @@ function formatPhoneNumber($phone) {
     }
 
     return $phone; // إرجاع الرقم كما هو إذا لم يطابق أي نمط
+}
+
+
+
+
+
+/**
+ * دالة جديدة للتحقق من صحة بيانات الإصلاح
+ */
+function validateRepairData($data) {
+    $errors = [];
+
+    // التحقق من الحقول المطلوبة
+    $required_fields = ['customer_name', 'customer_phone', 'brand_id', 'model_id', 'issue_description'];
+
+    foreach ($required_fields as $field) {
+        if (empty($data[$field])) {
+            $errors[] = "El campo {$field} es obligatorio";
+        }
+    }
+
+    // التحقق من صحة الهاتف
+    if (!empty($data['customer_phone']) && !isValidPhone($data['customer_phone'])) {
+        $errors[] = 'El formato del teléfono no es válido';
+    }
+
+    // التحقق من صحة التكلفة
+    if (!empty($data['estimated_cost']) && !is_numeric($data['estimated_cost'])) {
+        $errors[] = 'La cantidad del coste debe ser numérica';
+    }
+
+    // التحقق من صحة الأولوية
+    $valid_priorities = ['low', 'medium', 'high'];
+    if (!empty($data['priority']) && !in_array($data['priority'], $valid_priorities)) {
+        $errors[] = 'Prioridad no válida';
+    }
+
+    return $errors;
+}
+
+/**
+ * دالة مساعدة لتنظيف بيانات النموذج
+ */
+function cleanRepairFormData($data) {
+    return [
+        'customer_name' => cleanString($data['customer_name']),
+        'customer_phone' => cleanString($data['customer_phone']),
+        'brand_id' => intval($data['brand_id']),
+        'model_id' => intval($data['model_id']),
+        'issue_description' => cleanString($data['issue_description']),
+        'priority' => cleanString($data['priority'] ?? 'medium'),
+        'estimated_cost' => !empty($data['estimated_cost']) ? floatval($data['estimated_cost']) : null,
+        'notes' => cleanString($data['notes'] ?? ''),
+        'warranty_days' => intval($data['warranty_days'] ?? 30)
+    ];
 }
 
 /**
@@ -770,7 +832,8 @@ function safeFormData($data, $defaults = []) {
         'completed_at' => '',
         'delivered_at' => '',
         'created_at' => '',
-        'updated_at' => ''
+        'updated_at' => '',
+        'warranty_days' => 30
     ];
 
     // دمج القيم الافتراضية مع المخصصة
@@ -779,7 +842,13 @@ function safeFormData($data, $defaults = []) {
     // دمج البيانات الفعلية مع التأكد من وجود جميع المفاتيح
     $safe_data = [];
     foreach ($merged_defaults as $key => $default_value) {
-        $safe_data[$key] = isset($data[$key]) ? $data[$key] : $default_value;
+        if (isset($data[$key])) {
+            // إذا كانت القيمة موجودة، استخدمها
+            $safe_data[$key] = $data[$key];
+        } else {
+            // إذا لم تكن موجودة، استخدم القيمة الافتراضية
+            $safe_data[$key] = $default_value;
+        }
     }
 
     return $safe_data;
@@ -986,5 +1055,495 @@ function formatWarrantyStatus($delivered_at, $warranty_days = 30) {
         return '<span class="badge bg-danger">Garantía expirada</span>';
     }
 }
+
+
+// ===================================================
+// FUNCIONES DE قطع الغيار (SPARE PARTS)
+// ===================================================
+
+/**
+ * البحث في قطع الغيار
+ */
+function searchSpareParts($shop_id, $search_term = '', $category = '', $stock_status = '', $brand_id = 0, $model_id = 0, $limit = 50, $offset = 0) {
+    $db = getDB();
+
+    $query = "SELECT sp.*, 
+                     GROUP_CONCAT(DISTINCT CONCAT(b.name, ' ', m.name) SEPARATOR ', ') as compatible_phones,
+                     COUNT(DISTINCT spc.model_id) as compatibility_count
+              FROM spare_parts sp
+              LEFT JOIN spare_parts_compatibility spc ON sp.id = spc.spare_part_id
+              LEFT JOIN brands b ON spc.brand_id = b.id
+              LEFT JOIN models m ON spc.model_id = m.id
+              WHERE sp.shop_id = ? AND sp.is_active = TRUE";
+
+    $params = [$shop_id];
+
+    // فلاتر البحث
+    if (!empty($search_term)) {
+        $query .= " AND (sp.part_name LIKE ? OR sp.part_code LIKE ?)";
+        $search_param = '%' . $search_term . '%';
+        $params[] = $search_param;
+        $params[] = $search_param;
+    }
+
+    if (!empty($category)) {
+        $query .= " AND sp.category = ?";
+        $params[] = $category;
+    }
+
+    if (!empty($stock_status)) {
+        $query .= " AND sp.stock_status = ?";
+        $params[] = $stock_status;
+    }
+
+    // فلتر حسب الهاتف
+    if ($brand_id > 0 && $model_id > 0) {
+        $query .= " AND spc.brand_id = ? AND spc.model_id = ?";
+        $params[] = $brand_id;
+        $params[] = $model_id;
+    }
+
+    $query .= " GROUP BY sp.id ORDER BY sp.part_name LIMIT ? OFFSET ?";
+    $params[] = $limit;
+    $params[] = $offset;
+
+    return $db->select($query, $params);
+}
+
+/**
+ * الحصول على قطع الغيار المقترحة لهاتف معين
+ */
+function getSuggestedParts($shop_id, $brand_id, $model_id) {
+    $db = getDB();
+
+    $query = "SELECT sp.id, sp.part_code, sp.part_name, sp.category, 
+                     sp.total_price, sp.stock_status, sp.stock_quantity, 
+                     sp.warranty_days, sp.notes
+              FROM spare_parts sp
+              JOIN spare_parts_compatibility spc ON sp.id = spc.spare_part_id
+              WHERE sp.shop_id = ? AND sp.is_active = TRUE 
+              AND spc.brand_id = ? AND spc.model_id = ?
+              AND sp.stock_status != 'out_of_stock'
+              ORDER BY sp.category, sp.part_name";
+
+    return $db->select($query, [$shop_id, $brand_id, $model_id]);
+}
+
+/**
+ * حساب التكلفة الإجمالية لقطع الغيار
+ */
+function calculateSparePartsCost($parts_array) {
+    $total_cost = 0;
+
+    if (!is_array($parts_array) || empty($parts_array)) {
+        return $total_cost;
+    }
+
+    foreach ($parts_array as $part) {
+        if (isset($part['price']) && isset($part['quantity'])) {
+            $total_cost += (float)$part['price'] * (int)$part['quantity'];
+        }
+    }
+
+    return $total_cost;
+}
+
+/**
+ * تحديث المخزون لقطعة غيار
+ */
+function updateSparePartStock($part_id, $quantity_used, $operation = 'subtract') {
+    $db = getDB();
+
+    try {
+        // الحصول على البيانات الحالية
+        $part = $db->selectOne(
+            "SELECT stock_quantity, min_stock_level FROM spare_parts WHERE id = ?",
+            [$part_id]
+        );
+
+        if (!$part) {
+            return false;
+        }
+
+        // حساب الكمية الجديدة
+        switch ($operation) {
+            case 'add':
+                $new_quantity = $part['stock_quantity'] + $quantity_used;
+                break;
+            case 'subtract':
+            default:
+                $new_quantity = max(0, $part['stock_quantity'] - $quantity_used);
+        }
+
+        // تحديد حالة المخزون
+        $new_status = 'available';
+        if ($new_quantity <= 0) {
+            $new_status = 'out_of_stock';
+        } elseif ($new_quantity <= $part['min_stock_level']) {
+            $new_status = 'order_required';
+        }
+
+        // تحديث المخزون
+        return $db->update(
+            "UPDATE spare_parts SET stock_quantity = ?, stock_status = ? WHERE id = ?",
+            [$new_quantity, $new_status, $part_id]
+        );
+
+    } catch (Exception $e) {
+        error_log("Error updating spare part stock: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * الحصول على تاريخ أسعار قطعة غيار
+ */
+function getPartPriceHistory($part_id, $limit = 10) {
+    $db = getDB();
+
+    return $db->select(
+        "SELECT sph.*, u.name as updated_by_name
+         FROM spare_parts_price_history sph
+         LEFT JOIN users u ON sph.updated_by = u.id
+         WHERE sph.spare_part_id = ?
+         ORDER BY sph.updated_at DESC
+         LIMIT ?",
+        [$part_id, $limit]
+    );
+}
+
+/**
+ * الحصول على فئات قطع الغيار
+ */
+function getSparePartsCategories($shop_id) {
+    $db = getDB();
+
+    $categories = $db->select(
+        "SELECT DISTINCT category 
+         FROM spare_parts 
+         WHERE shop_id = ? AND is_active = TRUE AND category IS NOT NULL
+         ORDER BY category",
+        [$shop_id]
+    );
+
+    return array_column($categories, 'category');
+}
+
+/**
+ * الحصول على قطع الغيار منخفضة المخزون
+ */
+function getLowStockParts($shop_id) {
+    $db = getDB();
+
+    return $db->select(
+        "SELECT * FROM low_stock_parts WHERE shop_id = ? ORDER BY stock_quantity ASC",
+        [$shop_id]
+    );
+}
+
+/**
+ * إضافة قطعة غيار مستخدمة في الإصلاح
+ */
+// ابحث عن دالة addRepairSparePart واستبدلها بهذا
+function addRepairSparePart($repair_id, $spare_part_id, $quantity = 1, $unit_price = null) {
+    $db = getDB();
+
+    try {
+        // ❌ احذف هذا السطر - لا نحتاج transaction جديد
+        // $db->beginTransaction();
+
+        // الحصول على بيانات القطعة
+        $part = $db->selectOne(
+            "SELECT * FROM spare_parts WHERE id = ?",
+            [$spare_part_id]
+        );
+
+        if (!$part) {
+            throw new Exception('القطعة غير موجودة');
+        }
+
+        // التحقق من توفر المخزون
+        if ($part['stock_quantity'] < $quantity) {
+            throw new Exception('الكمية المطلوبة غير متوفرة في المخزون');
+        }
+
+        // استخدام السعر الحالي إذا لم يتم تحديد سعر
+        if ($unit_price === null) {
+            $unit_price = $part['total_price'];
+        }
+
+        $total_price = $unit_price * $quantity;
+
+        // إدراج استخدام القطعة
+        $usage_id = $db->insert(
+            "INSERT INTO repair_spare_parts (repair_id, spare_part_id, quantity, 
+                                           unit_cost_price, unit_labor_cost, unit_price, total_price, warranty_days)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            [
+                $repair_id,
+                $spare_part_id,
+                $quantity,
+                $part['cost_price'],
+                $part['labor_cost'],
+                $unit_price,
+                $total_price,
+                $part['warranty_days']
+            ]
+        );
+
+        if (!$usage_id) {
+            throw new Exception('فشل في تسجيل استخدام القطعة');
+        }
+
+        // تحديث المخزون
+        if (!updateSparePartStock($spare_part_id, $quantity, 'subtract')) {
+            throw new Exception('فشل في تحديث المخزون');
+        }
+
+        // ❌ احذف هذا السطر - add_repair.php سيتولى commit
+        // $db->commit();
+
+        return $usage_id;
+
+    } catch (Exception $e) {
+        // ❌ احذف rollback - add_repair.php سيتولاه
+        // $db->rollback();
+        error_log("Error adding repair spare part: " . $e->getMessage());
+        throw $e;
+    }
+}
+
+/**
+ * الحصول على قطع الغيار المستخدمة في إصلاح
+ */
+function getRepairSpareParts($repair_id) {
+    $db = getDB();
+
+    return $db->select(
+        "SELECT rsp.*, sp.part_name, sp.part_code, sp.category
+         FROM repair_spare_parts rsp
+         JOIN spare_parts sp ON rsp.spare_part_id = sp.id
+         WHERE rsp.repair_id = ?
+         ORDER BY sp.category, sp.part_name",
+        [$repair_id]
+    );
+}
+
+/**
+ * حساب التكلفة الإجمالية لقطع الغيار في الإصلاح
+ */
+function calculateRepairSparePartsCost($repair_id) {
+    $db = getDB();
+
+    $result = $db->selectOne(
+        "SELECT 
+            SUM(total_price) as total_customer_price,
+            SUM(quantity * COALESCE(unit_cost_price, 0)) as total_cost_price,
+            SUM(quantity * COALESCE(unit_labor_cost, 0)) as total_labor_cost
+         FROM repair_spare_parts 
+         WHERE repair_id = ?",
+        [$repair_id]
+    );
+
+    if (!$result) {
+        return [
+            'total_customer_price' => 0,
+            'total_cost_price' => 0,
+            'total_labor_cost' => 0,
+            'total_profit' => 0
+        ];
+    }
+
+    $total_customer_price = (float)($result['total_customer_price'] ?? 0);
+    $total_cost_price = (float)($result['total_cost_price'] ?? 0);
+    $total_labor_cost = (float)($result['total_labor_cost'] ?? 0);
+    $total_profit = $total_customer_price - $total_cost_price - $total_labor_cost;
+
+    return [
+        'total_customer_price' => $total_customer_price,
+        'total_cost_price' => $total_cost_price,
+        'total_labor_cost' => $total_labor_cost,
+        'total_profit' => $total_profit
+    ];
+}
+
+/**
+ * التحقق من توفر قطعة غيار
+ */
+function checkSparePartAvailability($part_id, $required_quantity = 1) {
+    $db = getDB();
+
+    $part = $db->selectOne(
+        "SELECT stock_quantity, stock_status, part_name 
+         FROM spare_parts 
+         WHERE id = ? AND is_active = TRUE",
+        [$part_id]
+    );
+
+    if (!$part) {
+        return [
+            'available' => false,
+            'message' => 'القطعة غير موجودة',
+            'stock_quantity' => 0
+        ];
+    }
+
+    if ($part['stock_status'] === 'out_of_stock' || $part['stock_quantity'] < $required_quantity) {
+        return [
+            'available' => false,
+            'message' => 'الكمية المطلوبة غير متوفرة في المخزون',
+            'stock_quantity' => $part['stock_quantity']
+        ];
+    }
+
+    return [
+        'available' => true,
+        'message' => 'متوفر',
+        'stock_quantity' => $part['stock_quantity']
+    ];
+}
+
+/**
+ * البحث السريع في قطع الغيار
+ */
+function quickSearchSpareParts($shop_id, $search_term, $limit = 10) {
+    $db = getDB();
+
+    return $db->select(
+        "SELECT id, part_code, part_name, category, total_price, stock_status, stock_quantity
+         FROM spare_parts
+         WHERE shop_id = ? AND is_active = TRUE
+         AND (part_name LIKE ? OR part_code LIKE ?)
+         ORDER BY 
+            CASE 
+                WHEN part_name LIKE ? THEN 1
+                WHEN part_code LIKE ? THEN 2
+                ELSE 3
+            END,
+            part_name
+         LIMIT ?",
+        [
+            $shop_id,
+            '%' . $search_term . '%',
+            '%' . $search_term . '%',
+            $search_term . '%',
+            $search_term . '%',
+            $limit
+        ]
+    );
+}
+
+/**
+ * تنسيق عرض حالة المخزون
+ */
+function formatStockStatus($status, $quantity = 0) {
+    switch ($status) {
+        case 'available':
+            return '<span class="badge bg-success">Disponible (' . $quantity . ')</span>';
+        case 'order_required':
+            return '<span class="badge bg-warning">Necesita pedido (' . $quantity . ')</span>';
+        case 'out_of_stock':
+            return '<span class="badge bg-danger">Sin stock</span>';
+        default:
+            return '<span class="badge bg-secondary">Desconocido</span>';
+    }
+}
+
+/**
+ * تنسيق عرض فئة قطعة الغيار
+ */
+function formatSparePartCategory($category) {
+    // إضافة تحقق من null
+    if ($category === null || $category === '') {
+        return 'Sin categoría';
+    }
+
+    $categories = [
+        'pantalla' => 'Pantalla',
+        'bateria' => 'Batería',
+        'camara' => 'Cámara',
+        'altavoz' => 'Altavoz',
+        'auricular' => 'Auricular',
+        'conector' => 'Conector',
+        'boton' => 'Botón',
+        'sensor' => 'Sensor',
+        'flex' => 'Flex',
+        'marco' => 'Marco',
+        'tapa' => 'Tapa trasera',
+        'cristal' => 'Cristal',
+        'otros' => 'Otros'
+    ];
+
+    return $categories[strtolower($category)] ?? ucfirst($category);
+}
+
+/**
+ * حساب هامش الربح لقطعة غيار
+ */
+function calculatePartProfitMargin($cost_price, $labor_cost, $total_price) {
+    $total_cost = (float)$cost_price + (float)$labor_cost;
+    $profit = (float)$total_price - $total_cost;
+
+    if ($total_cost == 0) {
+        return $total_price > 0 ? 100 : 0;
+    }
+
+    return round(($profit / $total_cost) * 100, 2);
+}
+
+
+/**
+ * الحصول على صلاحيات قطع الغيار للمستخدم الحالي
+ */
+function getCurrentUserSparePartsPermissions() {
+    if (!isset($_SESSION['user_id'])) {
+        return [
+            'view_spare_parts' => false,
+            'search_spare_parts' => false,
+            'manage_spare_parts' => false,
+            'add_spare_parts' => false,
+            'manage_stock' => false,
+            'view_profit_reports' => false,
+            'view_detailed_costs' => false,
+            'delete_spare_parts' => false,
+            'use_spare_parts' => false,
+            'print_invoice' => false
+        ];
+    }
+
+    $user_role = $_SESSION['user_role'] ?? 'staff';
+
+    if ($user_role === 'admin') {
+        return [
+            'view_spare_parts' => true,
+            'search_spare_parts' => true,
+            'manage_spare_parts' => true,
+            'add_spare_parts' => true,
+            'manage_stock' => true,
+            'view_profit_reports' => true,
+            'view_detailed_costs' => true,
+            'delete_spare_parts' => true,
+            'use_spare_parts' => true,
+            'print_invoice' => true
+        ];
+    }
+
+    return [
+        'view_spare_parts' => true,
+        'search_spare_parts' => true,
+        'manage_spare_parts' => false,
+        'add_spare_parts' => false,
+        'manage_stock' => false,
+        'view_profit_reports' => false,
+        'view_detailed_costs' => false,
+        'delete_spare_parts' => false,
+        'use_spare_parts' => true,
+        'print_invoice' => true
+    ];
+}
+
+
+
+
 
 ?>
