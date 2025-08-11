@@ -65,7 +65,7 @@ $total_records = $db->selectOne(
 
 $total_pages = calculateTotalPages($total_records, $limit);
 
-// Obtener reparaciones - محدث مع الحقول الجديدة
+// Obtener reparaciones - ✅ ترتيب محسن: الأحدث أولاً
 $repairs = $db->select(
     "SELECT r.*, b.name as brand_name, m.name as model_name, u.name as created_by_name
      FROM repairs r 
@@ -79,13 +79,15 @@ $repairs = $db->select(
             WHEN r.priority = 'high' THEN 1
             WHEN r.priority = 'medium' THEN 2
             WHEN r.priority = 'low' THEN 3
+            ELSE 4
         END,
+        r.updated_at DESC,
         r.received_at DESC
      LIMIT $limit OFFSET $offset",
     $params
 );
 
-// Obtener estadísticas rápidas - محدث مع reopened
+// Obtener estadísticas rápidas
 $stats = [
     'pending' => $db->selectOne("SELECT COUNT(*) as count FROM repairs WHERE shop_id = ? AND status = 'pending'", [$shop_id])['count'] ?? 0,
     'in_progress' => $db->selectOne("SELECT COUNT(*) as count FROM repairs WHERE shop_id = ? AND status = 'in_progress'", [$shop_id])['count'] ?? 0,
@@ -137,7 +139,7 @@ require_once INCLUDES_PATH . 'header.php';
             </div>
         </div>
 
-        <!-- Tarjetas de estadísticas rápidas - محدث مع reopened -->
+        <!-- Tarjetas de estadísticas rápidas -->
         <div class="row mb-4">
             <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
                 <div class="card stat-card bg-warning text-dark h-100">
@@ -187,7 +189,6 @@ require_once INCLUDES_PATH . 'header.php';
                 </div>
             </div>
 
-            <!-- إضافة كارت للمعاد فتحها -->
             <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
                 <div class="card stat-card bg-danger text-white h-100">
                     <div class="card-body">
@@ -237,7 +238,7 @@ require_once INCLUDES_PATH . 'header.php';
             </div>
         </div>
 
-        <!-- Filtros y búsqueda - محدث مع reopened -->
+        <!-- Filtros y búsqueda -->
         <div class="card mb-4">
             <div class="card-body">
                 <form method="GET" action="" class="row g-3">
@@ -389,7 +390,7 @@ require_once INCLUDES_PATH . 'header.php';
                                                 €<?= number_format($repair['estimated_cost'], 2) ?>
                                             </small>
                                         <?php endif; ?>
-                                        <?php if ($repair['is_reopened']): ?>
+                                        <?php if ($repair['is_reopened'] ?? false): ?>
                                             <div class="mt-1">
                                                 <small class="badge bg-warning">Reabierto</small>
                                             </div>
@@ -420,7 +421,7 @@ require_once INCLUDES_PATH . 'header.php';
                                         <div class="issue-preview" title="<?= htmlspecialchars($repair['issue_description']) ?>">
                                             <?= htmlspecialchars(mb_strimwidth($repair['issue_description'], 0, 50, '...')) ?>
                                         </div>
-                                        <?php if ($repair['reopen_reason']): ?>
+                                        <?php if (isset($repair['reopen_reason']) && $repair['reopen_reason']): ?>
                                             <div class="mt-1">
                                                 <small class="text-warning">
                                                     <i class="bi bi-arrow-clockwise me-1"></i>
@@ -431,12 +432,12 @@ require_once INCLUDES_PATH . 'header.php';
                                     </td>
                                     <td>
                                         <?= getStatusBadge($repair['status']) ?>
-                                        <?php if ($repair['status'] === 'completed' && !$repair['delivered_at']): ?>
+                                        <?php if ($repair['status'] === 'completed' && !($repair['delivered_at'] ?? false)): ?>
                                             <div class="mt-1">
                                                 <small class="badge bg-warning">Listo para entregar</small>
                                             </div>
                                         <?php endif; ?>
-                                        <?php if ($repair['reopen_type']): ?>
+                                        <?php if (isset($repair['reopen_type']) && $repair['reopen_type']): ?>
                                             <div class="mt-1">
                                                 <?php
                                                 $reopen_config = getConfig('reopen_types');
@@ -462,7 +463,7 @@ require_once INCLUDES_PATH . 'header.php';
                                             <div class="small text-muted">
                                                 Hace <?= daysSince($repair['received_at']) ?> días
                                             </div>
-                                            <?php if ($repair['reopen_date']): ?>
+                                            <?php if (isset($repair['reopen_date']) && $repair['reopen_date']): ?>
                                                 <div class="small text-warning">
                                                     <i class="bi bi-arrow-clockwise"></i>
                                                     <?= formatDate($repair['reopen_date'], 'd/m') ?>
@@ -489,7 +490,7 @@ require_once INCLUDES_PATH . 'header.php';
                                             <small class="text-muted">
                                                 <?= $warranty_days ?> días
                                             </small>
-                                            <?php if ($repair['delivered_at']): ?>
+                                            <?php if (isset($repair['delivered_at']) && $repair['delivered_at']): ?>
                                                 <div class="mt-1">
                                                     <?= formatWarrantyStatus($repair['delivered_at'], $warranty_days) ?>
                                                 </div>
@@ -505,6 +506,7 @@ require_once INCLUDES_PATH . 'header.php';
                                             <?= htmlspecialchars($repair['created_by_name']) ?>
                                         </small>
                                     </td>
+
                                     <td>
                                         <div class="btn-group btn-group-sm">
                                             <a href="<?= url('pages/repair_details.php?id=' . $repair['id']) ?>"
@@ -522,6 +524,16 @@ require_once INCLUDES_PATH . 'header.php';
                                                     title="Imprimir ticket">
                                                 <i class="bi bi-printer"></i>
                                             </button>
+
+                                            <!-- ✅ زر WhatsApp الجديد -->
+                                            <?php if ($repair['status'] === 'completed'): ?>
+                                                <button class="btn btn-outline-warning"
+                                                        onclick="sendWhatsApp('<?= htmlspecialchars($repair['customer_phone']) ?>', '<?= htmlspecialchars($repair['reference']) ?>', '<?= htmlspecialchars($repair['customer_name']) ?>', '<?= htmlspecialchars($repair['brand_name'] . ' ' . $repair['model_name']) ?>')"
+                                                        title="Notificar por WhatsApp">
+                                                    <i class="bi bi-whatsapp"></i>
+                                                </button>
+                                            <?php endif; ?>
+
                                             <?php if ($repair['status'] === 'completed'): ?>
                                                 <button class="btn btn-outline-info"
                                                         onclick="markAsDelivered(<?= $repair['id'] ?>)"
@@ -541,62 +553,13 @@ require_once INCLUDES_PATH . 'header.php';
 
             <?php if ($total_pages > 1): ?>
                 <div class="card-footer">
-                    <?= generatePagination($page, $total_pages, 'pages/repairs_active.php', [
+                    <?= generatePagination($page, $total_pages, 'repairs_active.php', [
                         'search' => $search,
                         'status' => $status_filter,
                         'priority' => $priority_filter
                     ]) ?>
                 </div>
             <?php endif; ?>
-        </div>
-    </div>
-
-    <!-- Modal para marcar como entregado -->
-    <div class="modal fade" id="deliveryModal" tabindex="-1" aria-labelledby="deliveryModalLabel" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="deliveryModalLabel">
-                        <i class="bi bi-hand-thumbs-up me-2"></i>Marcar como Entregado
-                    </h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-                </div>
-                <form id="deliveryForm">
-                    <div class="modal-body">
-                        <div class="alert alert-info">
-                            <i class="bi bi-info-circle me-2"></i>
-                            Confirma que la reparación ha sido entregada al cliente.
-                        </div>
-
-                        <div class="mb-3">
-                            <label for="delivered_by" class="form-label">Entregado por</label>
-                            <input type="text"
-                                   class="form-control"
-                                   id="delivered_by"
-                                   name="delivered_by"
-                                   value="<?= htmlspecialchars($current_user['name']) ?>"
-                                   required>
-                        </div>
-
-                        <div class="mb-3">
-                            <label for="delivery_notes" class="form-label">Notas de entrega (opcional)</label>
-                            <textarea class="form-control"
-                                      id="delivery_notes"
-                                      name="delivery_notes"
-                                      rows="3"
-                                      placeholder="Comentarios adicionales sobre la entrega..."></textarea>
-                        </div>
-
-                        <input type="hidden" id="repair_id_to_deliver" name="repair_id">
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                        <button type="submit" class="btn btn-success">
-                            <i class="bi bi-check me-2"></i>Confirmar Entrega
-                        </button>
-                    </div>
-                </form>
-            </div>
         </div>
     </div>
 
@@ -988,6 +951,91 @@ require_once INCLUDES_PATH . 'header.php';
                     }
                 });
         }
+
+
+        //send Message Whats
+
+        // استبدل دالة sendWhatsApp بهذا الكود المحسن
+
+        function sendWhatsApp(phone, reference, customerName, device) {
+            // تنظيف رقم الهاتف
+            let cleanPhone = phone.replace(/[\s\-\.\(\)]/g, '');
+
+            // التأكد من وجود كود الدولة الإسباني
+            if (cleanPhone.startsWith('0034')) {
+                cleanPhone = '+34' + cleanPhone.substring(4);
+            } else if (cleanPhone.startsWith('34')) {
+                cleanPhone = '+' + cleanPhone;
+            } else if (cleanPhone.startsWith('6') || cleanPhone.startsWith('7') || cleanPhone.startsWith('8') || cleanPhone.startsWith('9')) {
+                cleanPhone = '+34' + cleanPhone;
+            } else if (!cleanPhone.startsWith('+34')) {
+                cleanPhone = '+34' + cleanPhone;
+            }
+
+            // معلومات المحل
+            const shopInfo = {
+                name: '<?= htmlspecialchars($current_user['shop_name'] ?? 'Nuestro Taller') ?>',
+                address: 'Calle Principal, 123',
+                phone: '<?= htmlspecialchars($current_user['phone'] ?? '+34 XXX XXX XXX') ?>',
+                hours: 'Lunes a Viernes: 9:00 - 18:00'
+            };
+
+            // رسالة أنيقة ومبسطة
+            const message = `Hola ${customerName}!
+
+>>> REPARACION COMPLETADA <<<
+
+Dispositivo: ${device}
+Referencia: #${reference}
+Estado: LISTO PARA RECOGER
+
+DONDE RECOGERLO:
+${shopInfo.name}
+${shopInfo.address}
+
+HORARIO:
+${shopInfo.hours}
+
+CONTACTO:
+${shopInfo.phone}
+
+* Garantia incluida segun terminos
+* Dispositivo funcionando perfectamente
+
+Gracias por confiar en nosotros!`;
+
+            // فتح WhatsApp
+            const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
+            const whatsappWindow = window.open(whatsappUrl, '_blank');
+
+            if (!whatsappWindow) {
+                alert('Por favor, permite las ventanas emergentes para enviar WhatsApp');
+                return;
+            }
+
+            // تأكيد الإرسال
+            setTimeout(() => {
+                if (confirm('¿Se envió correctamente el mensaje de WhatsApp?')) {
+                    // تأثير بصري
+                    const button = event.target.closest('button');
+                    if (button) {
+                        const originalHTML = button.innerHTML;
+                        button.innerHTML = '<i class="bi bi-check-circle"></i>';
+                        button.classList.remove('btn-outline-warning');
+                        button.classList.add('btn-success');
+
+                        setTimeout(() => {
+                            button.innerHTML = originalHTML;
+                            button.classList.remove('btn-success');
+                            button.classList.add('btn-outline-warning');
+                        }, 3000);
+                    }
+                }
+            }, 2000);
+        }
+
+
+
     </script>
 
 <?php

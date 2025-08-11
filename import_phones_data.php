@@ -1,0 +1,998 @@
+<?php
+/**
+ * RepairPoint - استيراد بيانات الهواتف
+ * سكريبت لإدراج الماركات والموديلات في قاعدة البيانات
+ */
+
+// Definir acceso seguro
+define('SECURE_ACCESS', true);
+
+// Incluir configuración
+require_once 'config/config.php';
+require_once INCLUDES_PATH . 'functions.php';
+
+// بيانات الهواتف - نسخة من الـ CSV
+$phones_data = [
+    // Apple
+    ['Apple', 'Apple Watch', 'Apple Watch Series 1', '', 'Watch'],
+    ['Apple', 'Apple Watch', 'Apple Watch Series 2', '', 'Watch'],
+    ['Apple', 'Apple Watch', 'Apple Watch Series 3', '', 'Watch'],
+    ['Apple', 'Apple Watch', 'Apple Watch Series 4', '', 'Watch'],
+    ['Apple', 'Apple Watch', 'Apple Watch Series 5', '', 'Watch'],
+    ['Apple', 'Apple Watch', 'Apple Watch Series 6', '', 'Watch'],
+    ['Apple', 'Apple Watch', 'Apple Watch Series SE', '', 'Watch'],
+    ['Apple', 'Apple Watch', 'Apple Watch Series SE 2022', '', 'Watch'],
+    ['Apple', 'Apple Watch', 'Apple Watch Series 7', '', 'Watch'],
+    ['Apple', 'Apple Watch', 'Apple Watch Series 8', '', 'Watch'],
+    ['Apple', 'iPhone', 'iPhone 16e', '', 'Phone'],
+    ['Apple', 'iPhone', 'iPhone 16 Pro Max', '', 'Phone'],
+    ['Apple', 'iPhone', 'iPhone 16 Pro', '', 'Phone'],
+    ['Apple', 'iPhone', 'iPhone 16 Plus', '', 'Phone'],
+    ['Apple', 'iPhone', 'iPhone 16', '', 'Phone'],
+    ['Apple', 'iPhone', 'iPhone 15 Pro Max', '', 'Phone'],
+    ['Apple', 'iPhone', 'iPhone 15 Pro', '', 'Phone'],
+    ['Apple', 'iPhone', 'iPhone 15 Plus', '', 'Phone'],
+    ['Apple', 'iPhone', 'iPhone 15', '', 'Phone'],
+    ['Apple', 'iPhone', 'iPhone 14 Pro Max', '', 'Phone'],
+    ['Apple', 'iPhone', 'iPhone 14 Pro', '', 'Phone'],
+    ['Apple', 'iPhone', 'iPhone 14 Plus', '', 'Phone'],
+    ['Apple', 'iPhone', 'iPhone 14', '', 'Phone'],
+    ['Apple', 'iPhone', 'iPhone SE 2022', '', 'Phone'],
+    ['Apple', 'iPhone', 'iPhone SE 2020', '', 'Phone'],
+    ['Apple', 'iPhone', 'iPhone 13 Pro Max', '', 'Phone'],
+    ['Apple', 'iPhone', 'iPhone 13 Pro', '', 'Phone'],
+    ['Apple', 'iPhone', 'iPhone 13', '', 'Phone'],
+    ['Apple', 'iPhone', 'iPhone 13 Mini', '', 'Phone'],
+    ['Apple', 'iPhone', 'iPhone 12 Pro Max', '', 'Phone'],
+    ['Apple', 'iPhone', 'iPhone 12 Pro', '', 'Phone'],
+    ['Apple', 'iPhone', 'iPhone 12', '', 'Phone'],
+    ['Apple', 'iPhone', 'iPhone 12 Mini', '', 'Phone'],
+    ['Apple', 'iPhone', 'iPhone 11 Pro Max', '', 'Phone'],
+    ['Apple', 'iPhone', 'iPhone 11 Pro', '', 'Phone'],
+    ['Apple', 'iPhone', 'iPhone 11', '', 'Phone'],
+    ['Apple', 'iPhone', 'iPhone Xs Max', '', 'Phone'],
+    ['Apple', 'iPhone', 'iPhone XS', '', 'Phone'],
+    ['Apple', 'iPhone', 'iPhone XR', '', 'Phone'],
+    ['Apple', 'iPhone', 'iPhone X', '', 'Phone'],
+    ['Apple', 'iPhone', 'iPhone 8 Plus', '', 'Phone'],
+    ['Apple', 'iPhone', 'iPhone 8', '', 'Phone'],
+    ['Apple', 'iPhone', 'iPhone 7 Plus', '', 'Phone'],
+    ['Apple', 'iPhone', 'iPhone 7', '', 'Phone'],
+    ['Apple', 'iPhone', 'iPhone 6s Plus', '', 'Phone'],
+    ['Apple', 'iPhone', 'iPhone 6S', '', 'Phone'],
+    ['Apple', 'iPhone', 'iPhone 6 Plus', '', 'Phone'],
+    ['Apple', 'iPhone', 'iPhone 6', '', 'Phone'],
+    ['Apple', 'iPhone', 'iPhone SE', '', 'Phone'],
+    ['Apple', 'iPhone', 'iPhone 5S', '', 'Phone'],
+    ['Apple', 'iPhone', 'iPhone 5C', '', 'Phone'],
+    ['Apple', 'iPhone', 'iPhone 5', '', 'Phone'],
+    ['Apple', 'iPhone', 'iPhone 4S', '', 'Phone'],
+    ['Apple', 'iPhone', 'iPhone 4', '', 'Phone'],
+
+    // Samsung
+    ['Samsung', 'Series F (Fold/Flip)', 'F700 Galaxy Z Flip', 'F700', 'Phone'],
+    ['Samsung', 'Series F (Fold/Flip)', 'F707 Galaxy Z Flip 5G', 'F707', 'Phone'],
+    ['Samsung', 'Series F (Fold/Flip)', 'F711 Galaxy Z Flip 3 5G', 'F711', 'Phone'],
+    ['Samsung', 'Series F (Fold/Flip)', 'F721 Galaxy Z Flip 4 5G', 'F721', 'Phone'],
+    ['Samsung', 'Series F (Fold/Flip)', 'F731 Galaxy Z Flip 5 5G', 'F731', 'Phone'],
+    ['Samsung', 'Series F (Fold/Flip)', 'F741 Galaxy Z Flip 6 5G', 'F741', 'Phone'],
+    ['Samsung', 'Series F (Fold/Flip)', 'F900 Galaxy Fold', 'F900', 'Phone'],
+    ['Samsung', 'Series F (Fold/Flip)', 'F907 Galaxy Fold 5G', 'F907', 'Phone'],
+    ['Samsung', 'Series F (Fold/Flip)', 'F916 Galaxy Z Fold 2 5G', 'F916', 'Phone'],
+    ['Samsung', 'Series F (Fold/Flip)', 'F926 Galaxy Z Fold 3 5G', 'F926', 'Phone'],
+    ['Samsung', 'Series F (Fold/Flip)', 'F936 Galaxy Z Fold 4 5G', 'F936', 'Phone'],
+    ['Samsung', 'Series F (Fold/Flip)', 'F946 Galaxy Z Fold 5 5G', 'F946', 'Phone'],
+    ['Samsung', 'A Series', 'Galaxy A91', 'A91', 'Phone'],
+    ['Samsung', 'A Series', 'Galaxy A90 5G', 'A908', 'Phone'],
+    ['Samsung', 'A Series', 'Galaxy A80', 'A805', 'Phone'],
+    ['Samsung', 'A Series', 'Galaxy A73 5G', 'A736', 'Phone'],
+    ['Samsung', 'A Series', 'Galaxy A72', 'A725', 'Phone'],
+    ['Samsung', 'A Series', 'Galaxy A71 5G', 'A716', 'Phone'],
+    ['Samsung', 'A Series', 'Galaxy A71', 'A715', 'Phone'],
+    ['Samsung', 'A Series', 'Galaxy A70', 'A705', 'Phone'],
+    ['Samsung', 'A Series', 'Galaxy A60', 'A606', 'Phone'],
+    ['Samsung', 'A Series', 'Galaxy A56 5G', 'A566', 'Phone'],
+    ['Samsung', 'A Series', 'Galaxy A55 5G', 'A556', 'Phone'],
+    ['Samsung', 'A Series', 'Galaxy A54 5G', 'A546', 'Phone'],
+    ['Samsung', 'A Series', 'Galaxy A53 5G', 'A536', 'Phone'],
+    ['Samsung', 'A Series', 'Galaxy A52s 5G', 'A528', 'Phone'],
+    ['Samsung', 'A Series', 'Galaxy A52', 'A525/A526', 'Phone'],
+    ['Samsung', 'A Series', 'Galaxy A51', 'A515', 'Phone'],
+    ['Samsung', 'A Series', 'Galaxy A50s', 'A507', 'Phone'],
+    ['Samsung', 'A Series', 'Galaxy A50', 'A505', 'Phone'],
+    ['Samsung', 'A Series', 'Galaxy A42 5G', 'A426', 'Phone'],
+    ['Samsung', 'A Series', 'Galaxy A41', 'A415', 'Phone'],
+    ['Samsung', 'A Series', 'Galaxy A40', 'A405', 'Phone'],
+    ['Samsung', 'A Series', 'Galaxy A36 5G', 'A366', 'Phone'],
+    ['Samsung', 'A Series', 'Galaxy A35 5G', 'A356', 'Phone'],
+    ['Samsung', 'A Series', 'Galaxy A34 5G', 'A346', 'Phone'],
+    ['Samsung', 'A Series', 'Galaxy A33 5G', 'A336', 'Phone'],
+    ['Samsung', 'A Series', 'Galaxy A32 5G', 'A326', 'Phone'],
+    ['Samsung', 'A Series', 'Galaxy A32 4G', 'A325', 'Phone'],
+    ['Samsung', 'A Series', 'Galaxy A31', 'A315', 'Phone'],
+    ['Samsung', 'A Series', 'Galaxy A30s', 'A307', 'Phone'],
+    ['Samsung', 'A Series', 'Galaxy A30', 'A305', 'Phone'],
+    ['Samsung', 'S Series', 'Galaxy S25 Ultra 5G', 'S938', 'Phone'],
+    ['Samsung', 'S Series', 'Galaxy S25 Edge 5G', 'S937', 'Phone'],
+    ['Samsung', 'S Series', 'Galaxy S25 Plus 5G', 'S936', 'Phone'],
+    ['Samsung', 'S Series', 'Galaxy S25 5G', 'S931', 'Phone'],
+    ['Samsung', 'S Series', 'Galaxy S24 Ultra 5G', 'S928', 'Phone'],
+    ['Samsung', 'S Series', 'Galaxy S24 Plus 5G', 'S926', 'Phone'],
+    ['Samsung', 'S Series', 'Galaxy S24 FE 5G', 'S721', 'Phone'],
+    ['Samsung', 'S Series', 'Galaxy S24 5G', 'S921', 'Phone'],
+    ['Samsung', 'S Series', 'Galaxy S23 FE 5G', 'S711', 'Phone'],
+    ['Samsung', 'S Series', 'Galaxy S23 Ultra 5G', 'S918', 'Phone'],
+    ['Samsung', 'S Series', 'Galaxy S23 Plus 5G', 'S916', 'Phone'],
+    ['Samsung', 'S Series', 'Galaxy S23 5G', 'S911', 'Phone'],
+    ['Samsung', 'S Series', 'Galaxy S22 Ultra 5G', 'S908', 'Phone'],
+    ['Samsung', 'S Series', 'Galaxy S22 Plus 5G', 'S906', 'Phone'],
+    ['Samsung', 'S Series', 'Galaxy S22 5G', 'S901', 'Phone'],
+    ['Samsung', 'S Series', 'Galaxy S21 Ultra 5G', 'G998', 'Phone'],
+    ['Samsung', 'S Series', 'Galaxy S21 Plus 5G', 'G996', 'Phone'],
+    ['Samsung', 'S Series', 'Galaxy S21 5G', 'G991', 'Phone'],
+    ['Samsung', 'S Series', 'Galaxy S21 FE 5G', 'G990', 'Phone'],
+    ['Samsung', 'S Series', 'Galaxy S20 FE', 'G780/G781', 'Phone'],
+    ['Samsung', 'S Series', 'Galaxy S20 Ultra', 'G988', 'Phone'],
+    ['Samsung', 'S Series', 'Galaxy S20 Plus', 'G986', 'Phone'],
+    ['Samsung', 'S Series', 'Galaxy S20', 'G980', 'Phone'],
+    ['Samsung', 'S Series', 'Galaxy S10 5G', 'G977', 'Phone'],
+    ['Samsung', 'S Series', 'Galaxy S10 Plus', 'G975', 'Phone'],
+    ['Samsung', 'S Series', 'Galaxy S10 Lite', 'G770', 'Phone'],
+    ['Samsung', 'S Series', 'Galaxy S10E', 'G970', 'Phone'],
+    ['Samsung', 'S Series', 'Galaxy S10', 'G973', 'Phone'],
+    ['Samsung', 'S Series', 'Galaxy S9 Plus', 'G965', 'Phone'],
+    ['Samsung', 'S Series', 'Galaxy S9', 'G960', 'Phone'],
+    ['Samsung', 'S Series', 'Galaxy S8 Plus', 'G955', 'Phone'],
+    ['Samsung', 'S Series', 'Galaxy S8', 'G950', 'Phone'],
+    ['Samsung', 'S Series', 'Galaxy S7 Edge', 'G935', 'Phone'],
+    ['Samsung', 'S Series', 'Galaxy S7', 'G930', 'Phone'],
+    ['Samsung', 'S Series', 'Galaxy S6 Active', 'G890', 'Phone'],
+    ['Samsung', 'S Series', 'Galaxy S6 Edge+', 'G928', 'Phone'],
+    ['Samsung', 'S Series', 'Galaxy S6 Edge', 'G925', 'Phone'],
+    ['Samsung', 'S Series', 'Galaxy S6', 'G920', 'Phone'],
+    ['Samsung', 'S Series', 'Galaxy S5 Neo', 'G903', 'Phone'],
+    ['Samsung', 'S Series', 'Galaxy S5 mini', 'G800', 'Phone'],
+    ['Samsung', 'S Series', 'Galaxy S5', 'G900', 'Phone'],
+    ['Samsung', 'S Series', 'Galaxy S4 mini', 'i9195', 'Phone'],
+    ['Samsung', 'S Series', 'Galaxy S4', 'i9500/i9595/i9506', 'Phone'],
+    ['Samsung', 'S Series', 'Galaxy S3 Neo', 'i9301', 'Phone'],
+    ['Samsung', 'S Series', 'Galaxy S3', 'i9300/i9305', 'Phone'],
+    ['Samsung', 'S Series', 'Galaxy S3 mini', 'i8190', 'Phone'],
+    ['Samsung', 'S Series', 'Galaxy S2', 'i9100', 'Phone'],
+
+    // Xiaomi
+    ['Xiaomi', 'Serie Mi', 'Mi 14 Ultra 5G', '', 'Phone'],
+    ['Xiaomi', 'Serie Mi', 'Mi 14T Pro 5G', '', 'Phone'],
+    ['Xiaomi', 'Serie Mi', 'Mi 14 Pro 5G', '', 'Phone'],
+    ['Xiaomi', 'Serie Mi', 'Mi 14T 5G', '', 'Phone'],
+    ['Xiaomi', 'Serie Mi', 'Mi 14 5G', '', 'Phone'],
+    ['Xiaomi', 'Serie Mi', 'Mi 13 Ultra 5G', '', 'Phone'],
+    ['Xiaomi', 'Serie Mi', 'Mi 11 Ultra 5G', '', 'Phone'],
+    ['Xiaomi', 'Serie Mi', 'Poco C40', '', 'Phone'],
+    ['Xiaomi', 'Serie Mi', 'Poco X7 Pro 5G', '', 'Phone'],
+    ['Xiaomi', 'Serie Mi', 'Poco X7 5G', '', 'Phone'],
+    ['Xiaomi', 'Serie Mi', 'Poco X5 Pro 5G', '', 'Phone'],
+    ['Xiaomi', 'Serie Mi', 'Poco F7 Ultra 5G', '', 'Phone'],
+    ['Xiaomi', 'Serie Mi', 'Poco F7 Pro 5G', '', 'Phone'],
+    ['Xiaomi', 'Serie Mi', 'Poco F6 Pro 5G', '', 'Phone'],
+    ['Xiaomi', 'Serie Mi', 'Poco F6', '', 'Phone'],
+    ['Xiaomi', 'Serie Mi', 'Poco F5 Pro 5G', '', 'Phone'],
+    ['Xiaomi', 'Serie Mi', 'Poco F5 5G', '', 'Phone'],
+    ['Xiaomi', 'Serie Mi', 'Poco F4 GT', '', 'Phone'],
+    ['Xiaomi', 'Serie Mi', 'Poco F4 5G', '', 'Phone'],
+    ['Xiaomi', 'Serie Mi', 'Poco X6 Pro 5G', '', 'Phone'],
+    ['Xiaomi', 'Serie Mi', 'Poco X6 5G', '', 'Phone'],
+    ['Xiaomi', 'Serie Mi', 'Poco X4 GT', '', 'Phone'],
+    ['Xiaomi', 'Serie Mi', 'Poco X4 Pro 5G', '', 'Phone'],
+    ['Xiaomi', 'Serie Mi', 'Poco X3 Pro', '', 'Phone'],
+    ['Xiaomi', 'Serie Mi', 'Poco X3', '', 'Phone'],
+    ['Xiaomi', 'Serie Mi', 'Poco M5', '', 'Phone'],
+    ['Xiaomi', 'Serie Mi', 'Poco M4 Pro', '', 'Phone'],
+    ['Xiaomi', 'Serie Mi', 'Poco M3 Pro', '', 'Phone'],
+    ['Xiaomi', 'Serie Mi', 'Poco M3', '', 'Phone'],
+    ['Xiaomi', 'Serie Mi', 'Poco F3 5G', '', 'Phone'],
+    ['Xiaomi', 'Serie Mi', 'Poco F2 Pro', '', 'Phone'],
+    ['Xiaomi', 'Serie Redmi', 'Redmi 14C', '', 'Phone'],
+    ['Xiaomi', 'Serie Redmi', 'Redmi 13', '', 'Phone'],
+    ['Xiaomi', 'Serie Redmi', 'Redmi A5', '', 'Phone'],
+    ['Xiaomi', 'Serie Redmi', 'Redmi A3', '', 'Phone'],
+    ['Xiaomi', 'Serie Redmi', 'Redmi A2', '', 'Phone'],
+    ['Xiaomi', 'Serie Redmi', 'Redmi A1', '', 'Phone'],
+    ['Xiaomi', 'Serie Redmi', 'REDMI S2', '', 'Phone'],
+    ['Xiaomi', 'Serie Redmi', 'Redmi Note 14 Pro+ 5G', '', 'Phone'],
+    ['Xiaomi', 'Serie Redmi', 'Redmi Note 14 Pro 5G', '', 'Phone'],
+    ['Xiaomi', 'Serie Redmi', 'Redmi Note 14 Pro 4G', '', 'Phone'],
+    ['Xiaomi', 'Serie Redmi', 'Redmi Note 14 5G', '', 'Phone'],
+    ['Xiaomi', 'Serie Redmi', 'Redmi Note 13 Pro Plus 5G', '', 'Phone'],
+    ['Xiaomi', 'Serie Redmi', 'Redmi Note 13 Pro 5G', '', 'Phone'],
+    ['Xiaomi', 'Serie Redmi', 'Redmi Note 13 Pro 4G', '', 'Phone'],
+    ['Xiaomi', 'Serie Redmi', 'Redmi Note 13 5G', '', 'Phone'],
+    ['Xiaomi', 'Serie Redmi', 'Redmi Note 13 4G', '', 'Phone'],
+    ['Xiaomi', 'Serie Redmi', 'Redmi Note 12S', '', 'Phone'],
+    ['Xiaomi', 'Serie Redmi', 'Redmi Note 12 Pro Plus 5G', '', 'Phone'],
+    ['Xiaomi', 'Serie Redmi', 'Redmi Note 12 Pro 5G', '', 'Phone'],
+    ['Xiaomi', 'Serie Redmi', 'Redmi Note 12 Pro 4G', '2209116AG', 'Phone'],
+    ['Xiaomi', 'Serie Redmi', 'Redmi Note 12 5G', '', 'Phone'],
+    ['Xiaomi', 'Serie Redmi', 'Redmi Note 12 4G', '', 'Phone'],
+    ['Xiaomi', 'Serie Redmi', 'Redmi Note 11T Pro Plus', '', 'Phone'],
+    ['Xiaomi', 'Serie Redmi', 'Redmi Note 11T Pro', '', 'Phone'],
+    ['Xiaomi', 'Serie Redmi', 'Redmi Note 11 Pro+ 5G', '', 'Phone'],
+    ['Xiaomi', 'Serie Redmi', 'Redmi Note 11 Pro 5G', '', 'Phone'],
+    ['Xiaomi', 'Serie Redmi', 'Redmi Note 11S', '', 'Phone'],
+    ['Xiaomi', 'Serie Redmi', 'Redmi Note 11 5G', '', 'Phone'],
+    ['Xiaomi', 'Serie Redmi', 'Redmi Note 11 4G', '', 'Phone'],
+    ['Xiaomi', 'Serie Redmi', 'Redmi Note 10 Pro 5G', '', 'Phone'],
+    ['Xiaomi', 'Serie Redmi', 'Redmi Note 10 Pro 4G', '', 'Phone'],
+    ['Xiaomi', 'Serie Redmi', 'Redmi Note 10S', '', 'Phone'],
+    ['Xiaomi', 'Serie Redmi', 'Redmi Note 10 5G', '', 'Phone'],
+    ['Xiaomi', 'Serie Redmi', 'Redmi Note 10 4G', '', 'Phone'],
+    ['Xiaomi', 'Serie Redmi', 'Redmi Note 9S (Note 9 Pro)', '', 'Phone'],
+    ['Xiaomi', 'Serie Redmi', 'Redmi Note 9T', '', 'Phone'],
+    ['Xiaomi', 'Serie Redmi', 'Redmi Note 9', '', 'Phone'],
+    ['Xiaomi', 'Serie Redmi', 'Redmi Note 8 2021', 'M1908C3JGG', 'Phone'],
+    ['Xiaomi', 'Serie Redmi', 'Redmi Note 8T', '', 'Phone'],
+    ['Xiaomi', 'Serie Redmi', 'Redmi Note 8 Pro', '', 'Phone'],
+    ['Xiaomi', 'Serie Redmi', 'Redmi Note 8', '', 'Phone'],
+    ['Xiaomi', 'Serie Redmi', 'Redmi 13C', '', 'Phone'],
+    ['Xiaomi', 'Serie Redmi', 'Redmi 12C', '', 'Phone'],
+    ['Xiaomi', 'Serie Redmi', 'REDMI 12', '', 'Phone'],
+    ['Xiaomi', 'Serie Redmi', 'Redmi 10A', '', 'Phone'],
+    ['Xiaomi', 'Serie Redmi', 'Redmi 10C', '', 'Phone'],
+    ['Xiaomi', 'Serie Redmi', 'Redmi 10 5G', '', 'Phone'],
+    ['Xiaomi', 'Serie Redmi', 'Redmi 10', '', 'Phone'],
+    ['Xiaomi', 'Serie Redmi', 'Redmi 9T', '', 'Phone'],
+    ['Xiaomi', 'Black Shark', 'Black Shark', '', 'Phone'],
+
+    // OPPO
+    ['OPPO', 'OPPO Models', 'OPPO Reno 12 Pro 5G', 'CPH2629', 'Phone'],
+    ['OPPO', 'OPPO Models', 'OPPO Reno 12F', '', 'Phone'],
+    ['OPPO', 'OPPO Models', 'OPPO Reno 12 5G', 'CPH2625', 'Phone'],
+    ['OPPO', 'OPPO Models', 'OPPO Reno 11 Pro', '', 'Phone'],
+    ['OPPO', 'OPPO Models', 'OPPO Reno 11F', '', 'Phone'],
+    ['OPPO', 'OPPO Models', 'OPPO Reno 10 Pro 5G', '', 'Phone'],
+    ['OPPO', 'OPPO Models', 'OPPO Reno 10 5G', 'CPH2531', 'Phone'],
+    ['OPPO', 'OPPO Models', 'OPPO Reno 8 Pro 5G', 'CPH2357', 'Phone'],
+    ['OPPO', 'OPPO Models', 'OPPO Reno 8T', '', 'Phone'],
+    ['OPPO', 'OPPO Models', 'OPPO Reno 8 5G', 'CPH2359', 'Phone'],
+    ['OPPO', 'OPPO Models', 'OPPO Reno 8 4G', 'CPH2457', 'Phone'],
+    ['OPPO', 'OPPO Models', 'OPPO Reno 6 Pro 5G', 'PEPM00/CPH2249', 'Phone'],
+    ['OPPO', 'OPPO Models', 'OPPO Reno 7Z 5G', 'CPH2343', 'Phone'],
+    ['OPPO', 'OPPO Models', 'OPPO Reno 6 5G', 'PEQM00/CPH2251', 'Phone'],
+    ['OPPO', 'OPPO Models', 'OPPO Reno 5 Lite', '', 'Phone'],
+    ['OPPO', 'OPPO Models', 'OPPO Find X5 Pro 5G', '', 'Phone'],
+    ['OPPO', 'OPPO Models', 'OPPO Find X5 Lite 5G', '', 'Phone'],
+    ['OPPO', 'OPPO Models', 'OPPO Find X5', '', 'Phone'],
+    ['OPPO', 'OPPO Models', 'OPPO Find X3 Pro 5G', '', 'Phone'],
+    ['OPPO', 'OPPO Models', 'OPPO Find X3 Neo 5G', '', 'Phone'],
+    ['OPPO', 'OPPO Models', 'OPPO Find X3 Lite 5G', '', 'Phone'],
+    ['OPPO', 'OPPO Models', 'OPPO Find X2 Lite 5G', 'CPH2005', 'Phone'],
+    ['OPPO', 'OPPO Models', 'OPPO Find X2 Pro', '', 'Phone'],
+    ['OPPO', 'OPPO Models', 'OPPO Find X2 5G', 'CPH2023', 'Phone'],
+    ['OPPO', 'OPPO Models', 'OPPO A80', '', 'Phone'],
+    ['OPPO', 'OPPO Models', 'OPPO A9 2020', '', 'Phone'],
+    ['OPPO', 'OPPO Models', 'OPPO A98 5G', '', 'Phone'],
+    ['OPPO', 'OPPO Models', 'Oppo A97', '', 'Phone'],
+    ['OPPO', 'OPPO Models', 'OPPO A96 4G', '', 'Phone'],
+    ['OPPO', 'OPPO Models', 'OPPO A94 5G', 'CPH2211', 'Phone'],
+    ['OPPO', 'OPPO Models', 'OPPO A94 4G', 'CPH2203', 'Phone'],
+    ['OPPO', 'OPPO Models', 'OPPO A78', '', 'Phone'],
+    ['OPPO', 'OPPO Models', 'OPPO A77 5G', '', 'Phone'],
+    ['OPPO', 'OPPO Models', 'OPPO A76', '', 'Phone'],
+    ['OPPO', 'OPPO Models', 'Oppo A74 5G', 'CPH2197', 'Phone'],
+    ['OPPO', 'OPPO Models', 'OPPO A74 4G', '', 'Phone'],
+    ['OPPO', 'OPPO Models', 'OPPO A73 5G', 'CPH2161', 'Phone'],
+    ['OPPO', 'OPPO Models', 'OPPO A72 5G', 'PDYM20', 'Phone'],
+    ['OPPO', 'OPPO Models', 'OPPO A72 2020', 'CPH2067', 'Phone'],
+    ['OPPO', 'OPPO Models', 'OPPO A60', '', 'Phone'],
+    ['OPPO', 'OPPO Models', 'OPPO A58 4G', '', 'Phone'],
+    ['OPPO', 'OPPO Models', 'OPPO A57 4G', 'CPH2387', 'Phone'],
+    ['OPPO', 'OPPO Models', 'OPPO A54 5G (A93 5G)', '', 'Phone'],
+    ['OPPO', 'OPPO Models', 'OPPO A54 4G', '', 'Phone'],
+    ['OPPO', 'OPPO Models', 'OPPO A53 (A53s/A32 2020)', '', 'Phone'],
+
+    // Realme
+    ['Realme', 'Realme Models', 'Realme 12 Pro 5G', 'RMX3842', 'Phone'],
+    ['Realme', 'Realme Models', 'Realme 12X 5G', '', 'Phone'],
+    ['Realme', 'Realme Models', 'Realme 11 Pro 5G', 'RMX3771', 'Phone'],
+    ['Realme', 'Realme Models', 'Realme 10 Pro 5G', '', 'Phone'],
+    ['Realme', 'Realme Models', 'Realme 10 4G', '', 'Phone'],
+    ['Realme', 'Realme Models', 'Realme X3 (X50)', 'RMX2052', 'Phone'],
+    ['Realme', 'Realme Models', 'Realme X2 Pro', 'RMX1931', 'Phone'],
+    ['Realme', 'Realme Models', 'Realme X2', 'RMX1993', 'Phone'],
+    ['Realme', 'Realme Models', 'Realme 2 Pro', 'RMX1801/RMX1807', 'Phone'],
+    ['Realme', 'Realme Models', 'Realme 3', 'RMX1825/RMX1821', 'Phone'],
+    ['Realme', 'Realme Models', 'Realme 3 Pro', 'RMX1851', 'Phone'],
+    ['Realme', 'Realme Models', 'Realme 3i', 'RMX1827', 'Phone'],
+    ['Realme', 'Realme Models', 'Realme 5', 'RMX1911', 'Phone'],
+    ['Realme', 'Realme Models', 'Realme 5 Pro', 'RMX1971', 'Phone'],
+    ['Realme', 'Realme Models', 'Realme 5i', 'RMX2030', 'Phone'],
+    ['Realme', 'Realme Models', 'Realme 6', 'RMX2001', 'Phone'],
+    ['Realme', 'Realme Models', 'Realme 6i', 'RMX2040', 'Phone'],
+    ['Realme', 'Realme Models', 'Realme 6 Pro', 'RMX2061', 'Phone'],
+    ['Realme', 'Realme Models', 'Realme 7', 'RMX2155', 'Phone'],
+    ['Realme', 'Realme Models', 'Realme 7 5G', 'RMX2111', 'Phone'],
+    ['Realme', 'Realme Models', 'Realme 7i', 'RMX2103', 'Phone'],
+    ['Realme', 'Realme Models', 'Realme 7 Pro', 'RMX2170', 'Phone'],
+    ['Realme', 'Realme Models', 'Realme 8i', 'RMA3151', 'Phone'],
+    ['Realme', 'Realme Models', 'Realme 8 5G', 'RMX3241', 'Phone'],
+    ['Realme', 'Realme Models', 'Realme 8 Pro', 'RMX3081', 'Phone'],
+    ['Realme', 'Realme Models', 'Realme 9', 'RMX3521', 'Phone'],
+    ['Realme', 'Realme Models', 'Realme 9 5G', 'RMX3474', 'Phone'],
+    ['Realme', 'Realme Models', 'Realme 9i', 'RMX3491', 'Phone'],
+    ['Realme', 'Realme Models', 'Realme 9i 5G', 'RMX3612', 'Phone'],
+    ['Realme', 'Realme Models', 'Realme 9 Pro', 'RMX3471', 'Phone'],
+    ['Realme', 'Realme Models', 'Realme 9 Pro Plus', 'RMX3392', 'Phone'],
+    ['Realme', 'Realme Models', 'Realme C1', 'A1603', 'Phone'],
+    ['Realme', 'Realme Models', 'Realme C2', 'RMX1941/RMX1945', 'Phone'],
+    ['Realme', 'Realme Models', 'Realme C3', 'RMX2020', 'Phone'],
+    ['Realme', 'Realme Models', 'Realme C11', 'RMX2185', 'Phone'],
+    ['Realme', 'Realme Models', 'Realme C11 2021', 'RMX3231', 'Phone'],
+    ['Realme', 'Realme Models', 'Realme C20 (C21)', '', 'Phone'],
+    ['Realme', 'Realme Models', 'Realme C21Y', 'RMX3261', 'Phone'],
+    ['Realme', 'Realme Models', 'Realme C30', 'RMX3581', 'Phone'],
+    ['Realme', 'Realme Models', 'Realme C31', 'RMX3501', 'Phone'],
+    ['Realme', 'Realme Models', 'Realme C35', 'RMX3511', 'Phone'],
+    ['Realme', 'Realme Models', 'Realme C53', 'RMX3760', 'Phone'],
+    ['Realme', 'Realme Models', 'Realme C55', 'RMX3710', 'Phone'],
+    ['Realme', 'Realme Models', 'Realme C61', '', 'Phone'],
+    ['Realme', 'Realme Models', 'Realme C63', '', 'Phone'],
+    ['Realme', 'Realme Models', 'Realme C65', '', 'Phone'],
+    ['Realme', 'Realme Models', 'Realme C67', '', 'Phone'],
+    ['Realme', 'Realme Models', 'Realme C75', '', 'Phone'],
+    ['Realme', 'Realme Models', 'Realme Note 50', 'RMX3834', 'Phone'],
+    ['Realme', 'Realme Models', 'Realme GT 5G', 'RMX2202', 'Phone'],
+
+    // VIVO
+    ['VIVO', 'VIVO Series Y', 'Vivo Y3', '', 'Phone'],
+    ['VIVO', 'VIVO Series Y', 'Vivo Y01', '', 'Phone'],
+    ['VIVO', 'VIVO Series Y', 'Vivo Y02', '', 'Phone'],
+    ['VIVO', 'VIVO Series Y', 'VIVO Y91', '', 'Phone'],
+    ['VIVO', 'VIVO Series Y', 'VIVO Y72 5G', '', 'Phone'],
+    ['VIVO', 'VIVO Series Y', 'Vivo Y70', '', 'Phone'],
+    ['VIVO', 'VIVO Series Y', 'VIVO Y11s (Y20s)', '', 'Phone'],
+    ['VIVO', 'VIVO Series Y', 'VIVO Y15S', '', 'Phone'],
+    ['VIVO', 'VIVO Series Y', 'VIVO Y16', 'V2204/V2214', 'Phone'],
+    ['VIVO', 'VIVO Series Y', 'VIVO Y17S', 'V2310', 'Phone'],
+    ['VIVO', 'VIVO Series Y', 'VIVO Y18', '', 'Phone'],
+    ['VIVO', 'VIVO Series Y', 'Vivo Y19 (Y5s)', '', 'Phone'],
+    ['VIVO', 'VIVO Series Y', 'VIVO Y21 (2021)', '', 'Phone'],
+    ['VIVO', 'VIVO Series Y', 'VIVO Y21S (2021)', '', 'Phone'],
+    ['VIVO', 'VIVO Series Y', 'Vivo Y22S', '', 'Phone'],
+    ['VIVO', 'VIVO Series Y', 'VIVO Y28 4G', '', 'Phone'],
+    ['VIVO', 'VIVO Series Y', 'VIVO Y28S 5G', '', 'Phone'],
+    ['VIVO', 'VIVO Series Y', 'Vivio Y33s', 'V2109', 'Phone'],
+    ['VIVO', 'VIVO Series Y', 'Vivo Y35 4G', '', 'Phone'],
+    ['VIVO', 'VIVO Series Y', 'VIVO Y36', '', 'Phone'],
+    ['VIVO', 'VIVO Series Y', 'Vivo Y52s', 'V2057A', 'Phone'],
+    ['VIVO', 'VIVO Series Y', 'Vivo Y52 5G', 'V2053', 'Phone'],
+    ['VIVO', 'VIVO Series Y', 'VIVO Y55 5G', 'V2127/V2154', 'Phone'],
+    ['VIVO', 'VIVO Series Y', 'Vivo Y93', '', 'Phone'],
+    ['VIVO', 'VIVO Series Y', 'Vivo Y50', '', 'Phone'],
+    ['VIVO', 'VIVO Series X', 'VIVO X27', '', 'Phone'],
+    ['VIVO', 'VIVO Series X', 'VIVO X27 Pro', '', 'Phone'],
+    ['VIVO', 'VIVO Series X', 'VIVO X60 Pro', '', 'Phone'],
+    ['VIVO', 'VIVO Series V', 'VIVO V21 5G', 'V2050', 'Phone'],
+    ['VIVO', 'VIVO Series V', 'VIVO V23 5G', 'V2130', 'Phone'],
+    ['VIVO', 'VIVO Series V', 'VIVO V40 SE', '', 'Phone'],
+
+    // Huawei
+    ['Huawei', 'Honor Series', 'Honor 200', '', 'Phone'],
+    ['Huawei', 'Honor Series', 'Honor 90 Lite', '', 'Phone'],
+    ['Huawei', 'Honor Series', 'Honor 90', 'REA-AN00/REA-NX9', 'Phone'],
+    ['Huawei', 'Honor Series', 'Honor 70 Lite', '', 'Phone'],
+    ['Huawei', 'Honor Series', 'Honor 70', 'FNE-AN00/FNE-NX9', 'Phone'],
+    ['Huawei', 'Honor Series', 'Honor Magic 7 Pro', '', 'Phone'],
+    ['Huawei', 'Honor Series', 'Honor Magic 7 Lite', '', 'Phone'],
+    ['Huawei', 'Honor Series', 'Honor Magic 6 Lite', '', 'Phone'],
+    ['Huawei', 'Honor Series', 'Honor Magic 5 Lite', '', 'Phone'],
+    ['Huawei', 'Honor Series', 'Honor Magic 4 Pro', '', 'Phone'],
+    ['Huawei', 'Honor Series', 'Honor 50 SE', '', 'Phone'],
+    ['Huawei', 'Honor Series', 'Honor 50 Lite', '', 'Phone'],
+    ['Huawei', 'Honor Series', 'Honor 50', '', 'Phone'],
+    ['Huawei', 'Honor Series', 'Honor X10 5G', '', 'Phone'],
+    ['Huawei', 'Honor Series', 'Honor X9B', 'ALI-NX1', 'Phone'],
+    ['Huawei', 'Honor Series', 'Honor X9', '', 'Phone'],
+    ['Huawei', 'Honor Series', 'Honor X8B', 'LLY-LX1/LLY-LX2/LLY-LX3', 'Phone'],
+    ['Huawei', 'Honor Series', 'Honor X8A', '', 'Phone'],
+    ['Huawei', 'Honor Series', 'Honor X8 5G', '', 'Phone'],
+    ['Huawei', 'Honor Series', 'Honor X8 4G', '', 'Phone'],
+    ['Huawei', 'Honor Series', 'Honor X7C', '', 'Phone'],
+    ['Huawei', 'Honor Series', 'Honor X7B', '', 'Phone'],
+    ['Huawei', 'Honor Series', 'Honor X7A', 'RKY-LX1/RKY-LX2', 'Phone'],
+    ['Huawei', 'Honor Series', 'Honor X7', '', 'Phone'],
+    ['Huawei', 'Honor Series', 'Honor X6B', 'JDY-LX1/JDY-LX2', 'Phone'],
+    ['Huawei', 'Honor Series', 'Honor X6A', '', 'Phone'],
+    ['Huawei', 'Honor Series', 'Honor X5 4G', 'VNA-LX2', 'Phone'],
+    ['Huawei', 'Honor Series', 'Honor Play', '', 'Phone'],
+    ['Huawei', 'Honor Series', 'Honor 20 Lite', '', 'Phone'],
+    ['Huawei', 'Honor Series', 'Honor 20', '', 'Phone'],
+    ['Huawei', 'Honor Series', 'Honor 10 Lite', '', 'Phone'],
+    ['Huawei', 'Honor Series', 'Honor 10', '', 'Phone'],
+    ['Huawei', 'Series Nova', 'Nova 10', '', 'Phone'],
+    ['Huawei', 'Series Nova', 'Nova 10 Pro', '', 'Phone'],
+    ['Huawei', 'Series Nova', 'Nova 10 SE', '', 'Phone'],
+    ['Huawei', 'Series Nova', 'Nova Y61', '', 'Phone'],
+    ['Huawei', 'Series Nova', 'Nova Y70', '', 'Phone'],
+    ['Huawei', 'Series Nova', 'Nova Y90', '', 'Phone'],
+    ['Huawei', 'Series Nova', 'Nova Y91', '', 'Phone'],
+    ['Huawei', 'Mate Series', 'Mate 30 Pro', '', 'Phone'],
+    ['Huawei', 'Mate Series', 'Mate 30 Lite', '', 'Phone'],
+    ['Huawei', 'Mate Series', 'Mate 30', '', 'Phone'],
+    ['Huawei', 'Mate Series', 'Mate 20X', '', 'Phone'],
+    ['Huawei', 'Mate Series', 'Mate 20 Pro', '', 'Phone'],
+    ['Huawei', 'Mate Series', 'Mate 20 Lite', '', 'Phone'],
+    ['Huawei', 'Mate Series', 'Mate 20', '', 'Phone'],
+    ['Huawei', 'Mate Series', 'Mate 10 Pro', '', 'Phone'],
+    ['Huawei', 'Mate Series', 'Mate 10 Lite', '', 'Phone'],
+    ['Huawei', 'Mate Series', 'Mate 10', '', 'Phone'],
+    ['Huawei', 'Mate Series', 'Mate 9', '', 'Phone'],
+    ['Huawei', 'Mate Series', 'Mate 8', '', 'Phone'],
+    ['Huawei', 'Mate Series', 'Mate 7', '', 'Phone'],
+    ['Huawei', 'Mate Series', 'Mate S', '', 'Phone'],
+    ['Huawei', 'P Series', 'P smart S', '', 'Phone'],
+    ['Huawei', 'P Series', 'P Smart Z', '', 'Phone'],
+    ['Huawei', 'P Series', 'P Smart 2021', '', 'Phone'],
+    ['Huawei', 'P Series', 'P Smart 2020', '', 'Phone'],
+    ['Huawei', 'P Series', 'P Smart 2019', '', 'Phone'],
+    ['Huawei', 'P Series', 'P Smart Pro', '', 'Phone'],
+    ['Huawei', 'P Series', 'P Smart Plus', '', 'Phone'],
+    ['Huawei', 'P Series', 'P Smart', '', 'Phone'],
+    ['Huawei', 'P Series', 'P60', '', 'Phone'],
+    ['Huawei', 'P Series', 'P50 Pro', '', 'Phone'],
+    ['Huawei', 'P Series', 'P40 Pro Plus', '', 'Phone'],
+    ['Huawei', 'P Series', 'P40 Pro', '', 'Phone'],
+    ['Huawei', 'P Series', 'P40 Lite E (Y7p 2020)', '', 'Phone'],
+    ['Huawei', 'P Series', 'P40 Lite 5G', '', 'Phone'],
+    ['Huawei', 'P Series', 'P40 Lite', '', 'Phone'],
+    ['Huawei', 'P Series', 'P30 Pro', '', 'Phone'],
+    ['Huawei', 'P Series', 'P30 Lite', '', 'Phone'],
+    ['Huawei', 'P Series', 'P30', '', 'Phone'],
+    ['Huawei', 'P Series', 'P20 Pro', '', 'Phone'],
+    ['Huawei', 'P Series', 'P20 Lite', '', 'Phone'],
+    ['Huawei', 'P Series', 'P20', '', 'Phone'],
+    ['Huawei', 'P Series', 'P10 Plus', '', 'Phone'],
+    ['Huawei', 'P Series', 'P10 Lite', '', 'Phone'],
+    ['Huawei', 'P Series', 'P10', '', 'Phone'],
+    ['Huawei', 'P Series', 'P9 Plus', '', 'Phone'],
+    ['Huawei', 'P Series', 'P9 Lite 2017', '', 'Phone'],
+    ['Huawei', 'P Series', 'P9 Lite', '', 'Phone'],
+    ['Huawei', 'P Series', 'P9', '', 'Phone'],
+    ['Huawei', 'P Series', 'P8 Lite 2017', '', 'Phone'],
+    ['Huawei', 'P Series', 'P8 Lite', '', 'Phone'],
+    ['Huawei', 'P Series', 'P8', '', 'Phone'],
+    ['Huawei', 'P Series', 'P7', '', 'Phone'],
+
+    // TCL
+    ['TCL', 'TCL Models', 'TCL 10 SE', 'T766', 'Phone'],
+    ['TCL', 'TCL Models', 'TCL 10L', 'T770H/T770B', 'Phone'],
+    ['TCL', 'TCL Models', 'TCL 10 5G', 'T790Y', 'Phone'],
+    ['TCL', 'TCL Models', 'TCL 10 Lite', '', 'Phone'],
+    ['TCL', 'TCL Models', 'TCL 10 Pro', 'T799B/T799H', 'Phone'],
+    ['TCL', 'TCL Models', 'TCL 10 Plus', 'T782H', 'Phone'],
+    ['TCL', 'TCL Models', 'TCL 20 5G', 'T781/T781K/T781H', 'Phone'],
+    ['TCL', 'TCL Models', 'TCL 20Y (2021)', '', 'Phone'],
+    ['TCL', 'TCL Models', 'TCL 20E (2021)', '', 'Phone'],
+    ['TCL', 'TCL Models', 'TCL 20R', 'T767H', 'Phone'],
+    ['TCL', 'TCL Models', 'TCL 20 SE', 'T671H', 'Phone'],
+    ['TCL', 'TCL Models', 'TCL 20 Pro', 'T810H', 'Phone'],
+    ['TCL', 'TCL Models', 'TCL 20L', 'T774H', 'Phone'],
+    ['TCL', 'TCL Models', 'TCL 30 (TCL 30 Plus)', '', 'Phone'],
+    ['TCL', 'TCL Models', 'TCL 30 SE', '6165H', 'Phone'],
+    ['TCL', 'TCL Models', 'TCL 30E', '6127A/6127l', 'Phone'],
+    ['TCL', 'TCL Models', 'TCL 305i', '', 'Phone'],
+    ['TCL', 'TCL Models', 'TCL 405', 'T506D', 'Phone'],
+    ['TCL', 'TCL Models', 'TCL 40R', 'T771K', 'Phone'],
+    ['TCL', 'TCL Models', 'TCL 40 SE', '', 'Phone'],
+    ['TCL', 'TCL Models', 'TCL 40 NxtPaper 5G', '', 'Phone'],
+    ['TCL', 'TCL Models', 'TCL 501', '', 'Phone'],
+    ['TCL', 'TCL Models', 'TCL 505', '', 'Phone'],
+    ['TCL', 'TCL Models', 'TCL 50 5G', '', 'Phone'],
+    ['TCL', 'TCL Models', 'TCL 50 Pro NxtPaper 5G', '', 'Phone']
+];
+
+/**
+ * تنظيم البيانات وإعداد أسماء الموديلات
+ */
+function organizePhoneData($data) {
+    $organized = [];
+
+    foreach ($data as $row) {
+        $brand = trim($row[0]);
+        $category = trim($row[1]);
+        $model = trim($row[2]);
+        $model_code = trim($row[3]);
+        $series_type = trim($row[4]);
+
+        // تخطي البيانات الفارغة
+        if (empty($brand) || empty($model)) {
+            continue;
+        }
+
+        // تنظيف أسماء الموديلات
+        $formatted_model_name = formatModelName($model, $category, $brand);
+
+        // تجميع البيانات حسب البراند
+        if (!isset($organized[$brand])) {
+            $organized[$brand] = [];
+        }
+
+        $organized[$brand][] = [
+            'name' => $formatted_model_name,
+            'original_name' => $model,
+            'category' => $category,
+            'model_code' => $model_code
+        ];
+    }
+
+    return $organized;
+}
+
+/**
+ * تنسيق اسم الموديل مع السلسلة
+ */
+function formatModelName($model, $category, $brand) {
+    // إزالة اسم البراند من الموديل إذا كان مكرر
+    $model = str_replace($brand . ' ', '', $model);
+
+    // تنسيق خاص لكل براند
+    switch ($brand) {
+        case 'Apple':
+            // Apple لا يحتاج فئة إضافية
+            return $model;
+
+        case 'Samsung':
+            // Samsung - إضافة اسم السلسلة
+            if (!empty($category) && $category !== 'Samsung') {
+                // إزالة "Galaxy" المكررة إذا وجدت
+                $model = str_replace('Galaxy ', '', $model);
+                return $model . ' (' . $category . ')';
+            }
+            return $model;
+
+        case 'Xiaomi':
+            // Xiaomi - تنظيف اسم السلسلة
+            if (!empty($category) && $category !== 'Xiaomi') {
+                return $model . ' (' . $category . ')';
+            }
+            return $model;
+
+        case 'OPPO':
+        case 'Realme':
+        case 'VIVO':
+        case 'Huawei':
+        case 'TCL':
+            // باقي البراندات - إضافة السلسلة إذا كانت مختلفة عن اسم البراند
+            if (!empty($category) && $category !== $brand . ' Models') {
+                return $model . ' (' . $category . ')';
+            }
+            return $model;
+
+        default:
+            return $model;
+    }
+}
+
+/**
+ * السكريبت الرئيسي
+ */
+try {
+    // الاتصال بقاعدة البيانات
+    $db = getDB();
+
+    echo "<h2>🚀 بدء استيراد بيانات الهواتف</h2>";
+    echo "<hr>";
+
+    // تنظيم البيانات
+    echo "<p>📋 تنظيم البيانات...</p>";
+    $organized_data = organizePhoneData($phones_data);
+
+    $total_brands = count($organized_data);
+    $total_models = 0;
+    foreach ($organized_data as $models) {
+        $total_models += count($models);
+    }
+
+    echo "<p>✅ تم تنظيم البيانات:</p>";
+    echo "<ul>";
+    echo "<li><strong>عدد البراندات:</strong> {$total_brands}</li>";
+    echo "<li><strong>عدد الموديلات:</strong> {$total_models}</li>";
+    echo "</ul>";
+
+    // بدء المعاملة
+    $db->beginTransaction();
+
+    $brands_added = 0;
+    $models_added = 0;
+    $brands_skipped = 0;
+    $models_skipped = 0;
+
+    echo "<h3>📱 معالجة البراندات والموديلات:</h3>";
+    echo "<div style='max-height: 400px; overflow-y: scroll; border: 1px solid #ccc; padding: 10px; background: #f9f9f9;'>";
+
+    foreach ($organized_data as $brand_name => $models) {
+        echo "<p><strong>🏷️ معالجة براند: {$brand_name}</strong></p>";
+
+        // التحقق من وجود البراند
+        $existing_brand = $db->selectOne(
+            "SELECT id FROM brands WHERE name = ?",
+            [$brand_name]
+        );
+
+        if ($existing_brand) {
+            $brand_id = $existing_brand['id'];
+            echo "<span style='color: orange;'>   ⚠️ البراند موجود مسبقاً (ID: {$brand_id})</span><br>";
+            $brands_skipped++;
+        } else {
+            // إضافة براند جديد
+            $brand_id = $db->insert(
+                "INSERT INTO brands (name) VALUES (?)",
+                [$brand_name]
+            );
+
+            if ($brand_id) {
+                echo "<span style='color: green;'>   ✅ تم إضافة البراند (ID: {$brand_id})</span><br>";
+                $brands_added++;
+            } else {
+                echo "<span style='color: red;'>   ❌ فشل في إضافة البراند</span><br>";
+                continue;
+            }
+        }
+
+        // معالجة الموديلات
+        foreach ($models as $model_data) {
+            $model_name = $model_data['name'];
+
+            // التحقق من وجود الموديل
+            $existing_model = $db->selectOne(
+                "SELECT id FROM models WHERE brand_id = ? AND name = ?",
+                [$brand_id, $model_name]
+            );
+
+            if ($existing_model) {
+                echo "<span style='color: orange; margin-left: 20px;'>   ⚠️ الموديل موجود: {$model_name}</span><br>";
+                $models_skipped++;
+            } else {
+                // إضافة موديل جديد
+                $model_id = $db->insert(
+                    "INSERT INTO models (brand_id, name) VALUES (?, ?)",
+                    [$brand_id, $model_name]
+                );
+
+                if ($model_id) {
+                    echo "<span style='color: green; margin-left: 20px;'>   ✅ تم إضافة الموديل: {$model_name}</span><br>";
+                    $models_added++;
+                } else {
+                    echo "<span style='color: red; margin-left: 20px;'>   ❌ فشل في إضافة الموديل: {$model_name}</span><br>";
+                }
+            }
+        }
+
+        echo "<br>";
+    }
+
+    echo "</div>";
+
+    // تأكيد المعاملة
+    $db->commit();
+
+    echo "<hr>";
+    echo "<h3>📊 ملخص النتائج:</h3>";
+    echo "<div style='background: #e8f5e8; padding: 15px; border-radius: 5px; border-left: 5px solid #28a745;'>";
+    echo "<ul>";
+    echo "<li><strong>البراندات المضافة:</strong> <span style='color: green;'>{$brands_added}</span></li>";
+    echo "<li><strong>البراندات الموجودة مسبقاً:</strong> <span style='color: orange;'>{$brands_skipped}</span></li>";
+    echo "<li><strong>الموديلات المضافة:</strong> <span style='color: green;'>{$models_added}</span></li>";
+    echo "<li><strong>الموديلات الموجودة مسبقاً:</strong> <span style='color: orange;'>{$models_skipped}</span></li>";
+    echo "</ul>";
+    echo "</div>";
+
+    if ($brands_added > 0 || $models_added > 0) {
+        echo "<div style='background: #d4edda; padding: 15px; border-radius: 5px; margin: 15px 0; border-left: 5px solid #28a745;'>";
+        echo "<h4>🎉 تم الاستيراد بنجاح!</h4>";
+        echo "<p>تم إضافة {$brands_added} براند جديد و {$models_added} موديل جديد إلى قاعدة البيانات.</p>";
+        echo "</div>";
+    } else {
+        echo "<div style='background: #fff3cd; padding: 15px; border-radius: 5px; margin: 15px 0; border-left: 5px solid #ffc107;'>";
+        echo "<h4>ℹ️ لا توجد بيانات جديدة</h4>";
+        echo "<p>جميع البيانات موجودة مسبقاً في قاعدة البيانات.</p>";
+        echo "</div>";
+    }
+
+    // عرض عينة من البيانات المضافة
+    if ($models_added > 0) {
+        echo "<h3>📋 عينة من الموديلات المضافة:</h3>";
+        echo "<div style='background: #f8f9fa; padding: 15px; border-radius: 5px; max-height: 300px; overflow-y: scroll;'>";
+
+        $sample_models = $db->select(
+            "SELECT b.name as brand_name, m.name as model_name, m.id 
+             FROM models m 
+             JOIN brands b ON m.brand_id = b.id 
+             ORDER BY m.id DESC 
+             LIMIT 20"
+        );
+
+        echo "<table style='width: 100%; border-collapse: collapse;'>";
+        echo "<thead>";
+        echo "<tr style='background: #e9ecef;'>";
+        echo "<th style='padding: 8px; border: 1px solid #ddd; text-align: left;'>ID</th>";
+        echo "<th style='padding: 8px; border: 1px solid #ddd; text-align: left;'>البراند</th>";
+        echo "<th style='padding: 8px; border: 1px solid #ddd; text-align: left;'>الموديل</th>";
+        echo "</tr>";
+        echo "</thead>";
+        echo "<tbody>";
+
+        foreach ($sample_models as $model) {
+            echo "<tr>";
+            echo "<td style='padding: 8px; border: 1px solid #ddd;'>{$model['id']}</td>";
+            echo "<td style='padding: 8px; border: 1px solid #ddd;'>{$model['brand_name']}</td>";
+            echo "<td style='padding: 8px; border: 1px solid #ddd;'>{$model['model_name']}</td>";
+            echo "</tr>";
+        }
+
+        echo "</tbody>";
+        echo "</table>";
+        echo "</div>";
+    }
+
+    // روابط مفيدة
+    echo "<hr>";
+    echo "<h3>🔗 روابط مفيدة:</h3>";
+    echo "<div style='background: #e7f3ff; padding: 15px; border-radius: 5px; border-left: 5px solid #007bff;'>";
+    echo "<ul>";
+    echo "<li><a href='pages/settings.php' target='_blank'>إدارة البراندات والموديلات</a></li>";
+    echo "<li><a href='pages/add_repair.php' target='_blank'>إضافة إصلاح جديد</a></li>";
+    echo "<li><a href='pages/dashboard.php' target='_blank'>العودة للوحة التحكم</a></li>";
+    echo "</ul>";
+    echo "</div>";
+
+    // إحصائيات قاعدة البيانات
+    echo "<h3>📈 إحصائيات قاعدة البيانات:</h3>";
+    $total_brands_db = $db->selectOne("SELECT COUNT(*) as count FROM brands")['count'];
+    $total_models_db = $db->selectOne("SELECT COUNT(*) as count FROM models")['count'];
+
+    echo "<div style='background: #f1f3f4; padding: 15px; border-radius: 5px;'>";
+    echo "<p><strong>إجمالي البراندات في قاعدة البيانات:</strong> {$total_brands_db}</p>";
+    echo "<p><strong>إجمالي الموديلات في قاعدة البيانات:</strong> {$total_models_db}</p>";
+    echo "</div>";
+
+} catch (Exception $e) {
+    // في حالة الخطأ - التراجع عن المعاملة
+    if (isset($db)) {
+        try {
+            $db->rollback();
+        } catch (Exception $rollback_error) {
+            // تجاهل خطأ rollback إذا لم تكن هناك معاملة نشطة
+        }
+    }
+
+    echo "<div style='background: #f8d7da; padding: 15px; border-radius: 5px; border-left: 5px solid #dc3545; margin: 15px 0;'>";
+    echo "<h4>❌ حدث خطأ أثناء الاستيراد</h4>";
+    echo "<p><strong>رسالة الخطأ:</strong> " . htmlspecialchars($e->getMessage()) . "</p>";
+    echo "<p><strong>الملف:</strong> " . $e->getFile() . "</p>";
+    echo "<p><strong>السطر:</strong> " . $e->getLine() . "</p>";
+    echo "</div>";
+
+    if (isDebugMode()) {
+        echo "<h4>🔍 تفاصيل الخطأ (Debug Mode):</h4>";
+        echo "<pre style='background: #f8f9fa; padding: 10px; border-radius: 5px; overflow-x: auto;'>";
+        echo htmlspecialchars($e->getTraceAsString());
+        echo "</pre>";
+    }
+}
+
+?>
+
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>استيراد بيانات الهواتف - RepairPoint</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        h2, h3, h4 {
+            color: #2c3e50;
+            margin-top: 0;
+        }
+
+        h2 {
+            font-size: 2.2em;
+            margin-bottom: 10px;
+            text-align: center;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        hr {
+            border: none;
+            height: 2px;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            margin: 20px 0;
+        }
+
+        p {
+            line-height: 1.6;
+            margin: 10px 0;
+        }
+
+        ul {
+            padding-right: 20px;
+        }
+
+        li {
+            margin: 5px 0;
+        }
+
+        a {
+            color: #007bff;
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        table {
+            font-size: 0.9em;
+        }
+
+        .success {
+            color: #28a745;
+            font-weight: bold;
+        }
+
+        .warning {
+            color: #ffc107;
+            font-weight: bold;
+        }
+
+        .error {
+            color: #dc3545;
+            font-weight: bold;
+        }
+
+        .info {
+            color: #17a2b8;
+            font-weight: bold;
+        }
+
+        /* Animation للصفحة */
+        .container {
+            animation: slideUp 0.6s ease-out;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+
+            .container {
+                padding: 20px;
+            }
+
+            h2 {
+                font-size: 1.8em;
+            }
+
+            table {
+                font-size: 0.8em;
+            }
+        }
+
+        /* تحسين التمرير */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+
+        /* تحسين الـ divs */
+        div[style*="background"] {
+            border-radius: 8px;
+            margin: 15px 0;
+        }
+
+        /* Footer */
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 2px solid #eee;
+            color: #666;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <?php
+    // المحتوى يتم عرضه هنا من الكود أعلاه
+    ?>
+
+    <div class="footer">
+        <p>🛠️ RepairPoint - نظام إدارة ورش إصلاح الهواتف</p>
+        <p><strong>نصيحة:</strong> يمكنك تشغيل هذا السكريپت مرة واحدة فقط، أو عند إضافة بيانات جديدة.</p>
+    </div>
+</div>
+
+<script>
+    // JavaScript لتحسين تجربة المستخدم
+    document.addEventListener('DOMContentLoaded', function() {
+        // إضافة تأثيرات hover للروابط
+        const links = document.querySelectorAll('a');
+        links.forEach(link => {
+            link.addEventListener('mouseenter', function() {
+                this.style.transform = 'scale(1.05)';
+                this.style.transition = 'transform 0.2s ease';
+            });
+
+            link.addEventListener('mouseleave', function() {
+                this.style.transform = 'scale(1)';
+            });
+        });
+
+        // إضافة animation للجداول
+        const tables = document.querySelectorAll('table');
+        tables.forEach(table => {
+            table.style.animation = 'fadeIn 0.8s ease-in';
+        });
+
+        console.log('✅ RepairPoint Data Import Script Loaded Successfully!');
+    });
+
+    // CSS Animation via JavaScript
+    const style = document.createElement('style');
+    style.textContent = `
+            @keyframes fadeIn {
+                from { opacity: 0; transform: translateY(10px); }
+                to { opacity: 1; transform: translateY(0); }
+            }
+        `;
+    document.head.appendChild(style);
+</script>
+</body>
+</html>

@@ -1,6 +1,6 @@
 <?php
 /**
- * RepairPoint - Detalles de Reparación
+ * RepairPoint - Detalles de Reparación (محدث مع نظام قطع الغيار)
  */
 
 // Definir acceso seguro
@@ -48,6 +48,13 @@ if (!$repair) {
 
 $page_title = 'Reparación #' . $repair['reference'];
 
+// Obtener qطع الغيار المستخدمة en esta reparación
+$used_spare_parts = getRepairSpareParts($repair_id);
+$spare_parts_cost = calculateRepairSparePartsCost($repair_id);
+
+// صلاحيات قطع الغيار
+$spare_parts_permissions = getCurrentUserSparePartsPermissions();
+
 // حساب المدة والضمانة الصحيحة
 $repair_duration = calculateRepairDuration($repair['received_at'], $repair['delivered_at']);
 $warranty_days = $repair['warranty_days'] ?? 30;
@@ -59,7 +66,101 @@ if ($repair['delivered_at']) {
     $is_under_warranty = isUnderWarranty($repair['delivered_at'], $warranty_days);
 }
 
-// Procesar cambio de estado y acciones
+// Procesar acciones de قطع الغيار
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['spare_part_action'])) {
+    if (!verifyCSRFToken($_POST['csrf_token'] ?? '')) {
+        setMessage('Token de seguridad inválido', MSG_ERROR);
+    } else {
+        $action = $_POST['spare_part_action'];
+        $success = false;
+        $message = '';
+
+        switch ($action) {
+            case 'add_spare_part':
+                if ($spare_parts_permissions['use_spare_parts']) {
+                    $spare_part_id = intval($_POST['spare_part_id'] ?? 0);
+                    $quantity = intval($_POST['quantity'] ?? 1);
+                    $unit_price = floatval($_POST['unit_price'] ?? 0);
+
+                    if ($spare_part_id > 0 && $quantity > 0) {
+                        $usage_id = addRepairSparePart($repair_id, $spare_part_id, $quantity, $unit_price);
+                        if ($usage_id) {
+                            $success = true;
+                            $message = 'Repuesto agregado correctamente';
+                            // إعادة تحميل البيانات
+                            $used_spare_parts = getRepairSpareParts($repair_id);
+                            $spare_parts_cost = calculateRepairSparePartsCost($repair_id);
+                        } else {
+                            $message = 'Error al agregar el repuesto';
+                        }
+                    } else {
+                        $message = 'Datos de repuesto no válidos';
+                    }
+                } else {
+                    $message = 'No tienes permisos para agregar repuestos';
+                }
+                break;
+
+            case 'remove_spare_part':
+                if ($spare_parts_permissions['use_spare_parts']) {
+                    $usage_id = intval($_POST['usage_id'] ?? 0);
+
+                    if ($usage_id > 0) {
+                        try {
+                            $db->beginTransaction();
+
+                            // الحصول على بيانات الاستخدام قبل الحذف
+                            $usage = $db->selectOne(
+                                "SELECT * FROM repair_spare_parts WHERE id = ? AND repair_id = ?",
+                                [$usage_id, $repair_id]
+                            );
+
+                            if ($usage) {
+                                // حذف الاستخدام
+                                $deleted = $db->delete(
+                                    "DELETE FROM repair_spare_parts WHERE id = ?",
+                                    [$usage_id]
+                                );
+
+                                if ($deleted) {
+                                    // إرجاع المخزون
+                                    updateSparePartStock($usage['spare_part_id'], $usage['quantity'], 'add');
+
+                                    $db->commit();
+                                    $success = true;
+                                    $message = 'Repuesto eliminado correctamente';
+
+                                    // إعادة تحميل البيانات
+                                    $used_spare_parts = getRepairSpareParts($repair_id);
+                                    $spare_parts_cost = calculateRepairSparePartsCost($repair_id);
+                                } else {
+                                    $db->rollback();
+                                    $message = 'Error al eliminar el repuesto';
+                                }
+                            } else {
+                                $db->rollback();
+                                $message = 'Repuesto no encontrado';
+                            }
+
+                        } catch (Exception $e) {
+                            $db->rollback();
+                            error_log("Error eliminando repuesto: " . $e->getMessage());
+                            $message = 'Error al eliminar el repuesto';
+                        }
+                    } else {
+                        $message = 'ID de repuesto no válido';
+                    }
+                } else {
+                    $message = 'No tienes permisos para eliminar repuestos';
+                }
+                break;
+        }
+
+        setMessage($message, $success ? MSG_SUCCESS : MSG_ERROR);
+    }
+}
+
+// Procesar cambio de estado y acciones (الكود الأصلي)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     if (!verifyCSRFToken($_POST['csrf_token'] ?? '')) {
         setMessage('Token de seguridad inválido', MSG_ERROR);
@@ -81,7 +182,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                         if ($new_status === 'completed') {
                             $completed_at = getCurrentDateTime();
                         } elseif ($new_status === 'pending' || $new_status === 'in_progress') {
-                            // إذا تم إرجاع الحالة من completed، نحذف تاريخ الاكتمال
                             $completed_at = null;
                         }
 
@@ -269,7 +369,7 @@ require_once INCLUDES_PATH . 'header.php';
             <div class="col-12">
                 <div class="page-header bg-info text-white p-4 rounded">
                     <div class="row align-items-center">
-                        <div class="col-md-8">
+                        <div class="col-md-6">
                             <h1 class="h3 mb-1">
                                 <i class="bi bi-eye me-2"></i>
                                 Reparación #<?= htmlspecialchars($repair['reference']) ?>
@@ -280,14 +380,19 @@ require_once INCLUDES_PATH . 'header.php';
                                 <?= getStatusName($repair['status']) ?>
                             </p>
                         </div>
-                        <div class="col-md-4 text-md-end">
-                            <div class="btn-group">
+                        <div class="col-md-6 text-md-end">
+                            <div class="btn-group" role="group">
                                 <a href="<?= url('pages/edit_repair.php?id=' . $repair['id']) ?>" class="btn btn-light">
                                     <i class="bi bi-pencil me-2"></i>Editar
                                 </a>
                                 <button class="btn btn-outline-light" onclick="printTicket(<?= $repair['id'] ?>)">
-                                    <i class="bi bi-printer me-2"></i>Imprimir
+                                    <i class="bi bi-printer me-2"></i>Ticket
                                 </button>
+                                <?php if (!empty($used_spare_parts) && $spare_parts_permissions['print_invoice']): ?>
+                                    <button class="btn btn-outline-light" onclick="printSparePartsInvoice(<?= $repair['id'] ?>)">
+                                        <i class="bi bi-receipt me-2"></i>Factura Repuestos
+                                    </button>
+                                <?php endif; ?>
                             </div>
                         </div>
                     </div>
@@ -387,7 +492,185 @@ require_once INCLUDES_PATH . 'header.php';
                     </div>
                 </div>
 
-                <!-- Costes -->
+                <!-- قطع الغيار المستخدمة - جديد -->
+                <?php if ($spare_parts_permissions['view_spare_parts']): ?>
+                    <div class="card mb-4">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="card-title mb-0">
+                                <i class="bi bi-gear me-2"></i>
+                                Repuestos Utilizados
+                                <?php if (!empty($used_spare_parts)): ?>
+                                    <span class="badge bg-primary ms-2"><?= count($used_spare_parts) ?></span>
+                                <?php endif; ?>
+                            </h5>
+                            <?php if ($spare_parts_permissions['use_spare_parts'] && $repair['status'] !== 'delivered'): ?>
+                                <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#addSparePartModal">
+                                    <i class="bi bi-plus me-1"></i>Agregar Repuesto
+                                </button>
+                            <?php endif; ?>
+                        </div>
+                        <div class="card-body">
+                            <?php if (empty($used_spare_parts)): ?>
+                                <div class="text-center text-muted py-4">
+                                    <i class="bi bi-gear" style="font-size: 3rem; opacity: 0.3;"></i>
+                                    <p class="mt-3">No se han utilizado repuestos en esta reparación</p>
+                                    <?php if ($spare_parts_permissions['use_spare_parts'] && $repair['status'] !== 'delivered'): ?>
+                                        <button class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addSparePartModal">
+                                            <i class="bi bi-plus me-2"></i>Agregar Primer Repuesto
+                                        </button>
+                                    <?php endif; ?>
+                                </div>
+                            <?php else: ?>
+                                <div class="table-responsive">
+                                    <table class="table table-hover">
+                                        <thead class="table-light">
+                                        <tr>
+                                            <th>Repuesto</th>
+                                            <th>Categoría</th>
+                                            <th class="text-center">Cantidad</th>
+                                            <th class="text-end">Precio Unit.</th>
+                                            <th class="text-end">Total</th>
+                                            <?php if ($spare_parts_permissions['view_detailed_costs']): ?>
+                                                <th class="text-end">Beneficio</th>
+                                            <?php endif; ?>
+                                            <th class="text-center">Garantía</th>
+                                            <?php if ($spare_parts_permissions['use_spare_parts'] && $repair['status'] !== 'delivered'): ?>
+                                                <th class="text-center">Acciones</th>
+                                            <?php endif; ?>
+                                        </tr>
+                                        </thead>
+                                        <tbody>
+                                        <?php foreach ($used_spare_parts as $part): ?>
+                                            <tr>
+                                                <td>
+                                                    <div class="fw-bold"><?= htmlspecialchars($part['part_name']) ?></div>
+                                                    <?php if (!empty($part['part_code'])): ?>
+                                                        <small class="text-muted">Código: <?= htmlspecialchars($part['part_code']) ?></small>
+                                                    <?php endif; ?>
+                                                </td>
+                                                <td>
+                                                    <span class="badge bg-secondary"><?= formatSparePartCategory($part['category']) ?></span>
+                                                </td>
+                                                <td class="text-center">
+                                                    <span class="badge bg-info"><?= $part['quantity'] ?></span>
+                                                </td>
+                                                <td class="text-end">
+                                                    €<?= number_format($part['unit_price'], 2) ?>
+                                                </td>
+                                                <td class="text-end fw-bold">
+                                                    €<?= number_format($part['total_price'], 2) ?>
+                                                </td>
+                                                <?php if ($spare_parts_permissions['view_detailed_costs']): ?>
+                                                    <td class="text-end">
+                                                        <?php
+                                                        $unit_cost = ($part['unit_cost_price'] ?? 0) + ($part['unit_labor_cost'] ?? 0);
+                                                        $profit = ($part['unit_price'] - $unit_cost) * $part['quantity'];
+                                                        $profit_class = $profit > 0 ? 'text-success' : ($profit < 0 ? 'text-danger' : 'text-muted');
+                                                        ?>
+                                                        <span class="<?= $profit_class ?> fw-bold">
+                                                            €<?= number_format($profit, 2) ?>
+                                                        </span>
+                                                        <?php if ($unit_cost > 0): ?>
+                                                            <br><small class="text-muted">
+                                                                <?= number_format(($profit / ($unit_cost * $part['quantity'])) * 100, 1) ?>% margen
+                                                            </small>
+                                                        <?php endif; ?>
+                                                    </td>
+                                                <?php endif; ?>
+                                                <td class="text-center">
+                                                    <span class="badge bg-success"><?= $part['warranty_days'] ?> días</span>
+                                                </td>
+                                                <?php if ($spare_parts_permissions['use_spare_parts'] && $repair['status'] !== 'delivered'): ?>
+                                                    <td class="text-center">
+                                                        <button type="button"
+                                                                class="btn btn-sm btn-outline-danger"
+                                                                onclick="removeRepairSparePart(<?= $part['id'] ?>, '<?= htmlspecialchars($part['part_name']) ?>')"
+                                                                title="Eliminar">
+                                                            <i class="bi bi-trash"></i>
+                                                        </button>
+                                                    </td>
+                                                <?php endif; ?>
+                                            </tr>
+                                        <?php endforeach; ?>
+                                        </tbody>
+                                        <tfoot class="table-light">
+                                        <tr>
+                                            <th colspan="4" class="text-end">TOTAL REPUESTOS:</th>
+                                            <th class="text-end">€<?= number_format($spare_parts_cost['total_customer_price'], 2) ?></th>
+                                            <?php if ($spare_parts_permissions['view_detailed_costs']): ?>
+                                                <th class="text-end">
+                                                    <span class="<?= $spare_parts_cost['total_profit'] > 0 ? 'text-success' : 'text-danger' ?> fw-bold">
+                                                        €<?= number_format($spare_parts_cost['total_profit'], 2) ?>
+                                                    </span>
+                                                </th>
+                                            <?php endif; ?>
+                                            <th></th>
+                                            <?php if ($spare_parts_permissions['use_spare_parts'] && $repair['status'] !== 'delivered'): ?>
+                                                <th></th>
+                                            <?php endif; ?>
+                                        </tr>
+                                        </tfoot>
+                                    </table>
+                                </div>
+
+                                <!-- إجمالي التكاليف المفصل للإدارة -->
+                                <?php if ($spare_parts_permissions['view_detailed_costs'] && !empty($used_spare_parts)): ?>
+                                    <div class="row mt-3">
+                                        <div class="col-md-8 offset-md-4">
+                                            <div class="card bg-light">
+                                                <div class="card-body p-3">
+                                                    <h6 class="card-title mb-3">Análisis Financiero (Solo Admin)</h6>
+                                                    <div class="row g-2">
+                                                        <div class="col-6">
+                                                            <div class="d-flex justify-content-between">
+                                                                <small>Coste de compra:</small>
+                                                                <small class="fw-bold">€<?= number_format($spare_parts_cost['total_cost_price'], 2) ?></small>
+                                                            </div>
+                                                        </div>
+                                                        <div class="col-6">
+                                                            <div class="d-flex justify-content-between">
+                                                                <small>Coste de mano de obra:</small>
+                                                                <small class="fw-bold">€<?= number_format($spare_parts_cost['total_labor_cost'], 2) ?></small>
+                                                            </div>
+                                                        </div>
+                                                        <div class="col-12">
+                                                            <hr class="my-2">
+                                                        </div>
+                                                        <div class="col-6">
+                                                            <div class="d-flex justify-content-between">
+                                                                <small>Precio al cliente:</small>
+                                                                <small class="fw-bold text-primary">€<?= number_format($spare_parts_cost['total_customer_price'], 2) ?></small>
+                                                            </div>
+                                                        </div>
+                                                        <div class="col-6">
+                                                            <div class="d-flex justify-content-between">
+                                                                <small>Beneficio neto:</small>
+                                                                <small class="fw-bold <?= $spare_parts_cost['total_profit'] > 0 ? 'text-success' : 'text-danger' ?>">
+                                                                    €<?= number_format($spare_parts_cost['total_profit'], 2) ?>
+                                                                </small>
+                                                            </div>
+                                                        </div>
+                                                        <?php if ($spare_parts_cost['total_cost_price'] > 0): ?>
+                                                            <div class="col-12 mt-2">
+                                                                <div class="text-center">
+                                                                    <small class="badge bg-info">
+                                                                        Margen: <?= number_format(($spare_parts_cost['total_profit'] / ($spare_parts_cost['total_cost_price'] + $spare_parts_cost['total_labor_cost'])) * 100, 1) ?>%
+                                                                    </small>
+                                                                </div>
+                                                            </div>
+                                                        <?php endif; ?>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                <?php endif; ?>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                <?php endif; ?>
+
+                <!-- Costes (تحديث لتشمل قطع الغيار) -->
                 <div class="card mb-4">
                     <div class="card-header d-flex justify-content-between align-items-center">
                         <h5 class="card-title mb-0">
@@ -433,6 +716,56 @@ require_once INCLUDES_PATH . 'header.php';
                                 </div>
                             </div>
                         </div>
+
+                        <!-- تفاصيل التكاليف مع قطع الغيار -->
+                        <?php if (!empty($used_spare_parts) || ($repair['actual_cost'] > 0)): ?>
+                            <hr>
+                            <div class="cost-breakdown">
+                                <h6 class="text-muted mb-3">Desglose de Costes:</h6>
+                                <div class="row">
+                                    <?php if (!empty($used_spare_parts)): ?>
+                                        <div class="col-md-6">
+                                            <div class="breakdown-item p-3 border rounded bg-light">
+                                                <div class="d-flex justify-content-between align-items-center">
+                                                    <span><i class="bi bi-gear me-2"></i>Repuestos:</span>
+                                                    <span class="fw-bold text-primary">€<?= number_format($spare_parts_cost['total_customer_price'], 2) ?></span>
+                                                </div>
+                                                <small class="text-muted"><?= count($used_spare_parts) ?> repuesto(s)</small>
+                                            </div>
+                                        </div>
+                                    <?php endif; ?>
+
+                                    <?php
+                                    $labor_cost = 0;
+                                    if ($repair['actual_cost'] > 0) {
+                                        $labor_cost = $repair['actual_cost'] - ($spare_parts_cost['total_customer_price'] ?? 0);
+                                    }
+                                    if ($labor_cost > 0):
+                                        ?>
+                                        <div class="col-md-6">
+                                            <div class="breakdown-item p-3 border rounded bg-light">
+                                                <div class="d-flex justify-content-between align-items-center">
+                                                    <span><i class="bi bi-wrench me-2"></i>Mano de obra:</span>
+                                                    <span class="fw-bold text-info">€<?= number_format($labor_cost, 2) ?></span>
+                                                </div>
+                                                <small class="text-muted">Trabajo técnico</small>
+                                            </div>
+                                        </div>
+                                    <?php endif; ?>
+                                </div>
+
+                                <?php if (($spare_parts_cost['total_customer_price'] ?? 0) > 0 && $labor_cost > 0): ?>
+                                    <div class="mt-3 p-3 bg-primary bg-opacity-10 rounded">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <span class="fw-bold">TOTAL FACTURADO:</span>
+                                            <span class="h5 mb-0 text-primary">
+                                                €<?= number_format(($spare_parts_cost['total_customer_price'] ?? 0) + $labor_cost, 2) ?>
+                                            </span>
+                                        </div>
+                                    </div>
+                                <?php endif; ?>
+                            </div>
+                        <?php endif; ?>
                     </div>
                 </div>
 
@@ -761,23 +1094,128 @@ require_once INCLUDES_PATH . 'header.php';
         </div>
     </div>
 
-    <!-- Modal para actualizar coste -->
-    <div class="modal fade" id="costModal" tabindex="-1" aria-labelledby="costModalLabel" aria-hidden="true">
+    <!-- Modal para agregar repuesto -->
+<?php if ($spare_parts_permissions['use_spare_parts'] && $repair['status'] !== 'delivered'): ?>
+    <div class="modal fade" id="addSparePartModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Agregar Repuesto a la Reparación</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- بحث قطع الغيار -->
+                    <div class="mb-3">
+                        <label class="form-label">Buscar Repuesto</label>
+                        <input type="text"
+                               class="form-control"
+                               id="modalSparePartSearch"
+                               placeholder="Buscar por nombre o código...">
+                    </div>
+
+                    <!-- filtros -->
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Filtrar por categoría</label>
+                            <select class="form-select" id="modalCategoryFilter">
+                                <option value="">Todas las categorías</option>
+                                <option value="pantalla">Pantalla</option>
+                                <option value="bateria">Batería</option>
+                                <option value="camara">Cámara</option>
+                                <option value="altavoz">Altavoz</option>
+                                <option value="conector">Conector</option>
+                                <option value="otros">Otros</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Compatible con</label>
+                            <div class="form-control-plaintext">
+                                <strong><?= htmlspecialchars($repair['brand_name']) ?> <?= htmlspecialchars($repair['model_name']) ?></strong>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- نتائج البحث -->
+                    <div id="modalSparePartResults">
+                        <div class="text-center text-muted">
+                            <i class="bi bi-search"></i>
+                            <p>Escribe para buscar repuestos compatibles</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+<?php endif; ?>
+
+    <!-- Modal para eliminar repuesto -->
+    <div class="modal fade" id="removeSparePartModal" tabindex="-1">
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="costModalLabel">
+                    <h5 class="modal-title">Eliminar Repuesto</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form method="POST" action="" id="removeSparePartForm">
+                    <div class="modal-body">
+                        <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
+                        <input type="hidden" name="spare_part_action" value="remove_spare_part">
+                        <input type="hidden" name="usage_id" id="removeUsageId">
+
+                        <div class="alert alert-warning">
+                            <i class="bi bi-exclamation-triangle me-2"></i>
+                            ¿Estás seguro de que quieres eliminar este repuesto de la reparación?
+                        </div>
+
+                        <div class="text-center">
+                            <strong id="removePartName"></strong>
+                        </div>
+
+                        <div class="mt-3 p-3 bg-info bg-opacity-10 rounded">
+                            <small class="text-info">
+                                <i class="bi bi-info-circle me-1"></i>
+                                El stock del repuesto será restaurado automáticamente.
+                            </small>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-danger">
+                            <i class="bi bi-trash me-2"></i>Eliminar Repuesto
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modales originales (actualizar coste, entrega, reapertura) -->
+    <div class="modal fade" id="costModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
                         <i class="bi bi-currency-euro me-2"></i>Actualizar Coste Real
                     </h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <form method="POST" action="">
                     <div class="modal-body">
                         <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
                         <input type="hidden" name="action" value="update_cost">
 
+                        <!-- معلومات قطع الغيار إن وجدت -->
+                        <?php if (!empty($used_spare_parts)): ?>
+                            <div class="alert alert-info">
+                                <h6><i class="bi bi-gear me-2"></i>Repuestos incluidos:</h6>
+                                <div class="small">
+                                    Total repuestos: <strong>€<?= number_format($spare_parts_cost['total_customer_price'], 2) ?></strong>
+                                </div>
+                            </div>
+                        <?php endif; ?>
+
                         <div class="mb-3">
-                            <label for="actual_cost" class="form-label">Coste Real (€)</label>
+                            <label for="actual_cost" class="form-label">Coste Total Final (€)</label>
                             <div class="input-group">
                                 <span class="input-group-text">€</span>
                                 <input type="number"
@@ -790,7 +1228,11 @@ require_once INCLUDES_PATH . 'header.php';
                                        placeholder="0.00">
                             </div>
                             <div class="form-text">
-                                Deja en blanco o 0 si no hubo coste.
+                                <?php if (!empty($used_spare_parts)): ?>
+                                    Incluye repuestos (€<?= number_format($spare_parts_cost['total_customer_price'], 2) ?>) + mano de obra.
+                                <?php else: ?>
+                                    Coste total de la reparación. Deja en blanco o 0 si no hubo coste.
+                                <?php endif; ?>
                             </div>
                         </div>
 
@@ -814,14 +1256,14 @@ require_once INCLUDES_PATH . 'header.php';
     </div>
 
     <!-- Modal para marcar como entregado -->
-    <div class="modal fade" id="deliveryModal" tabindex="-1" aria-labelledby="deliveryModalLabel" aria-hidden="true">
+    <div class="modal fade" id="deliveryModal" tabindex="-1">
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="deliveryModalLabel">
+                    <h5 class="modal-title">
                         <i class="bi bi-hand-thumbs-up me-2"></i>Marcar como Entregado
                     </h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <form method="POST" action="">
                     <div class="modal-body">
@@ -870,14 +1312,14 @@ require_once INCLUDES_PATH . 'header.php';
     </div>
 
     <!-- Modal para reabrir reparación -->
-    <div class="modal fade" id="reopenModal" tabindex="-1" aria-labelledby="reopenModalLabel" aria-hidden="true">
+    <div class="modal fade" id="reopenModal" tabindex="-1">
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="reopenModalLabel">
+                    <h5 class="modal-title">
                         <i class="bi bi-arrow-clockwise me-2"></i>Reabrir Reparación
                     </h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <form method="POST" action="">
                     <div class="modal-body">
@@ -944,71 +1386,21 @@ require_once INCLUDES_PATH . 'header.php';
     </div>
 
     <style>
-        /* Estilos específicos para detalles de reparación */
-        .page-header {
-            background: linear-gradient(135deg, #0dcaf0 0%, #0a98ba 100%);
-            position: relative;
-            overflow: hidden;
+        /* أنماط محسنة لقطع الغيار */
+        .spare-parts-section {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-radius: 10px;
+            padding: 1rem;
         }
 
-        .page-header::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            right: 0;
-            width: 150px;
-            height: 150px;
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 50%;
-            transform: translate(50px, -50px);
-        }
-
-        .card {
-            border: none;
-            border-radius: 1rem;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+        .breakdown-item {
             transition: all 0.3s ease;
+            border: 1px solid #dee2e6 !important;
         }
 
-        .card:hover {
-            box-shadow: 0 4px 20px rgba(0,0,0,0.12);
-        }
-
-        .card-header {
-            background: rgba(13, 202, 240, 0.05);
-            border-bottom: 1px solid rgba(13, 202, 240, 0.1);
-            border-radius: 1rem 1rem 0 0 !important;
-            padding: 1rem 1.5rem;
-        }
-
-        .info-group {
-            border-left: 3px solid #0d6efd;
-            padding-left: 1rem;
-            margin-bottom: 1rem;
-        }
-
-        .info-group label {
-            font-size: 0.875rem;
-            margin-bottom: 0.25rem;
-            color: #6c757d;
-        }
-
-        .problem-description {
-            background: rgba(255, 193, 7, 0.1);
-            border: 1px solid rgba(255, 193, 7, 0.2);
-            border-radius: 0.5rem;
-            padding: 1rem;
-            font-size: 1.1rem;
-            line-height: 1.6;
-        }
-
-        .notes-content {
-            background: rgba(108, 117, 125, 0.1);
-            border: 1px solid rgba(108, 117, 125, 0.2);
-            border-radius: 0.5rem;
-            padding: 1rem;
-            font-style: italic;
-            color: #6c757d;
+        .breakdown-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
         }
 
         .cost-item {
@@ -1018,16 +1410,6 @@ require_once INCLUDES_PATH . 'header.php';
             background: rgba(0, 123, 255, 0.05);
         }
 
-        .cost-value {
-            margin-top: 0.5rem;
-        }
-
-        .status-section,
-        .actions-section {
-            text-align: center;
-        }
-
-        /* Timeline */
         .timeline {
             position: relative;
             padding-left: 2rem;
@@ -1067,43 +1449,27 @@ require_once INCLUDES_PATH . 'header.php';
             box-shadow: 0 2px 4px rgba(0,0,0,0.05);
         }
 
-        .timeline-title {
-            font-weight: 600;
-            color: #212529;
-            margin-bottom: 0.25rem;
+        .spare-part-row {
+            transition: all 0.3s ease;
         }
 
-        .timeline-date {
-            color: #0d6efd;
-            font-weight: 500;
-            margin-bottom: 0.25rem;
-        }
-
-        .duration-info {
-            border: 2px dashed #0d6efd;
-        }
-
-        .customer-reminder {
-            border-left: 4px solid #198754;
-        }
-
-        .reopen-info {
-            border-left: 4px solid #ffc107;
+        .spare-part-row:hover {
+            background-color: #f8f9fa;
         }
 
         .warranty-status-card {
             border: 2px solid;
+            transition: all 0.3s ease;
         }
 
-        /* Responsive */
-        @media (max-width: 768px) {
-            .page-header {
-                text-align: center;
-                padding: 2rem 1rem !important;
-            }
+        .warranty-status-card:hover {
+            transform: scale(1.02);
+        }
 
-            .page-header h1 {
-                font-size: 1.5rem;
+        /* تحسينات الجوال */
+        @media (max-width: 768px) {
+            .breakdown-item {
+                margin-bottom: 0.5rem;
             }
 
             .timeline {
@@ -1120,53 +1486,83 @@ require_once INCLUDES_PATH . 'header.php';
                 left: -1.375rem;
             }
 
-            .info-group {
-                border-left-width: 2px;
-                padding-left: 0.75rem;
-            }
-
-            .cost-item {
-                padding: 0.75rem;
-                margin-bottom: 1rem;
-            }
-        }
-
-        @media (max-width: 576px) {
-            .container-fluid {
-                padding-left: 0.75rem;
-                padding-right: 0.75rem;
-            }
-
-            .page-header {
-                margin-left: -0.75rem;
-                margin-right: -0.75rem;
-                border-radius: 0;
-            }
-
-            .card-body {
-                padding: 1rem;
-            }
-
-            .problem-description,
-            .notes-content {
-                padding: 0.75rem;
-                font-size: 1rem;
-            }
-
-            .timeline-content {
-                padding: 0.75rem;
-            }
-
             .btn-group {
                 width: 100%;
+                flex-direction: column;
             }
 
             .btn-group .btn {
-                flex: 1;
+                margin-bottom: 0.25rem;
             }
         }
 
-        /* Animaciones */
+        /* أنماط الجداول المحسنة */
+        .table-hover tbody tr:hover {
+            background-color: rgba(13, 202, 240, 0.1);
+        }
+
+        .table thead th {
+            border-bottom: 2px solid #0dcaf0;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        }
+
+        .table tfoot th {
+            border-top: 2px solid #0dcaf0;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        }
+
+        /* أنماط الكروت */
+        .card {
+            border: none;
+            border-radius: 1rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+            transition: all 0.3s ease;
+        }
+
+        .card:hover {
+            box-shadow: 0 4px 20px rgba(0,0,0,0.12);
+        }
+
+        .card-header {
+            background: rgba(13, 202, 240, 0.05);
+            border-bottom: 1px solid rgba(13, 202, 240, 0.1);
+            border-radius: 1rem 1rem 0 0 !important;
+            padding: 1rem 1.5rem;
+        }
+
+        .page-header {
+            background: linear-gradient(135deg, #0dcaf0 0%, #0a98ba 100%);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .page-header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 150px;
+            height: 150px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            transform: translate(50px, -50px);
+        }
+
+        /* أنماط البحث في المودال */
+        .modal-dialog.modal-lg {
+            max-width: 800px;
+        }
+
+        #modalSparePartResults .list-group-item {
+            transition: all 0.3s ease;
+        }
+
+        #modalSparePartResults .list-group-item:hover {
+            background-color: #f8f9fa;
+            transform: translateX(5px);
+        }
+
+        /* تحسينات الأنيميشن */
         @keyframes slideInUp {
             from {
                 opacity: 0;
@@ -1193,25 +1589,246 @@ require_once INCLUDES_PATH . 'header.php';
     </style>
 
     <script>
+        // متغيرات عامة
+        const repairId = <?= $repair['id'] ?>;
+        const canUseSpareParts = <?= json_encode($spare_parts_permissions['use_spare_parts']) ?>;
+        const brandId = <?= $repair['brand_id'] ?>;
+        const modelId = <?= $repair['model_id'] ?>;
+
         document.addEventListener('DOMContentLoaded', function() {
-            // Inicializar tooltips
-            const tooltipTriggerList = [].slice.call(document.querySelectorAll('[title]'));
-            const tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
-                return new bootstrap.Tooltip(tooltipTriggerEl);
+            // إعداد بحث قطع الغيار في المودال
+            if (canUseSpareParts) {
+                setupModalSparePartSearch();
+            }
+
+            // إعداد المؤقتات والتحديث التلقائي
+            setupAutoRefresh();
+
+            // إعداد أزرار الطباعة
+            setupPrintButtons();
+        });
+
+        // إعداد بحث قطع الغيار في المودال
+        function setupModalSparePartSearch() {
+            const searchInput = document.getElementById('modalSparePartSearch');
+            const categoryFilter = document.getElementById('modalCategoryFilter');
+            const resultsContainer = document.getElementById('modalSparePartResults');
+            let searchTimeout;
+
+            function performSearch() {
+                const searchTerm = searchInput.value.trim();
+                const category = categoryFilter.value;
+
+                if (searchTerm.length < 2 && !category) {
+                    resultsContainer.innerHTML = `
+                        <div class="text-center text-muted">
+                            <i class="bi bi-search"></i>
+                            <p>Escribe al menos 2 caracteres para buscar</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                // عرض مؤشر التحميل
+                resultsContainer.innerHTML = `
+                    <div class="text-center">
+                        <div class="spinner-border spinner-border-sm" role="status">
+                            <span class="visually-hidden">Buscando...</span>
+                        </div>
+                        <p class="mt-2">Buscando repuestos compatibles...</p>
+                    </div>
+                `;
+
+                let url = `<?= url('api/spare_parts.php') ?>?action=search&brand_id=${brandId}&model_id=${modelId}&limit=20`;
+
+                if (searchTerm) {
+                    url += `&term=${encodeURIComponent(searchTerm)}`;
+                }
+
+                if (category) {
+                    url += `&category=${encodeURIComponent(category)}`;
+                }
+
+                fetch(url)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success && data.data.parts) {
+                            displayModalSparePartResults(data.data.parts);
+                        } else {
+                            resultsContainer.innerHTML = `
+                                <div class="text-center text-muted">
+                                    <i class="bi bi-exclamation-circle"></i>
+                                    <p>No se encontraron repuestos compatibles</p>
+                                </div>
+                            `;
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error searching spare parts:', error);
+                        resultsContainer.innerHTML = `
+                            <div class="text-center text-danger">
+                                <i class="bi bi-exclamation-triangle"></i>
+                                <p>Error al buscar repuestos</p>
+                            </div>
+                        `;
+                    });
+            }
+
+            searchInput.addEventListener('input', function() {
+                clearTimeout(searchTimeout);
+                searchTimeout = setTimeout(performSearch, 300);
             });
 
-            // Auto-refresh cada 30 segundos si no está entregado
+            categoryFilter.addEventListener('change', performSearch);
+
+            // بحث تلقائي عند فتح المودال
+            document.getElementById('addSparePartModal').addEventListener('shown.bs.modal', function() {
+                if (searchInput.value.length >= 2 || categoryFilter.value) {
+                    performSearch();
+                } else {
+                    // عرض القطع المتوافقة بشكل افتراضي
+                    performSearch();
+                }
+            });
+        }
+
+        // عرض نتائج البحث في المودال
+        function displayModalSparePartResults(parts) {
+            const resultsContainer = document.getElementById('modalSparePartResults');
+
+            if (parts.length === 0) {
+                resultsContainer.innerHTML = `
+                    <div class="text-center text-muted">
+                        <i class="bi bi-inbox"></i>
+                        <p>No hay repuestos disponibles para este dispositivo</p>
+                    </div>
+                `;
+                return;
+            }
+
+            let html = '<div class="list-group">';
+
+            parts.forEach(part => {
+                const isAvailable = part.stock_status !== 'out_of_stock' && part.stock_quantity > 0;
+                const stockBadge = getStockBadge(part.stock_status, part.stock_quantity);
+
+                html += `
+                    <div class="list-group-item ${!isAvailable ? 'list-group-item-secondary' : ''}" data-part-id="${part.id}">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div class="flex-grow-1">
+                                <h6 class="mb-1">${part.part_name}</h6>
+                                ${part.part_code ? `<small class="text-muted">Código: ${part.part_code}</small><br>` : ''}
+                                <span class="badge bg-secondary">${formatSparePartCategory(part.category)}</span>
+                                <span class="badge bg-primary ms-1">€${parseFloat(part.total_price).toFixed(2)}</span>
+                                ${stockBadge}
+                                ${part.warranty_days ? `<span class="badge bg-success ms-1">${part.warranty_days} días garantía</span>` : ''}
+                            </div>
+                            <div class="ms-3">
+                                ${isAvailable ?
+                    `<button type="button" class="btn btn-sm btn-outline-primary"
+                                             onclick="selectSparePartForRepair(${part.id}, '${part.part_name.replace(/'/g, "\\'")}', ${part.total_price})">
+                                        <i class="bi bi-plus"></i> Agregar
+                                    </button>` :
+                    `<button type="button" class="btn btn-sm btn-secondary" disabled>
+                                        Sin stock
+                                    </button>`
+                }
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            html += '</div>';
+            resultsContainer.innerHTML = html;
+        }
+
+        // اختيار قطعة غيار للإصلاح
+        function selectSparePartForRepair(partId, partName, unitPrice) {
+            // إنشاء form للإرسال
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = '';
+
+            const fields = {
+                'csrf_token': '<?= generateCSRFToken() ?>',
+                'spare_part_action': 'add_spare_part',
+                'spare_part_id': partId,
+                'quantity': 1,
+                'unit_price': unitPrice
+            };
+
+            Object.keys(fields).forEach(key => {
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = key;
+                input.value = fields[key];
+                form.appendChild(input);
+            });
+
+            document.body.appendChild(form);
+            form.submit();
+        }
+
+        // حذف قطعة غيار من الإصلاح
+        function removeRepairSparePart(usageId, partName) {
+            document.getElementById('removeUsageId').value = usageId;
+            document.getElementById('removePartName').textContent = partName;
+
+            const modal = new bootstrap.Modal(document.getElementById('removeSparePartModal'));
+            modal.show();
+        }
+
+        // إعداد أزرار الطباعة
+        function setupPrintButtons() {
+            window.printTicket = function(repairId) {
+                const printWindow = window.open(`<?= url('pages/print_ticket.php?id=') ?>${repairId}`, '_blank');
+                if (printWindow) {
+                    printWindow.focus();
+                } else {
+                    showNotification('Por favor, permite las ventanas emergentes para imprimir', 'warning');
+                }
+            };
+
+            window.printSparePartsInvoice = function(repairId) {
+                const printWindow = window.open(`<?= url('pages/print_spare_parts_invoice.php?id=') ?>${repairId}`, '_blank');
+                if (printWindow) {
+                    printWindow.focus();
+                } else {
+                    showNotification('Por favor, permite las ventanas emergentes para imprimir', 'warning');
+                }
+            };
+        }
+
+        // إعداد التحديث التلقائي
+        function setupAutoRefresh() {
             <?php if ($repair['status'] !== 'delivered'): ?>
             setInterval(function() {
                 if (document.visibilityState === 'visible') {
-                    // Solo refrescar si la página está visible
-                    // checkForUpdates();
+                    checkForUpdates();
                 }
             }, 30000);
             <?php endif; ?>
-        });
+        }
 
-        // Función para mostrar modal de reapertura
+        // التحقق من التحديثات
+        function checkForUpdates() {
+            fetch(`<?= url('api/repairs.php') ?>?action=get_status&id=<?= $repair['id'] ?>`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.data.status !== '<?= $repair['status'] ?>') {
+                        showNotification('El estado de la reparación ha cambiado. Recargando...', 'info');
+                        setTimeout(() => {
+                            location.reload();
+                        }, 2000);
+                    }
+                })
+                .catch(error => {
+                    console.log('Error verificando actualizaciones:', error);
+                });
+        }
+
+        // مودال إعادة الفتح
         function showReopenModal(type) {
             const modal = new bootstrap.Modal(document.getElementById('reopenModal'));
             const reopenTypeInput = document.getElementById('reopen_type_input');
@@ -1221,7 +1838,6 @@ require_once INCLUDES_PATH . 'header.php';
 
             reopenTypeInput.value = type;
 
-            // Configurar información según el tipo
             const typeConfig = {
                 'warranty': {
                     text: 'Reapertura gratuita por garantía. El cliente no pagará coste adicional.',
@@ -1252,34 +1868,39 @@ require_once INCLUDES_PATH . 'header.php';
             modal.show();
         }
 
-        // Función para imprimir ticket
-        window.printTicket = function(repairId) {
-            const printWindow = window.open(`<?= url('pages/print_ticket.php?id=') ?>${repairId}`, '_blank');
-            if (printWindow) {
-                printWindow.focus();
-            } else {
-                showNotification('Por favor, permite las ventanas emergentes para imprimir', 'warning');
+        // دوال مساعدة
+        function getStockBadge(status, quantity) {
+            switch (status) {
+                case 'available':
+                    return `<span class="badge bg-success">Disponible (${quantity})</span>`;
+                case 'order_required':
+                    return `<span class="badge bg-warning">Necesita pedido (${quantity})</span>`;
+                case 'out_of_stock':
+                    return `<span class="badge bg-danger">Sin stock</span>`;
+                default:
+                    return `<span class="badge bg-secondary">-</span>`;
             }
-        };
-
-        // Función para verificar actualizaciones
-        function checkForUpdates() {
-            fetch(`<?= url('api/repairs.php') ?>?action=get_status&id=<?= $repair['id'] ?>`)
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success && data.data.status !== '<?= $repair['status'] ?>') {
-                        showNotification('El estado de la reparación ha cambiado. Recargando...', 'info');
-                        setTimeout(() => {
-                            location.reload();
-                        }, 2000);
-                    }
-                })
-                .catch(error => {
-                    console.log('Error verificando actualizaciones:', error);
-                });
         }
 
-        // Función para mostrar notificaciones
+        function formatSparePartCategory(category) {
+            const categories = {
+                'pantalla': 'Pantalla',
+                'bateria': 'Batería',
+                'camara': 'Cámara',
+                'altavoz': 'Altavoz',
+                'auricular': 'Auricular',
+                'conector': 'Conector',
+                'boton': 'Botón',
+                'sensor': 'Sensor',
+                'flex': 'Flex',
+                'marco': 'Marco',
+                'tapa': 'Tapa trasera',
+                'cristal': 'Cristal',
+                'otros': 'Otros'
+            };
+            return categories[category?.toLowerCase()] || category || 'Sin categoría';
+        }
+
         function showNotification(message, type = 'info') {
             const alertClass = type === 'success' ? 'alert-success' :
                 type === 'warning' ? 'alert-warning' :
@@ -1289,13 +1910,12 @@ require_once INCLUDES_PATH . 'header.php';
             notification.className = `alert ${alertClass} alert-dismissible fade show position-fixed`;
             notification.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
             notification.innerHTML = `
-        ${message}
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    `;
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
 
             document.body.appendChild(notification);
 
-            // Auto-remove after 5 seconds
             setTimeout(() => {
                 if (notification.parentNode) {
                     notification.remove();
@@ -1303,104 +1923,20 @@ require_once INCLUDES_PATH . 'header.php';
             }, 5000);
         }
 
-        // Atajos de teclado
+        // atajos de teclado
         document.addEventListener('keydown', function(e) {
-            // Ctrl/Cmd + E para editar
             if ((e.ctrlKey || e.metaKey) && e.key === 'e') {
                 e.preventDefault();
                 window.location.href = '<?= url('pages/edit_repair.php?id=' . $repair['id']) ?>';
             }
 
-            // Ctrl/Cmd + P para imprimir
             if ((e.ctrlKey || e.metaKey) && e.key === 'p') {
                 e.preventDefault();
                 printTicket(<?= $repair['id'] ?>);
             }
 
-            // Escape para volver
             if (e.key === 'Escape') {
                 window.history.back();
-            }
-        });
-
-        // Confirmación antes de cambios importantes
-        const statusSelect = document.querySelector('select[name="status"]');
-        if (statusSelect) {
-            statusSelect.addEventListener('change', function() {
-                if (this.value === 'completed') {
-                    const confirm = window.confirm('¿Confirmas que la reparación está completada y lista para entregar?');
-                    if (!confirm) {
-                        this.value = '<?= $repair['status'] ?>';
-                    }
-                }
-            });
-        }
-
-        // Actualización automática del coste
-        const costInput = document.getElementById('actual_cost');
-        if (costInput) {
-            costInput.addEventListener('input', function() {
-                const estimated = <?= $repair['estimated_cost'] ?: 0 ?>;
-                const actual = parseFloat(this.value) || 0;
-
-                if (estimated > 0 && actual > 0) {
-                    const difference = actual - estimated;
-                    const percentage = ((difference / estimated) * 100).toFixed(1);
-
-                    // Mostrar diferencia visual si es necesario
-                    const parent = this.closest('.modal-body');
-                    let diffElement = parent.querySelector('.cost-difference');
-
-                    if (!diffElement) {
-                        diffElement = document.createElement('div');
-                        diffElement.className = 'cost-difference mt-2';
-                        this.parentNode.parentNode.appendChild(diffElement);
-                    }
-
-                    if (Math.abs(difference) > 0.01) {
-                        const diffClass = difference > 0 ? 'text-danger' : 'text-success';
-                        const diffSign = difference > 0 ? '+' : '';
-                        diffElement.innerHTML = `
-                    <small class="${diffClass}">
-                        <strong>Diferencia:</strong> ${diffSign}€${difference.toFixed(2)} (${diffSign}${percentage}%)
-                    </small>
-                `;
-                    } else {
-                        diffElement.innerHTML = '';
-                    }
-                }
-            });
-        }
-
-        // Validación de formularios
-        const forms = document.querySelectorAll('form');
-        forms.forEach(form => {
-            form.addEventListener('submit', function(e) {
-                const requiredFields = form.querySelectorAll('[required]');
-                let isValid = true;
-
-                requiredFields.forEach(field => {
-                    if (!field.value.trim()) {
-                        field.classList.add('is-invalid');
-                        isValid = false;
-                    } else {
-                        field.classList.remove('is-invalid');
-                    }
-                });
-
-                if (!isValid) {
-                    e.preventDefault();
-                    showNotification('Por favor, completa todos los campos requeridos', 'danger');
-                }
-            });
-        });
-
-        // Auto-focus en modales
-        document.addEventListener('shown.bs.modal', function(e) {
-            const modal = e.target;
-            const firstInput = modal.querySelector('input:not([type="hidden"]), textarea, select');
-            if (firstInput) {
-                firstInput.focus();
             }
         });
     </script>

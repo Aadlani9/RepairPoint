@@ -472,4 +472,283 @@ function canManageSettings() {
     return hasPermission('manage_settings');
 }
 
+
+// ===================================================
+// FUNCIONES DE AUTENTICACIÓN PARA قطع الغيار (SPARE PARTS)
+// ===================================================
+
+/**
+ * التحقق من صلاحية إدارة قطع الغيار
+ */
+function canManageSpareParts() {
+    return isLoggedIn() && isAdmin();
+}
+
+/**
+ * التحقق من صلاحية عرض تفاصيل التكلفة
+ */
+function canViewDetailedCosts() {
+    return isLoggedIn() && isAdmin();
+}
+
+/**
+ * التحقق من صلاحية تعديل الأسعار
+ */
+function canEditPrices() {
+    return isLoggedIn() && isAdmin();
+}
+
+/**
+ * التحقق من صلاحية عرض التقارير المالية
+ */
+function canViewProfitReports() {
+    return isLoggedIn() && isAdmin();
+}
+
+/**
+ * التحقق من صلاحية إدارة المخزون
+ */
+function canManageStock() {
+    return isLoggedIn() && isAdmin();
+}
+
+/**
+ * التحقق من صلاحية إضافة قطع غيار جديدة
+ */
+function canAddSpareParts() {
+    return isLoggedIn() && isAdmin();
+}
+
+/**
+ * التحقق من صلاحية حذف قطع الغيار
+ */
+function canDeleteSpareParts() {
+    return isLoggedIn() && isAdmin();
+}
+
+/**
+ * التحقق من صلاحية عرض معلومات المزودين
+ */
+function canViewSupplierInfo() {
+    return isLoggedIn() && isAdmin();
+}
+
+/**
+ * التحقق من صلاحية البحث في قطع الغيار
+ */
+function canSearchSpareParts() {
+    return isLoggedIn(); // جميع المستخدمين المسجلين
+}
+
+/**
+ * التحقق من صلاحية عرض قطع الغيار
+ */
+function canViewSpareParts() {
+    return isLoggedIn(); // جميع المستخدمين المسجلين
+}
+
+/**
+ * التحقق من صلاحية استخدام قطع الغيار في الإصلاحات
+ */
+function canUseSpareParts() {
+    return isLoggedIn(); // جميع المستخدمين المسجلين
+}
+
+/**
+ * التحقق من صلاحية طباعة فاتورة قطع الغيار
+ */
+function canPrintSparePartsInvoice() {
+    return isLoggedIn(); // جميع المستخدمين المسجلين
+}
+
+/**
+ * فلترة بيانات قطعة الغيار حسب الصلاحيات
+ */
+function filterSparePartData($part_data) {
+    if (!canViewDetailedCosts()) {
+        // إخفاء معلومات التكلفة للموظفين العاديين
+        unset($part_data['cost_price']);
+        unset($part_data['labor_cost']);
+        unset($part_data['supplier_name']);
+        unset($part_data['supplier_contact']);
+    }
+
+    return $part_data;
+}
+
+/**
+ * فلترة مصفوفة قطع الغيار حسب الصلاحيات
+ */
+function filterSparePartsData($parts_array) {
+    if (!is_array($parts_array)) {
+        return $parts_array;
+    }
+
+    foreach ($parts_array as &$part) {
+        $part = filterSparePartData($part);
+    }
+
+    return $parts_array;
+}
+
+/**
+ * ميدل وير للتحقق من صلاحيات إدارة قطع الغيار
+ */
+function requireSparePartsManagement() {
+    if (!canManageSpareParts()) {
+        setMessage('لا تملك صلاحية إدارة قطع الغيار', MSG_ERROR);
+        header('Location: ' . url('pages/dashboard.php'));
+        exit;
+    }
+}
+
+/**
+ * ميدل وير للتحقق من صلاحيات عرض التقارير المالية
+ */
+function requireProfitReportsAccess() {
+    if (!canViewProfitReports()) {
+        setMessage('لا تملك صلاحية عرض التقارير المالية', MSG_ERROR);
+        header('Location: ' . url('pages/dashboard.php'));
+        exit;
+    }
+}
+
+
+/**
+ * التحقق من صلاحية معينة لقطع الغيار
+ */
+function hasSparePartPermission($permission) {
+    $permissions = getCurrentUserSparePartsPermissions();
+    return isset($permissions[$permission]) && $permissions[$permission] === true;
+}
+
+/**
+ * تحديث إعدادات القائمة لتشمل قطع الغيار
+ */
+function getNavigationMenuWithSpareParts() {
+    $menu = [
+        'dashboard' => [
+            'title' => 'Panel de Control',
+            'url' => url('pages/dashboard.php'),
+            'icon' => 'bi-speedometer2',
+            'permission' => 'view_dashboard'
+        ],
+        'add_repair' => [
+            'title' => 'Nueva Reparación',
+            'url' => url('pages/add_repair.php'),
+            'icon' => 'bi-plus-circle',
+            'permission' => 'add_repairs'
+        ],
+        'active_repairs' => [
+            'title' => 'Reparaciones Activas',
+            'url' => url('pages/repairs_active.php'),
+            'icon' => 'bi-tools',
+            'permission' => 'view_repairs'
+        ],
+        'completed_repairs' => [
+            'title' => 'Reparaciones Completadas',
+            'url' => url('pages/repairs_completed.php'),
+            'icon' => 'bi-check-circle',
+            'permission' => 'view_repairs'
+        ]
+    ];
+
+    // إضافة قطع الغيار للقائمة
+    if (canViewSpareParts()) {
+        $menu['spare_parts'] = [
+            'title' => 'Repuestos',
+            'url' => url('pages/spare_parts.php'),
+            'icon' => 'bi-gear',
+            'permission' => 'view_spare_parts'
+        ];
+    }
+
+    // إضافة قائمة فرعية للإدارة
+    if (isAdmin()) {
+        $menu['divider_admin'] = ['type' => 'divider'];
+
+        if (canManageSpareParts()) {
+            $menu['add_spare_part'] = [
+                'title' => 'Agregar Repuesto',
+                'url' => url('pages/add_spare_part.php'),
+                'icon' => 'bi-plus-square',
+                'permission' => 'add_spare_parts'
+            ];
+        }
+
+        if (canViewProfitReports()) {
+            $menu['spare_parts_reports'] = [
+                'title' => 'Informes Financieros',
+                'url' => url('pages/spare_parts_reports.php'),
+                'icon' => 'bi-graph-up',
+                'permission' => 'view_profit_reports'
+            ];
+        }
+
+        $menu['users'] = [
+            'title' => 'Usuarios',
+            'url' => url('pages/users.php'),
+            'icon' => 'bi-people',
+            'permission' => 'manage_users'
+        ];
+
+        $menu['reports'] = [
+            'title' => 'Informes',
+            'url' => url('pages/reports.php'),
+            'icon' => 'bi-bar-chart',
+            'permission' => 'view_reports'
+        ];
+
+        $menu['settings'] = [
+            'title' => 'Configuración',
+            'url' => url('pages/settings.php'),
+            'icon' => 'bi-gear',
+            'permission' => 'manage_settings'
+        ];
+    }
+
+    return $menu;
+}
+
+/**
+ * التحقق من صلاحية الوصول لصفحة معينة من قطع الغيار
+ */
+function checkSparePartsPageAccess($page) {
+    switch ($page) {
+        case 'spare_parts':
+            if (!canViewSpareParts()) {
+                setMessage('لا تملك صلاحية عرض قطع الغيار', MSG_ERROR);
+                header('Location: ' . url('pages/dashboard.php'));
+                exit;
+            }
+            break;
+
+        case 'add_spare_part':
+        case 'edit_spare_part':
+            requireSparePartsManagement();
+            break;
+
+        case 'spare_parts_reports':
+            requireProfitReportsAccess();
+            break;
+
+        default:
+            // صفحة غير معروفة
+            break;
+    }
+}
+
+/**
+ * إضافة معلومات قطع الغيار لبيانات المستخدم الحالي
+ */
+function getCurrentUserWithSparePartsInfo() {
+    $user = getCurrentUser();
+
+    if ($user) {
+        $user['spare_parts_permissions'] = getCurrentUserSparePartsPermissions();
+    }
+
+    return $user;
+}
+
 ?>

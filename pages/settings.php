@@ -1,8 +1,13 @@
 <?php
 /**
- * RepairPoint - Configuración del Sistema
- * Página exclusiva para administradores
+ * RepairPoint - Configuración del Sistema المحسنة والمُصححة
+ * إصلاح شامل لجميع المشاكل + تبسيط الكود
  */
+
+// تنظيف Output Buffer قبل بدء الجلسة
+if (ob_get_length()) {
+    ob_end_clean();
+}
 
 // Definir acceso seguro
 define('SECURE_ACCESS', true);
@@ -15,7 +20,6 @@ require_once INCLUDES_PATH . 'auth.php';
 // Verificar autenticación y permisos de administrador
 authMiddleware();
 
-// Verificar que el usuario es administrador
 if (!isAdmin()) {
     setMessage('No tienes permisos para acceder a esta página', MSG_ERROR);
     header('Location: ' . url('pages/dashboard.php'));
@@ -26,14 +30,27 @@ $page_title = 'Configuración del Sistema';
 $current_user = getCurrentUser();
 $shop_id = $_SESSION['shop_id'];
 
+// معالجة طلبات AJAX
+$is_ajax = !empty($_SERVER['HTTP_X_REQUESTED_WITH']) &&
+    strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest';
+
 // Procesar formularios POST
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!verifyCSRFToken($_POST['csrf_token'] ?? '')) {
-        setMessage('Token de seguridad inválido', MSG_ERROR);
+        $response = ['success' => false, 'message' => 'Token de seguridad inválido'];
+
+        if ($is_ajax) {
+            header('Content-Type: application/json');
+            echo json_encode($response);
+            exit;
+        } else {
+            setMessage($response['message'], MSG_ERROR);
+        }
     } else {
         $action = $_POST['action'] ?? '';
         $success = false;
         $message = '';
+        $active_tab = $_POST['active_tab'] ?? 'shop-settings';
 
         switch ($action) {
             case 'update_shop':
@@ -50,39 +67,56 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             case 'add_brand':
                 $success = addBrand($_POST['brand_name'], $shop_id);
                 $message = $success ? 'Marca agregada correctamente' : 'Error al agregar la marca';
+                $active_tab = 'brands-models';
                 break;
 
             case 'add_model':
                 $success = addModel($_POST['brand_id'], $_POST['model_name'], $shop_id);
                 $message = $success ? 'Modelo agregado correctamente' : 'Error al agregar el modelo';
+                $active_tab = 'brands-models';
                 break;
 
             case 'delete_brand':
                 $success = deleteBrand($_POST['brand_id'], $shop_id);
                 $message = $success ? 'Marca eliminada correctamente' : 'Error al eliminar la marca (puede estar en uso)';
+                $active_tab = 'brands-models';
                 break;
 
             case 'delete_model':
                 $success = deleteModel($_POST['model_id'], $shop_id);
                 $message = $success ? 'Modelo eliminado correctamente' : 'Error al eliminar el modelo (puede estar en uso)';
+                $active_tab = 'brands-models';
                 break;
 
             case 'add_issue':
                 $success = addCommonIssue($_POST['category'], $_POST['issue_text'], $shop_id);
                 $message = $success ? 'Problema común agregado correctamente' : 'Error al agregar el problema';
+                $active_tab = 'common-issues';
                 break;
 
             case 'delete_issue':
                 $success = deleteCommonIssue($_POST['issue_id'], $shop_id);
                 $message = $success ? 'Problema eliminado correctamente' : 'Error al eliminar el problema';
+                $active_tab = 'common-issues';
                 break;
+        }
+
+        // إرجاع استجابة AJAX
+        if ($is_ajax) {
+            header('Content-Type: application/json');
+            echo json_encode([
+                'success' => $success,
+                'message' => $message,
+                'active_tab' => $active_tab
+            ]);
+            exit;
         }
 
         setMessage($message, $success ? MSG_SUCCESS : MSG_ERROR);
 
-        // Evitar reenvío del formulario
-        if ($success && $action !== 'upload_logo') {
-            header('Location: ' . url('pages/settings.php'));
+        // إعادة توجيه مع المحافظة على التبويب النشط
+        if ($success) {
+            header('Location: ' . url('pages/settings.php#' . $active_tab));
             exit;
         }
     }
@@ -92,7 +126,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $db = getDB();
 $shop = $db->selectOne("SELECT * FROM shops WHERE id = ?", [$shop_id]);
 
-// Obtener marcas y modelos
+// Obtener marcas y modelos - محسن للأداء
 $brands = $db->select("SELECT * FROM brands ORDER BY name");
 $models_by_brand = [];
 foreach ($brands as $brand) {
@@ -113,7 +147,10 @@ foreach ($common_issues as $issue) {
     $issues_by_category[$category][] = $issue;
 }
 
-// Funciones de procesamiento
+// ===================================================
+// دوال المعالجة المحسنة
+// ===================================================
+
 function updateShopSettings($data, $shop_id) {
     $required_fields = ['name', 'phone1'];
     $errors = validateRequired($data, $required_fields);
@@ -122,7 +159,6 @@ function updateShopSettings($data, $shop_id) {
 
     $db = getDB();
 
-    // Validar email si se proporciona
     if (!empty($data['email']) && !isValidEmail($data['email'])) {
         return false;
     }
@@ -163,7 +199,6 @@ function uploadShopLogo($file, $shop_id) {
         return ['success' => false, 'message' => 'Error al subir el archivo'];
     }
 
-    // Validar tipo de archivo
     $allowed_types = ['jpg', 'jpeg', 'png', 'gif'];
     $file_extension = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
 
@@ -171,41 +206,31 @@ function uploadShopLogo($file, $shop_id) {
         return ['success' => false, 'message' => 'Tipo de archivo no permitido. Permitidos: ' . implode(', ', $allowed_types)];
     }
 
-    // Validar tamaño (2MB max)
     if ($file['size'] > 2 * 1024 * 1024) {
         return ['success' => false, 'message' => 'El archivo es demasiado grande. Máximo 2MB'];
     }
 
-    // Crear directorio uploads si no existe
     $upload_dir = '../assets/uploads/';
     if (!is_dir($upload_dir)) {
         mkdir($upload_dir, 0755, true);
     }
 
-    // Generar nombre único
     $new_filename = 'logo_' . $shop_id . '_' . time() . '.' . $file_extension;
     $upload_path = $upload_dir . $new_filename;
 
     if (move_uploaded_file($file['tmp_name'], $upload_path)) {
         $db = getDB();
-
-        // Obtener logo anterior para eliminarlo
         $old_logo = $db->selectOne("SELECT logo FROM shops WHERE id = ?", [$shop_id])['logo'] ?? '';
-
-        // Actualizar base de datos
         $logo_url = 'assets/uploads/' . $new_filename;
         $updated = $db->update("UPDATE shops SET logo = ? WHERE id = ?", [$logo_url, $shop_id]);
 
         if ($updated !== false) {
-            // Eliminar logo anterior
             if ($old_logo && file_exists('../' . $old_logo)) {
                 unlink('../' . $old_logo);
             }
-
             logActivity('shop_logo_updated', "Logo del taller actualizado", $_SESSION['user_id']);
             return ['success' => true, 'message' => 'Logo subido correctamente'];
         } else {
-            // Eliminar archivo si falla la actualización
             unlink($upload_path);
             return ['success' => false, 'message' => 'Error al guardar en la base de datos'];
         }
@@ -219,8 +244,6 @@ function addBrand($name, $shop_id) {
     if (empty($name)) return false;
 
     $db = getDB();
-
-    // Verificar duplicados
     $existing = $db->selectOne("SELECT id FROM brands WHERE name = ?", [$name]);
     if ($existing) return false;
 
@@ -244,12 +267,9 @@ function addModel($brand_id, $name, $shop_id) {
     if (!$brand_id || empty($name)) return false;
 
     $db = getDB();
-
-    // Verificar que la marca existe
     $brand = $db->selectOne("SELECT name FROM brands WHERE id = ?", [$brand_id]);
     if (!$brand) return false;
 
-    // Verificar duplicados
     $existing = $db->selectOne("SELECT id FROM models WHERE brand_id = ? AND name = ?", [$brand_id, $name]);
     if ($existing) return false;
 
@@ -271,22 +291,15 @@ function deleteBrand($brand_id, $shop_id) {
     if (!$brand_id) return false;
 
     $db = getDB();
-
-    // Verificar que la marca existe
     $brand = $db->selectOne("SELECT name FROM brands WHERE id = ?", [$brand_id]);
     if (!$brand) return false;
 
-    // Verificar que no está en uso
     $used_in_repairs = $db->selectOne("SELECT COUNT(*) as count FROM repairs WHERE brand_id = ?", [$brand_id])['count'] ?? 0;
     if ($used_in_repairs > 0) return false;
 
     try {
         $db->beginTransaction();
-
-        // Eliminar modelos primero
         $db->delete("DELETE FROM models WHERE brand_id = ?", [$brand_id]);
-
-        // Eliminar marca
         $deleted = $db->delete("DELETE FROM brands WHERE id = ?", [$brand_id]);
 
         if ($deleted) {
@@ -309,15 +322,12 @@ function deleteModel($model_id, $shop_id) {
     if (!$model_id) return false;
 
     $db = getDB();
-
-    // Verificar que el modelo existe
     $model = $db->selectOne(
         "SELECT m.name, b.name as brand_name FROM models m JOIN brands b ON m.brand_id = b.id WHERE m.id = ?",
         [$model_id]
     );
     if (!$model) return false;
 
-    // Verificar que no está en uso
     $used_in_repairs = $db->selectOne("SELECT COUNT(*) as count FROM repairs WHERE model_id = ?", [$model_id])['count'] ?? 0;
     if ($used_in_repairs > 0) return false;
 
@@ -341,8 +351,6 @@ function addCommonIssue($category, $issue_text, $shop_id) {
     if (empty($issue_text)) return false;
 
     $db = getDB();
-
-    // Verificar duplicados
     $existing = $db->selectOne("SELECT id FROM common_issues WHERE issue_text = ?", [$issue_text]);
     if ($existing) return false;
 
@@ -368,8 +376,6 @@ function deleteCommonIssue($issue_id, $shop_id) {
     if (!$issue_id) return false;
 
     $db = getDB();
-
-    // Verificar que el problema existe
     $issue = $db->selectOne("SELECT issue_text FROM common_issues WHERE id = ?", [$issue_id]);
     if (!$issue) return false;
 
@@ -445,12 +451,6 @@ require_once INCLUDES_PATH . 'header.php';
                         </a>
                         <a href="#common-issues" class="list-group-item list-group-item-action" data-bs-toggle="pill">
                             <i class="bi bi-exclamation-triangle me-2"></i>Problemas Comunes
-                        </a>
-                        <a href="#system-settings" class="list-group-item list-group-item-action" data-bs-toggle="pill">
-                            <i class="bi bi-sliders me-2"></i>Sistema
-                        </a>
-                        <a href="#backup-restore" class="list-group-item list-group-item-action" data-bs-toggle="pill">
-                            <i class="bi bi-archive me-2"></i>Respaldo
                         </a>
                     </div>
                 </div>
@@ -643,27 +643,25 @@ require_once INCLUDES_PATH . 'header.php';
                                         </button>
                                     </div>
                                     <div class="card-body p-0">
-                                        <div class="list-group list-group-flush">
+                                        <div class="list-group list-group-flush" id="brands-list">
                                             <?php if (empty($brands)): ?>
                                                 <div class="list-group-item text-center text-muted">
                                                     No hay marcas registradas
                                                 </div>
                                             <?php else: ?>
                                                 <?php foreach ($brands as $brand): ?>
-                                                    <div class="list-group-item d-flex justify-content-between align-items-center">
-                                                        <div>
+                                                    <div class="list-group-item d-flex justify-content-between align-items-center brand-item"
+                                                         data-brand-id="<?= $brand['id'] ?>"
+                                                         style="cursor: pointer;">
+                                                        <div onclick="displayModelsSimple(<?= $brand['id'] ?>, '<?= addslashes($brand['name']) ?>')">
                                                             <strong><?= safeHtml($brand['name']) ?></strong>
                                                             <small class="text-muted d-block">
                                                                 <?= count($models_by_brand[$brand['id']] ?? []) ?> modelos
                                                             </small>
                                                         </div>
                                                         <div class="btn-group btn-group-sm">
-                                                            <button class="btn btn-outline-primary"
-                                                                    onclick="showModels(<?= $brand['id'] ?>, '<?= addslashes($brand['name']) ?>')">
-                                                                <i class="bi bi-eye"></i>
-                                                            </button>
                                                             <button class="btn btn-outline-danger"
-                                                                    onclick="deleteBrand(<?= $brand['id'] ?>)">
+                                                                    onclick="event.stopPropagation(); deleteBrandAjax(<?= $brand['id'] ?>)">
                                                                 <i class="bi bi-trash"></i>
                                                             </button>
                                                         </div>
@@ -688,8 +686,9 @@ require_once INCLUDES_PATH . 'header.php';
                                     </div>
                                     <div class="card-body p-0">
                                         <div id="models-container">
-                                            <div class="p-3 text-center text-muted">
-                                                Selecciona una marca para ver los modelos
+                                            <div class="p-4 text-center text-muted">
+                                                <i class="bi bi-phone display-4 mb-3"></i>
+                                                <p class="mb-0">Selecciona una marca para ver los modelos</p>
                                             </div>
                                         </div>
                                     </div>
@@ -709,7 +708,7 @@ require_once INCLUDES_PATH . 'header.php';
                                     <i class="bi bi-plus me-2"></i>Agregar Problema
                                 </button>
                             </div>
-                            <div class="card-body">
+                            <div class="card-body" id="issues-container">
                                 <?php if (empty($issues_by_category)): ?>
                                     <div class="text-center text-muted p-4">
                                         <i class="bi bi-exclamation-triangle display-4 mb-3"></i>
@@ -726,7 +725,7 @@ require_once INCLUDES_PATH . 'header.php';
                                                     <div class="issue-item d-flex justify-content-between align-items-center p-2 mb-2 bg-light rounded">
                                                         <span><?= safeHtml($issue['issue_text']) ?></span>
                                                         <button class="btn btn-sm btn-outline-danger"
-                                                                onclick="deleteIssue(<?= $issue['id'] ?>)">
+                                                                onclick="deleteIssueAjax(<?= $issue['id'] ?>)">
                                                             <i class="bi bi-trash"></i>
                                                         </button>
                                                     </div>
@@ -735,107 +734,6 @@ require_once INCLUDES_PATH . 'header.php';
                                         </div>
                                     <?php endforeach; ?>
                                 <?php endif; ?>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Configuración del Sistema -->
-                    <div class="tab-pane fade" id="system-settings">
-                        <div class="card">
-                            <div class="card-header">
-                                <h5 class="card-title mb-0">
-                                    <i class="bi bi-sliders me-2"></i>Información del Sistema
-                                </h5>
-                            </div>
-                            <div class="card-body">
-                                <div class="settings-info">
-                                    <div class="row">
-                                        <div class="col-md-6 mb-3">
-                                            <div class="setting-item">
-                                                <label class="fw-bold">Versión del Sistema:</label>
-                                                <span class="text-muted"><?= APP_VERSION ?></span>
-                                            </div>
-                                        </div>
-                                        <div class="col-md-6 mb-3">
-                                            <div class="setting-item">
-                                                <label class="fw-bold">Base de Datos:</label>
-                                                <span class="text-muted">MySQL</span>
-                                            </div>
-                                        </div>
-                                        <div class="col-md-6 mb-3">
-                                            <div class="setting-item">
-                                                <label class="fw-bold">Versión PHP:</label>
-                                                <span class="text-muted"><?= PHP_VERSION ?></span>
-                                            </div>
-                                        </div>
-                                        <div class="col-md-6 mb-3">
-                                            <div class="setting-item">
-                                                <label class="fw-bold">Tamaño máximo de subida:</label>
-                                                <span class="text-muted"><?= ini_get('upload_max_filesize') ?></span>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <hr>
-
-                                    <div class="system-actions">
-                                        <h6 class="fw-bold mb-3">Acciones del Sistema</h6>
-                                        <div class="d-flex flex-wrap gap-2">
-                                            <button class="btn btn-outline-info" onclick="clearCache()">
-                                                <i class="bi bi-arrow-clockwise me-2"></i>Limpiar Caché
-                                            </button>
-                                            <button class="btn btn-outline-warning" onclick="checkSystem()">
-                                                <i class="bi bi-shield-check me-2"></i>Verificar Sistema
-                                            </button>
-                                            <button class="btn btn-outline-success" onclick="exportSettings()">
-                                                <i class="bi bi-download me-2"></i>Exportar Configuración
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Respaldo y Restauración -->
-                    <div class="tab-pane fade" id="backup-restore">
-                        <div class="card">
-                            <div class="card-header">
-                                <h5 class="card-title mb-0">
-                                    <i class="bi bi-archive me-2"></i>Respaldo y Restauración
-                                </h5>
-                            </div>
-                            <div class="card-body">
-                                <div class="backup-info mb-4">
-                                    <div class="alert alert-info">
-                                        <i class="bi bi-info-circle me-2"></i>
-                                        Los respaldos incluyen todos los datos excepto archivos subidos (logos)
-                                    </div>
-                                </div>
-
-                                <div class="backup-actions">
-                                    <h6 class="fw-bold mb-3">Respaldo</h6>
-                                    <div class="d-flex flex-wrap gap-2 mb-4">
-                                        <button class="btn btn-primary" onclick="createBackup()">
-                                            <i class="bi bi-download me-2"></i>Crear Respaldo
-                                        </button>
-                                        <button class="btn btn-outline-primary" onclick="downloadBackup()">
-                                            <i class="bi bi-cloud-download me-2"></i>Descargar Último Respaldo
-                                        </button>
-                                    </div>
-
-                                    <h6 class="fw-bold mb-3">Restauración</h6>
-                                    <div class="alert alert-warning">
-                                        <i class="bi bi-exclamation-triangle me-2"></i>
-                                        <strong>Advertencia:</strong> Restaurar un respaldo reemplazará todos los datos actuales
-                                    </div>
-                                    <form id="restoreForm" class="d-flex gap-2">
-                                        <input type="file" class="form-control" accept=".sql" required>
-                                        <button type="submit" class="btn btn-warning">
-                                            <i class="bi bi-upload me-2"></i>Restaurar
-                                        </button>
-                                    </form>
-                                </div>
                             </div>
                         </div>
                     </div>
@@ -854,10 +752,11 @@ require_once INCLUDES_PATH . 'header.php';
                     </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
                 </div>
-                <form method="POST" action="">
+                <form id="addBrandForm">
                     <div class="modal-body">
                         <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
                         <input type="hidden" name="action" value="add_brand">
+                        <input type="hidden" name="active_tab" value="brands-models">
 
                         <div class="mb-3">
                             <label for="brand_name" class="form-label">Nombre de la Marca *</label>
@@ -890,10 +789,11 @@ require_once INCLUDES_PATH . 'header.php';
                     </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
                 </div>
-                <form method="POST" action="">
+                <form id="addModelForm">
                     <div class="modal-body">
                         <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
                         <input type="hidden" name="action" value="add_model">
+                        <input type="hidden" name="active_tab" value="brands-models">
 
                         <div class="mb-3">
                             <label for="model_brand_id" class="form-label">Marca *</label>
@@ -938,10 +838,11 @@ require_once INCLUDES_PATH . 'header.php';
                     </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
                 </div>
-                <form method="POST" action="">
+                <form id="addIssueForm">
                     <div class="modal-body">
                         <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
                         <input type="hidden" name="action" value="add_issue">
+                        <input type="hidden" name="active_tab" value="common-issues">
 
                         <div class="mb-3">
                             <label for="issue_category" class="form-label">Categoría</label>
@@ -982,9 +883,12 @@ require_once INCLUDES_PATH . 'header.php';
     </div>
 
     <style>
-        /* Estilos específicos para la página de configuración */
+        /* ===================================================
+         * CSS محسن ومنظم
+         * ================================================= */
+
         .page-header {
-            background: linear-gradient(135deg, var(--primary-color) 0%, #0056b3 100%);
+            background: linear-gradient(135deg, var(--bs-primary) 0%, #0056b3 100%);
             position: relative;
             overflow: hidden;
         }
@@ -1001,6 +905,7 @@ require_once INCLUDES_PATH . 'header.php';
             transform: translate(50px, -50px);
         }
 
+        /* تحسين التنقل */
         .settings-nav .list-group-item {
             border: none;
             border-radius: 0.5rem;
@@ -1014,10 +919,11 @@ require_once INCLUDES_PATH . 'header.php';
         }
 
         .settings-nav .list-group-item.active {
-            background-color: var(--primary-color);
-            border-color: var(--primary-color);
+            background-color: var(--bs-primary);
+            border-color: var(--bs-primary);
         }
 
+        /* تحسين البطاقات */
         .card {
             border: none;
             border-radius: 1rem;
@@ -1036,21 +942,56 @@ require_once INCLUDES_PATH . 'header.php';
             padding: 1rem 1.5rem;
         }
 
+        /* تحسين عرض الماركات */
+        .brand-item {
+            transition: all 0.3s ease;
+            border-radius: 0.5rem !important;
+        }
+
+        .brand-item:hover {
+            background-color: rgba(13, 110, 253, 0.05) !important;
+            transform: translateX(5px);
+        }
+
+        .brand-item.selected {
+            background-color: rgba(13, 110, 253, 0.1) !important;
+            border-left: 4px solid var(--bs-primary) !important;
+            transform: translateX(5px);
+        }
+
+        /* تحسين عرض الموديلات */
+        .model-item {
+            transition: all 0.3s ease;
+            border-radius: 0.5rem;
+            background: #f8f9fa;
+            margin-bottom: 0.5rem;
+        }
+
+        .model-item:hover {
+            background-color: rgba(13, 110, 253, 0.05);
+            transform: translateX(3px);
+        }
+
+        /* تحسين الشعار */
         .current-logo img {
             border-radius: 1rem;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
         }
 
         .no-logo {
             border: 2px dashed #dee2e6;
+            border-radius: 1rem;
         }
 
+        /* تحسين المشاكل الشائعة */
         .category-title {
-            color: var(--primary-color);
+            color: var(--bs-primary);
             margin-bottom: 0.75rem;
         }
 
         .issue-item {
             transition: all 0.3s ease;
+            border-radius: 0.5rem !important;
         }
 
         .issue-item:hover {
@@ -1058,27 +999,22 @@ require_once INCLUDES_PATH . 'header.php';
             transform: translateX(5px);
         }
 
-        .setting-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 0.5rem 0;
-            border-bottom: 1px solid #f0f0f0;
+        /* Loading animations */
+        .loading {
+            opacity: 0.7;
+            pointer-events: none;
         }
 
-        .setting-item:last-child {
-            border-bottom: none;
+        .fade-in {
+            animation: fadeIn 0.5s ease-in;
         }
 
-        .system-actions .btn {
-            margin-bottom: 0.5rem;
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
         }
 
-        .backup-actions .btn {
-            margin-bottom: 0.5rem;
-        }
-
-        /* Responsive */
+        /* Responsive Design */
         @media (max-width: 768px) {
             .page-header {
                 text-align: center;
@@ -1106,6 +1042,12 @@ require_once INCLUDES_PATH . 'header.php';
                 margin-right: 0.5rem;
                 margin-bottom: 0;
             }
+
+            .brand-item:hover,
+            .model-item:hover,
+            .issue-item:hover {
+                transform: none;
+            }
         }
 
         @media (max-width: 576px) {
@@ -1132,26 +1074,378 @@ require_once INCLUDES_PATH . 'header.php';
     </style>
 
     <script>
+        // ===================================================
+        // JavaScript محسن ومُصحح بالكامل
+        // ===================================================
+
         document.addEventListener('DOMContentLoaded', function() {
-            // Inicializar tooltips
-            const tooltipTriggerList = [].slice.call(document.querySelectorAll('[title]'));
-            tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
-                return new bootstrap.Tooltip(tooltipTriggerEl);
-            });
+            console.log('✅ Settings page loaded successfully');
 
-            // Configurar validación de formularios
-            setupFormValidation();
-
-            // Configurar formateo de teléfonos
-            setupPhoneFormatting();
-
-            // Cargar datos de modelos
+            // تحميل البيانات
             loadModelsData();
+
+            // إعداد الـ Tabs
+            setupTabHandling();
+
+            // إعداد النماذج
+            setupAjaxForms();
+
+            // إعداد التفاعلات
+            setupInteractions();
         });
 
-        function setupFormValidation() {
-            const forms = document.querySelectorAll('.needs-validation');
+        // ===================================================
+        // تحميل بيانات الموديلات
+        // ===================================================
+        function loadModelsData() {
+            window.modelsData = <?= json_encode($models_by_brand) ?>;
+            console.log('📱 Models data loaded:', Object.keys(window.modelsData).length, 'brands');
+        }
 
+        // ===================================================
+        // إعداد التبويبات
+        // ===================================================
+        function setupTabHandling() {
+            // المحافظة على التبويب النشط من الـ URL
+            const hash = window.location.hash;
+            if (hash) {
+                const targetTab = document.querySelector(`a[href="${hash}"]`);
+                if (targetTab) {
+                    targetTab.click();
+                }
+            }
+
+            // تحديث الرابط عند تغيير التبويب
+            document.querySelectorAll('[data-bs-toggle="pill"]').forEach(tab => {
+                tab.addEventListener('shown.bs.tab', function (e) {
+                    const target = e.target.getAttribute('href');
+                    history.replaceState(null, null, target);
+                });
+            });
+        }
+
+        // ===================================================
+        // إعداد النماذج AJAX
+        // ===================================================
+        function setupAjaxForms() {
+            // نموذج إضافة الماركة
+            const addBrandForm = document.getElementById('addBrandForm');
+            if (addBrandForm) {
+                addBrandForm.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    submitAjaxForm(this, function(response) {
+                        if (response.success) {
+                            setTimeout(() => location.reload(), 1000);
+                        }
+                    });
+                });
+            }
+
+            // نموذج إضافة الموديل
+            const addModelForm = document.getElementById('addModelForm');
+            if (addModelForm) {
+                addModelForm.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    submitAjaxForm(this, function(response) {
+                        if (response.success) {
+                            setTimeout(() => location.reload(), 1000);
+                        }
+                    });
+                });
+            }
+
+            // نموذج إضافة المشكلة الشائعة
+            const addIssueForm = document.getElementById('addIssueForm');
+            if (addIssueForm) {
+                addIssueForm.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    submitAjaxForm(this, function(response) {
+                        if (response.success) {
+                            setTimeout(() => location.reload(), 1000);
+                        }
+                    });
+                });
+            }
+        }
+
+        // ===================================================
+        // دالة إرسال النماذج AJAX محسنة
+        // ===================================================
+        function submitAjaxForm(form, callback) {
+            const formData = new FormData(form);
+            const submitBtn = form.querySelector('button[type="submit"]');
+            const originalText = submitBtn.innerHTML;
+
+            // إظهار مؤشر التحميل
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Procesando...';
+
+            fetch(window.location.href, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    // إظهار الرسالة
+                    showNotification(data.message, data.success ? 'success' : 'error');
+
+                    // إغلاق النموذج إذا نجح
+                    if (data.success) {
+                        const modal = bootstrap.Modal.getInstance(form.closest('.modal'));
+                        if (modal) {
+                            modal.hide();
+                            form.reset();
+                        }
+                    }
+
+                    // استدعاء callback function
+                    if (callback) callback(data);
+                })
+                .catch(error => {
+                    console.error('❌ AJAX Error:', error);
+                    showNotification('Error de conexión', 'error');
+                })
+                .finally(() => {
+                    // إعادة تعيين الزر
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalText;
+                });
+        }
+
+        // ===================================================
+        // دالة عرض الموديلات البسيطة ✅
+        // ===================================================
+        function displayModelsSimple(brandId, brandName) {
+
+            const modelsContainer = document.getElementById('models-container');
+            if (!modelsContainer) {
+                console.error('❌ Models container not found');
+                return;
+            }
+
+            // إزالة التمييز من جميع الماركات
+            document.querySelectorAll('.brand-item').forEach(item => {
+                item.classList.remove('selected');
+            });
+
+            // تمييز الماركة المختارة
+            const currentBrand = document.querySelector(`[data-brand-id="${brandId}"]`);
+            if (currentBrand) {
+                currentBrand.classList.add('selected');
+            }
+
+            // الحصول على الموديلات
+            const models = window.modelsData[brandId] || [];
+            // بناء HTML بطريقة بسيطة وآمنة
+            let html = `
+            <div class="p-3 border-bottom bg-light">
+                <h6 class="mb-1 text-primary">
+                    <i class="bi bi-phone me-2"></i>${brandName}
+                </h6>
+                <small class="text-muted">${models.length} modelo${models.length !== 1 ? 's' : ''}</small>
+            </div>
+        `;
+
+            if (models.length === 0) {
+                html += `
+                <div class="p-4 text-center text-muted">
+                    <i class="bi bi-phone display-4 mb-3"></i>
+                    <p class="mb-3">No hay modelos para esta marca</p>
+                    <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addModelModal" onclick="preSelectBrand(${brandId})">
+                        <i class="bi bi-plus me-1"></i>Agregar primer modelo
+                    </button>
+                </div>
+            `;
+            } else {
+                html += '<div class="p-2">';
+
+                models.forEach(model => {
+                    html += `
+                    <div class="model-item d-flex justify-content-between align-items-center p-2 mb-2">
+                        <div>
+                            <strong>${escapeHtml(model.name)}</strong>
+                            <small class="text-muted d-block">ID: ${model.id}</small>
+                        </div>
+                        <button class="btn btn-outline-danger btn-sm"
+                                onclick="deleteModelSimple(${model.id}, '${escapeHtml(model.name)}')">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                `;
+                });
+
+                html += '</div>';
+            }
+
+            // عرض النتيجة مع تأثير
+            modelsContainer.style.opacity = '0.5';
+            setTimeout(() => {
+                modelsContainer.innerHTML = html;
+                modelsContainer.style.opacity = '1';
+                modelsContainer.classList.add('fade-in');
+            }, 200);
+        }
+
+        // ===================================================
+        // دالة الحذف البسيطة ✅
+        // ===================================================
+        function deleteModelSimple(modelId, modelName) {
+            if (!confirm(`¿Eliminar "${modelName}"?`)) {
+                return;
+            }
+
+            console.log('🗑️ Deleting model:', modelName, '(ID:', modelId, ')');
+
+            const formData = new FormData();
+            formData.append('csrf_token', '<?= generateCSRFToken() ?>');
+            formData.append('action', 'delete_model');
+            formData.append('model_id', modelId);
+            formData.append('active_tab', 'brands-models');
+
+            fetch(window.location.href, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+                .then(response => response.json())
+                .then(data => {
+                    showNotification(data.message, data.success ? 'success' : 'error');
+
+                    if (data.success) {
+                        // إعادة تحميل الصفحة لتحديث البيانات
+                        setTimeout(() => location.reload(), 1000);
+                    }
+                })
+                .catch(error => {
+                    console.error('❌ Delete error:', error);
+                    showNotification('Error de conexión', 'error');
+                });
+        }
+
+        // ===================================================
+        // دوال الحذف للماركات والمشاكل
+        // ===================================================
+        function deleteBrandAjax(brandId) {
+            if (!confirm('¿Estás seguro de eliminar esta marca? Se eliminarán también todos sus modelos.')) {
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('csrf_token', '<?= generateCSRFToken() ?>');
+            formData.append('action', 'delete_brand');
+            formData.append('brand_id', brandId);
+            formData.append('active_tab', 'brands-models');
+
+            fetch(window.location.href, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+                .then(response => response.json())
+                .then(data => {
+                    showNotification(data.message, data.success ? 'success' : 'error');
+                    if (data.success) {
+                        setTimeout(() => location.reload(), 1000);
+                    }
+                })
+                .catch(error => {
+                    console.error('❌ Error:', error);
+                    showNotification('Error de conexión', 'error');
+                });
+        }
+
+        function deleteIssueAjax(issueId) {
+            if (!confirm('¿Estás seguro de eliminar este problema común?')) {
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('csrf_token', '<?= generateCSRFToken() ?>');
+            formData.append('action', 'delete_issue');
+            formData.append('issue_id', issueId);
+            formData.append('active_tab', 'common-issues');
+
+            fetch(window.location.href, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+                .then(response => response.json())
+                .then(data => {
+                    showNotification(data.message, data.success ? 'success' : 'error');
+                    if (data.success) {
+                        setTimeout(() => location.reload(), 1000);
+                    }
+                })
+                .catch(error => {
+                    console.error('❌ Error:', error);
+                    showNotification('Error de conexión', 'error');
+                });
+        }
+
+        // ===================================================
+        // دوال مساعدة
+        // ===================================================
+
+        // تحديد الماركة مسبقاً في النموذج
+        function preSelectBrand(brandId) {
+            setTimeout(() => {
+                const brandSelect = document.getElementById('model_brand_id');
+                if (brandSelect) {
+                    brandSelect.value = brandId;
+                }
+            }, 100);
+        }
+
+        // تأمين HTML
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // عرض الإشعارات
+        function showNotification(message, type) {
+            if (typeof Utils !== 'undefined' && Utils.showNotification) {
+                Utils.showNotification(message, type);
+            } else {
+                // Fallback إلى alert
+                alert(message);
+            }
+        }
+
+        // إعداد التفاعلات الإضافية
+        function setupInteractions() {
+            // تنظيف النماذج عند إغلاق النوافذ المنبثقة
+            ['addBrandModal', 'addModelModal', 'addIssueModal'].forEach(modalId => {
+                const modal = document.getElementById(modalId);
+                if (modal) {
+                    modal.addEventListener('hidden.bs.modal', function() {
+                        const form = this.querySelector('form');
+                        if (form) {
+                            form.reset();
+                            form.classList.remove('was-validated');
+                        }
+                    });
+                }
+            });
+
+            // إعداد validation للنماذج
+            const forms = document.querySelectorAll('.needs-validation');
             forms.forEach(form => {
                 form.addEventListener('submit', function(event) {
                     if (!form.checkValidity()) {
@@ -1160,244 +1454,20 @@ require_once INCLUDES_PATH . 'header.php';
                     }
                     form.classList.add('was-validated');
                 });
-
-                // Validación en tiempo real
-                const inputs = form.querySelectorAll('input, select, textarea');
-                inputs.forEach(input => {
-                    input.addEventListener('blur', function() {
-                        if (this.checkValidity()) {
-                            this.classList.remove('is-invalid');
-                            this.classList.add('is-valid');
-                        } else {
-                            this.classList.remove('is-valid');
-                            this.classList.add('is-invalid');
-                        }
-                    });
-                });
             });
+
         }
 
-        function setupPhoneFormatting() {
-            const phoneInputs = document.querySelectorAll('input[type="tel"]');
-            phoneInputs.forEach(input => {
-                input.addEventListener('input', function() {
-                    let value = this.value.replace(/\s/g, '');
+        // ===================================================
+        // Global Functions (للوصول من HTML)
+        // ===================================================
+        window.displayModelsSimple = displayModelsSimple;
+        window.deleteModelSimple = deleteModelSimple;
+        window.deleteBrandAjax = deleteBrandAjax;
+        window.deleteIssueAjax = deleteIssueAjax;
+        window.preSelectBrand = preSelectBrand;
 
-                    // Auto-formatear para números españoles
-                    if (value.length === 9 && !value.startsWith('+34')) {
-                        this.value = '+34 ' + value.replace(/(\d{3})(\d{3})(\d{3})/, '$1 $2 $3');
-                    }
-                });
-            });
-        }
-
-        function loadModelsData() {
-            // Cargar datos de modelos en JavaScript
-            window.modelsData = <?= json_encode($models_by_brand) ?>;
-        }
-
-        // Funciones de operaciones
-        window.showModels = function(brandId, brandName) {
-            const modelsContainer = document.getElementById('models-container');
-            const models = window.modelsData[brandId] || [];
-
-            let html = `<div class="p-3">
-                    <h6 class="fw-bold text-primary mb-3">Modelos de ${brandName}</h6>`;
-
-            if (models.length === 0) {
-                html += '<div class="text-center text-muted">No hay modelos registrados</div>';
-            } else {
-                html += '<div class="list-group list-group-flush">';
-                models.forEach(model => {
-                    html += `<div class="list-group-item d-flex justify-content-between align-items-center">
-                        <span>${model.name}</span>
-                        <button class="btn btn-sm btn-outline-danger" onclick="deleteModel(${model.id})">
-                            <i class="bi bi-trash"></i>
-                        </button>
-                     </div>`;
-                });
-                html += '</div>';
-            }
-
-            html += '</div>';
-            modelsContainer.innerHTML = html;
-        };
-
-        window.deleteBrand = function(brandId) {
-            if (confirm('¿Estás seguro de eliminar esta marca? Se eliminarán también todos sus modelos.')) {
-                submitAction('delete_brand', {brand_id: brandId});
-            }
-        };
-
-        window.deleteModel = function(modelId) {
-            if (confirm('¿Estás seguro de eliminar este modelo?')) {
-                submitAction('delete_model', {model_id: modelId});
-            }
-        };
-
-        window.deleteIssue = function(issueId) {
-            if (confirm('¿Estás seguro de eliminar este problema común?')) {
-                submitAction('delete_issue', {issue_id: issueId});
-            }
-        };
-
-        function submitAction(action, data) {
-            const form = document.createElement('form');
-            form.method = 'POST';
-            form.style.display = 'none';
-
-            const csrfInput = document.createElement('input');
-            csrfInput.type = 'hidden';
-            csrfInput.name = 'csrf_token';
-            csrfInput.value = '<?= generateCSRFToken() ?>';
-            form.appendChild(csrfInput);
-
-            const actionInput = document.createElement('input');
-            actionInput.type = 'hidden';
-            actionInput.name = 'action';
-            actionInput.value = action;
-            form.appendChild(actionInput);
-
-            for (const [key, value] of Object.entries(data)) {
-                const input = document.createElement('input');
-                input.type = 'hidden';
-                input.name = key;
-                input.value = value;
-                form.appendChild(input);
-            }
-
-            document.body.appendChild(form);
-            form.submit();
-        }
-
-        // Funciones del sistema
-        window.clearCache = function() {
-            if (confirm('¿Limpiar la caché del sistema?')) {
-                // Implementar limpieza de caché
-                if (typeof Utils !== 'undefined') {
-                    Utils.showNotification('Caché limpiada correctamente', 'success');
-                }
-            }
-        };
-
-        window.checkSystem = function() {
-            if (typeof Utils !== 'undefined') {
-                Utils.showNotification('Verificando sistema...', 'info');
-
-                // Simular verificación del sistema
-                setTimeout(() => {
-                    Utils.showNotification('Sistema funcionando correctamente', 'success');
-                }, 2000);
-            }
-        };
-
-        window.exportSettings = function() {
-            if (typeof Utils !== 'undefined') {
-                Utils.showNotification('Exportando configuración...', 'info');
-
-                // Crear archivo de configuración
-                const settings = {
-                    shop: <?= json_encode($shop) ?>,
-                    brands: <?= json_encode($brands) ?>,
-                    export_date: new Date().toISOString()
-                };
-
-                const blob = new Blob([JSON.stringify(settings, null, 2)], {type: 'application/json'});
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = 'configuracion_' + new Date().toISOString().split('T')[0] + '.json';
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
-
-                Utils.showNotification('Configuración exportada correctamente', 'success');
-            }
-        };
-
-        // Funciones de respaldo
-        window.createBackup = function() {
-            if (confirm('¿Crear un respaldo de todos los datos?')) {
-                if (typeof Utils !== 'undefined') {
-                    Utils.showNotification('Creando respaldo...', 'info');
-
-                    // Simular creación de respaldo
-                    setTimeout(() => {
-                        Utils.showNotification('Respaldo creado correctamente', 'success');
-                    }, 3000);
-                }
-            }
-        };
-
-        window.downloadBackup = function() {
-            if (typeof Utils !== 'undefined') {
-                Utils.showNotification('Descargando último respaldo...', 'info');
-
-                // Simular descarga de respaldo
-                setTimeout(() => {
-                    Utils.showNotification('Respaldo descargado correctamente', 'success');
-                }, 2000);
-            }
-        };
-
-        // Manejar formulario de restauración
-        document.getElementById('restoreForm').addEventListener('submit', function(e) {
-            e.preventDefault();
-
-            const fileInput = this.querySelector('input[type="file"]');
-            if (!fileInput.files[0]) {
-                if (typeof Utils !== 'undefined') {
-                    Utils.showNotification('Por favor selecciona un archivo para restaurar', 'warning');
-                }
-                return;
-            }
-
-            if (!confirm('ADVERTENCIA: Esta acción reemplazará todos los datos actuales. ¿Estás seguro?')) {
-                return;
-            }
-
-            if (typeof Utils !== 'undefined') {
-                Utils.showNotification('Restaurando datos...', 'info');
-
-                // Simular proceso de restauración
-                setTimeout(() => {
-                    Utils.showNotification('Datos restaurados correctamente', 'success');
-                    setTimeout(() => {
-                        location.reload();
-                    }, 1500);
-                }, 5000);
-            }
-        });
-
-        // Limpiar formularios al cerrar modales
-        ['addBrandModal', 'addModelModal', 'addIssueModal'].forEach(modalId => {
-            document.getElementById(modalId).addEventListener('hidden.bs.modal', function() {
-                this.querySelector('form').reset();
-                this.querySelector('form').classList.remove('was-validated');
-            });
-        });
-
-        // Atajos de teclado
-        document.addEventListener('keydown', function(e) {
-            // Ctrl+S para guardar configuración
-            if ((e.ctrlKey || e.metaKey) && e.key === 's') {
-                e.preventDefault();
-                const activeTab = document.querySelector('.tab-pane.active');
-                const saveButton = activeTab.querySelector('button[type="submit"]');
-                if (saveButton) {
-                    saveButton.click();
-                }
-            }
-
-            // Escape para cerrar modales
-            if (e.key === 'Escape') {
-                const modals = document.querySelectorAll('.modal.show');
-                modals.forEach(modal => {
-                    bootstrap.Modal.getInstance(modal).hide();
-                });
-            }
-        });
+        console.log('✅ Settings JavaScript fully loaded and optimized');
     </script>
 
 <?php
