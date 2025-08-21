@@ -85,6 +85,25 @@ function generateToken($length = 32) {
     return bin2hex(random_bytes($length));
 }
 
+
+/**
+ * Obtener instancia de la clase Auth
+ */
+function getAuth() {
+    static $auth_instance = null;
+
+    if ($auth_instance === null) {
+        // التأكد من تحميل ملف Auth
+        if (!class_exists('Auth')) {
+            require_once INCLUDES_PATH . 'auth.php';
+        }
+
+        $auth_instance = new Auth();
+    }
+
+    return $auth_instance;
+}
+
 // ===================================================
 // FUNCIONES DE MENSAJES Y NOTIFICACIONES
 // ===================================================
