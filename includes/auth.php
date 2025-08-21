@@ -378,13 +378,13 @@ class Auth {
 /**
  * Obtener instancia de Auth
  */
-function getAuth() {
-    static $auth = null;
-    if ($auth === null) {
-        $auth = new Auth();
-    }
-    return $auth;
-}
+//function getAuth() {
+//    static $auth = null;
+//    if ($auth === null) {
+//        $auth = new Auth();
+//    }
+//    return $auth;
+//}
 
 /**
  * Middleware de autenticación para páginas

@@ -26,6 +26,8 @@ define('APP_AUTHOR', '| AADLANI Mohammed');
 // Directorio raíz del proyecto
 define('ROOT_PATH', dirname(__DIR__) . '/');
 
+define('BASE_PATH', ROOT_PATH);
+
 // Directorio de includes
 define('INCLUDES_PATH', ROOT_PATH . 'includes/');
 
