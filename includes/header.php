@@ -791,6 +791,31 @@ if (isset($_SESSION['user_id']) && $shop_id) {
                             });
                         }
                     });
+
+                    // إضافة إغلاق القائمة الرئيسية عند اختيار رابط (للهواتف)
+                    const navbarCollapse = document.getElementById('navbarNav');
+                    const navLinks = document.querySelectorAll('.navbar-nav .nav-link:not(.dropdown-toggle), .navbar-nav .dropdown-item');
+
+                    navLinks.forEach(link => {
+                        link.addEventListener('click', function() {
+                            // إغلاق القائمة الرئيسية على الهواتف
+                            if (window.innerWidth < 992 && navbarCollapse.classList.contains('show')) {
+                                const bsCollapse = bootstrap.Collapse.getInstance(navbarCollapse);
+                                if (bsCollapse) {
+                                    bsCollapse.hide();
+                                }
+                            }
+
+                            // إغلاق القوائم المنسدلة
+                            document.querySelectorAll('.dropdown-menu.show').forEach(menu => {
+                                menu.classList.remove('show');
+                                const toggle = menu.previousElementSibling;
+                                if (toggle) {
+                                    toggle.setAttribute('aria-expanded', 'false');
+                                }
+                            });
+                        });
+                    });
                 }
 
                 // تحديث عداد الإشعارات كل 5 دقائق

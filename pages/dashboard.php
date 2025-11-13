@@ -58,9 +58,9 @@ require_once INCLUDES_PATH . 'header.php';
                             <?= formatDate(date('Y-m-d H:i:s'), 'd/m/Y') ?>
                         </p>
                     </div>
-                    <div class="col-md-4 text-md-end">
-                        <div class="quick-actions">
-                            <a href="<?= url('pages/add_repair.php') ?>" class="btn btn-light me-2">
+                    <div class="col-md-4 text-md-end mt-3 mt-md-0">
+                        <div class="quick-actions d-flex flex-column flex-md-row gap-2 justify-content-md-end">
+                            <a href="<?= url('pages/add_repair.php') ?>" class="btn btn-light">
                                 <i class="bi bi-plus-circle me-2"></i>Nueva Reparación
                             </a>
                             <a href="<?= url('pages/search.php') ?>" class="btn btn-outline-light">
@@ -658,85 +658,160 @@ require_once INCLUDES_PATH . 'header.php';
         text-align: center;
         padding: 2rem 1rem;
     }
-    
+
     .welcome-header h1 {
-        font-size: 1.75rem;
+        font-size: 1.5rem;
+        margin-bottom: 0.75rem;
     }
-    
+
+    .welcome-header .row {
+        justify-content: center;
+    }
+
     .quick-actions {
-        margin-top: 1rem;
-        display: flex;
-        flex-direction: column;
-        gap: 0.5rem;
+        width: 100%;
+        max-width: 400px;
+        margin: 0 auto;
     }
-    
+
     .quick-actions .btn {
         font-size: 0.875rem;
-        padding: 0.5rem 1rem;
+        padding: 0.625rem 1rem;
+        width: 100%;
+        justify-content: center;
+        white-space: nowrap;
     }
-    
+
     .stat-card .card-body {
         padding: 1rem;
         text-align: center;
     }
-    
+
     .stat-number {
         font-size: 2rem;
     }
-    
+
     .stat-icon {
         position: static;
         display: block;
         margin-bottom: 0.5rem;
         opacity: 0.8;
     }
-    
+
     .table-responsive {
         font-size: 0.875rem;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
     }
-    
+
+    .table thead th {
+        font-size: 0.8rem;
+        padding: 0.5rem 0.25rem;
+    }
+
+    .table tbody td {
+        font-size: 0.8rem;
+        padding: 0.5rem 0.25rem;
+    }
+
     .btn-group-sm .btn {
-        padding: 0.2rem 0.4rem;
-        font-size: 0.7rem;
+        padding: 0.25rem 0.5rem;
+        font-size: 0.75rem;
     }
-    
+
+    .btn-group-sm .btn i {
+        font-size: 0.875rem;
+    }
+
     .metric {
         padding: 1rem;
         margin-bottom: 1rem;
     }
-    
+
     .card-body {
         padding: 1rem;
+    }
+
+    .card-header {
+        padding: 0.75rem 1rem;
+        font-size: 0.9rem;
     }
 }
 
 @media (max-width: 576px) {
     .container-fluid {
-        padding-left: 0.75rem;
-        padding-right: 0.75rem;
+        padding-left: 0.5rem;
+        padding-right: 0.5rem;
     }
-    
+
     .welcome-header {
-        margin-left: -0.75rem;
-        margin-right: -0.75rem;
+        margin-left: -0.5rem;
+        margin-right: -0.5rem;
         border-radius: 0;
+        padding: 1.5rem 1rem;
     }
-    
-    .stat-card {
-        margin-bottom: 1rem;
+
+    .welcome-header h1 {
+        font-size: 1.25rem;
     }
-    
-    .card {
-        margin-bottom: 1rem;
-    }
-    
-    .table-responsive {
+
+    .welcome-header p {
         font-size: 0.8rem;
     }
-    
+
+    .quick-actions .btn {
+        font-size: 0.8rem;
+        padding: 0.5rem 0.75rem;
+    }
+
+    .stat-card {
+        margin-bottom: 0.75rem;
+    }
+
+    .stat-number {
+        font-size: 1.75rem;
+    }
+
+    .stat-label {
+        font-size: 0.75rem;
+    }
+
+    .card {
+        margin-bottom: 1rem;
+        border-radius: 0.5rem;
+    }
+
+    .table-responsive {
+        font-size: 0.75rem;
+        margin: -0.5rem;
+    }
+
     .table th,
     .table td {
-        padding: 0.5rem 0.25rem;
+        padding: 0.4rem 0.2rem;
+        font-size: 0.75rem;
+    }
+
+    .table th:first-child,
+    .table td:first-child {
+        position: sticky;
+        left: 0;
+        background: white;
+        z-index: 1;
+    }
+
+    .table thead th:first-child {
+        background: #f8f9fa;
+    }
+
+    .btn-group-sm .btn {
+        padding: 0.2rem 0.35rem;
+        font-size: 0.7rem;
+    }
+
+    .badge {
+        font-size: 0.65rem;
+        padding: 0.25rem 0.4rem;
     }
 }
 </style>
