@@ -399,7 +399,7 @@ if (isset($_SESSION['user_id']) && $shop_id) {
                 <li class="nav-item dropdown">
                     <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" id="userDropdown" role="button" data-dropdown-toggle>
                         <i class="bi bi-person-circle me-1"></i>
-                        <span class="d-none d-md-inline"><?= htmlspecialchars($current_user['name']) ?></span>
+                        <span><?= htmlspecialchars($current_user['name']) ?></span>
                     </a>
                     <ul class="dropdown-menu dropdown-menu-end">
                         <li>
@@ -667,6 +667,22 @@ if (isset($_SESSION['user_id']) && $shop_id) {
         .bi {
             font-size: 1em;
             vertical-align: -0.125em;
+        }
+
+        /* تحسين عرض اسم المستخدم */
+        #userDropdown span {
+            max-width: 150px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            display: inline-block;
+            vertical-align: middle;
+        }
+
+        @media (max-width: 991.98px) {
+            #userDropdown span {
+                max-width: none;
+            }
         }
 
         .navbar-dark .navbar-nav .nav-link {
