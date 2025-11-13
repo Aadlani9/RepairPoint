@@ -90,6 +90,7 @@ if (isset($_SESSION['user_id']) && $shop_id) {
 
     <!-- Meta tags para PWA -->
     <meta name="theme-color" content="#0d6efd">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
 
@@ -794,26 +795,42 @@ if (isset($_SESSION['user_id']) && $shop_id) {
 
                     // إضافة إغلاق القائمة الرئيسية عند اختيار رابط (للهواتف)
                     const navbarCollapse = document.getElementById('navbarNav');
+
+                    // فقط الروابط التي تنتقل إلى صفحات أخرى (ليس dropdown-toggle)
                     const navLinks = document.querySelectorAll('.navbar-nav .nav-link:not(.dropdown-toggle), .navbar-nav .dropdown-item');
 
                     navLinks.forEach(link => {
-                        link.addEventListener('click', function() {
-                            // إغلاق القائمة الرئيسية على الهواتف
-                            if (window.innerWidth < 992 && navbarCollapse.classList.contains('show')) {
-                                const bsCollapse = bootstrap.Collapse.getInstance(navbarCollapse);
-                                if (bsCollapse) {
-                                    bsCollapse.hide();
-                                }
+                        link.addEventListener('click', function(e) {
+                            // التحقق من أن الرابط له href حقيقي وليس #
+                            const href = this.getAttribute('href');
+
+                            // عدم إغلاق القائمة إذا كان الرابط # أو فارغ أو javascript
+                            if (!href || href === '#' || href === 'javascript:void(0)' || href.startsWith('javascript:')) {
+                                return;
                             }
 
-                            // إغلاق القوائم المنسدلة
-                            document.querySelectorAll('.dropdown-menu.show').forEach(menu => {
-                                menu.classList.remove('show');
-                                const toggle = menu.previousElementSibling;
-                                if (toggle) {
-                                    toggle.setAttribute('aria-expanded', 'false');
+                            // تأخير صغير للسماح بالتنقل قبل الإغلاق
+                            setTimeout(() => {
+                                // إغلاق القائمة الرئيسية على الهواتف
+                                if (window.innerWidth < 992 && navbarCollapse && navbarCollapse.classList.contains('show')) {
+                                    const bsCollapse = bootstrap.Collapse.getInstance(navbarCollapse);
+                                    if (bsCollapse) {
+                                        bsCollapse.hide();
+                                    } else {
+                                        // إذا لم يكن Bootstrap Collapse متاح، استخدم طريقة مباشرة
+                                        navbarCollapse.classList.remove('show');
+                                    }
                                 }
-                            });
+
+                                // إغلاق القوائم المنسدلة
+                                document.querySelectorAll('.dropdown-menu.show').forEach(menu => {
+                                    menu.classList.remove('show');
+                                    const toggle = menu.previousElementSibling;
+                                    if (toggle) {
+                                        toggle.setAttribute('aria-expanded', 'false');
+                                    }
+                                });
+                            }, 50);
                         });
                     });
                 }
