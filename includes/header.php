@@ -141,7 +141,7 @@ if (isset($_SESSION['user_id']) && $shop_id) {
 
                 <!-- Dropdown Reparaciones -->
                 <li class="nav-item dropdown">
-                    <a class="nav-link dropdown-toggle" href="#" id="repairsDropdown" role="button" data-dropdown-toggle>
+                    <a class="nav-link dropdown-toggle" href="#" id="repairsDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                         <i class="bi bi-list-check me-1"></i>
                         Reparaciones
                     </a>
@@ -165,7 +165,7 @@ if (isset($_SESSION['user_id']) && $shop_id) {
                 <?php if ($spare_parts_permissions['view_spare_parts'] && $shop_id): ?>
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle <?= in_array(basename($_SERVER['PHP_SELF']), ['spare_parts.php', 'add_spare_part.php', 'edit_spare_part.php']) ? 'active' : '' ?>"
-                           href="#" id="sparePartsDropdown" role="button" data-dropdown-toggle>
+                           href="#" id="sparePartsDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                             <i class="bi bi-gear me-1"></i>
                             Repuestos
                             <?php
@@ -260,7 +260,7 @@ if (isset($_SESSION['user_id']) && $shop_id) {
                 <!-- Administración (Solo Admin) -->
                 <?php if ($current_user && $current_user['role'] === 'admin'): ?>
                     <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" id="adminDropdown" role="button" data-dropdown-toggle>
+                        <a class="nav-link dropdown-toggle" href="#" id="adminDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                             <i class="bi bi-shield-check me-1"></i>
                             Administración
                         </a>
@@ -332,7 +332,7 @@ if (isset($_SESSION['user_id']) && $shop_id) {
                 <!-- إشعارات (اختيارية) -->
                 <?php if ($spare_parts_permissions['manage_spare_parts'] && $shop_id): ?>
                     <li class="nav-item dropdown">
-                        <a class="nav-link position-relative" href="#" id="notificationsDropdown" role="button" data-dropdown-toggle>
+                        <a class="nav-link position-relative" href="#" id="notificationsDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                             <i class="bi bi-bell"></i>
                             <?php
                             try {
@@ -397,7 +397,7 @@ if (isset($_SESSION['user_id']) && $shop_id) {
 
                 <!-- User Menu -->
                 <li class="nav-item dropdown">
-                    <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" id="userDropdown" role="button" data-dropdown-toggle>
+                    <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                         <i class="bi bi-person-circle me-1"></i>
                         <span><?= htmlspecialchars($current_user['name']) ?></span>
                     </a>
@@ -468,16 +468,28 @@ if (isset($_SESSION['user_id']) && $shop_id) {
             box-shadow: 0 0.25rem 1rem rgba(0, 0, 0, 0.15);
             border: none;
             padding: 0.5rem 0;
-            display: none !important;
-            opacity: 0;
-            transform: translateY(-10px);
-            transition: all 0.3s ease;
+            max-height: 80vh;
+            overflow-y: auto;
+            overflow-x: hidden;
         }
 
-        .navbar-nav .dropdown-menu.show {
-            display: block !important;
-            opacity: 1;
-            transform: translateY(0);
+        /* Scroll للقوائم الطويلة */
+        .navbar-nav .dropdown-menu::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .navbar-nav .dropdown-menu::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+
+        .navbar-nav .dropdown-menu::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 10px;
+        }
+
+        .navbar-nav .dropdown-menu::-webkit-scrollbar-thumb:hover {
+            background: #555;
         }
 
         .navbar-nav .dropdown-item {
@@ -726,179 +738,42 @@ if (isset($_SESSION['user_id']) && $shop_id) {
         }
     </style>
 
-    <!-- JavaScript لإصلاح القوائم -->
+    <!-- JavaScript للقائمة -->
     <script>
         // منع التحميل المتعدد
         if (typeof window.RepairPointHeaderLoaded === 'undefined') {
             window.RepairPointHeaderLoaded = true;
 
             document.addEventListener('DOMContentLoaded', function() {
-                // إعطاء Bootstrap وقت للتحميل
-                setTimeout(initializeDropdowns, 100);
+                // إغلاق القائمة الرئيسية عند اختيار رابط (للهواتف)
+                const navbarCollapse = document.getElementById('navbarNav');
+                const navLinks = document.querySelectorAll('.navbar-nav .nav-link:not(.dropdown-toggle), .navbar-nav .dropdown-item');
 
-                function initializeDropdowns() {
-                    // العثور على جميع عناصر القائمة المنسدلة
-                    const dropdownToggles = document.querySelectorAll('[data-dropdown-toggle]');
+                navLinks.forEach(link => {
+                    link.addEventListener('click', function(e) {
+                        const href = this.getAttribute('href');
 
-                    // إزالة أي event listeners موجودة
-                    dropdownToggles.forEach(toggle => {
-                        const newToggle = toggle.cloneNode(true);
-                        toggle.parentNode.replaceChild(newToggle, toggle);
-                    });
+                        // عدم إغلاق إذا كان الرابط # أو فارغ
+                        if (!href || href === '#' || href.startsWith('javascript:')) {
+                            return;
+                        }
 
-                    // إعادة الحصول على العناصر الجديدة
-                    const freshToggles = document.querySelectorAll('[data-dropdown-toggle]');
-
-                    // إضافة event listeners جديدة
-                    freshToggles.forEach(toggle => {
-                        toggle.addEventListener('click', function(e) {
-                            e.preventDefault();
-                            e.stopPropagation();
-
-                            const dropdownMenu = this.nextElementSibling;
-
-                            if (dropdownMenu && dropdownMenu.classList.contains('dropdown-menu')) {
-                                // إغلاق القوائم الأخرى
-                                document.querySelectorAll('.dropdown-menu.show').forEach(menu => {
-                                    if (menu !== dropdownMenu) {
-                                        menu.classList.remove('show');
-                                    }
-                                });
-
-                                // تبديل القائمة الحالية
-                                const isOpen = dropdownMenu.classList.contains('show');
-
-                                if (isOpen) {
-                                    dropdownMenu.classList.remove('show');
-                                    this.setAttribute('aria-expanded', 'false');
-                                } else {
-                                    dropdownMenu.classList.add('show');
-                                    this.setAttribute('aria-expanded', 'true');
-                                }
+                        // إغلاق القائمة على الهواتف فقط
+                        if (window.innerWidth < 992 && navbarCollapse && navbarCollapse.classList.contains('show')) {
+                            const bsCollapse = bootstrap.Collapse.getInstance(navbarCollapse);
+                            if (bsCollapse) {
+                                bsCollapse.hide();
                             }
-                        });
-
-                        // إضافة attributes للوصولية
-                        toggle.setAttribute('aria-haspopup', 'true');
-                        toggle.setAttribute('aria-expanded', 'false');
-                    });
-
-                    // إغلاق عند النقر خارجاً
-                    document.addEventListener('click', function(e) {
-                        if (!e.target.closest('.dropdown')) {
-                            document.querySelectorAll('.dropdown-menu.show').forEach(menu => {
-                                menu.classList.remove('show');
-                                const toggle = menu.previousElementSibling;
-                                if (toggle) {
-                                    toggle.setAttribute('aria-expanded', 'false');
-                                }
-                            });
                         }
                     });
+                });
 
-                    // إغلاق بـ Escape
-                    document.addEventListener('keydown', function(e) {
-                        if (e.key === 'Escape') {
-                            document.querySelectorAll('.dropdown-menu.show').forEach(menu => {
-                                menu.classList.remove('show');
-                                const toggle = menu.previousElementSibling;
-                                if (toggle) {
-                                    toggle.setAttribute('aria-expanded', 'false');
-                                }
-                            });
-                        }
-                    });
-
-                    // إضافة إغلاق القائمة الرئيسية عند اختيار رابط (للهواتف)
-                    const navbarCollapse = document.getElementById('navbarNav');
-
-                    // فقط الروابط التي تنتقل إلى صفحات أخرى (ليس dropdown-toggle)
-                    const navLinks = document.querySelectorAll('.navbar-nav .nav-link:not(.dropdown-toggle), .navbar-nav .dropdown-item');
-
-                    navLinks.forEach(link => {
-                        link.addEventListener('click', function(e) {
-                            // التحقق من أن الرابط له href حقيقي وليس #
-                            const href = this.getAttribute('href');
-
-                            // عدم إغلاق القائمة إذا كان الرابط # أو فارغ أو javascript
-                            if (!href || href === '#' || href === 'javascript:void(0)' || href.startsWith('javascript:')) {
-                                return;
-                            }
-
-                            // تأخير صغير للسماح بالتنقل قبل الإغلاق
-                            setTimeout(() => {
-                                // إغلاق القائمة الرئيسية على الهواتف
-                                if (window.innerWidth < 992 && navbarCollapse && navbarCollapse.classList.contains('show')) {
-                                    const bsCollapse = bootstrap.Collapse.getInstance(navbarCollapse);
-                                    if (bsCollapse) {
-                                        bsCollapse.hide();
-                                    } else {
-                                        // إذا لم يكن Bootstrap Collapse متاح، استخدم طريقة مباشرة
-                                        navbarCollapse.classList.remove('show');
-                                    }
-                                }
-
-                                // إغلاق القوائم المنسدلة
-                                document.querySelectorAll('.dropdown-menu.show').forEach(menu => {
-                                    menu.classList.remove('show');
-                                    const toggle = menu.previousElementSibling;
-                                    if (toggle) {
-                                        toggle.setAttribute('aria-expanded', 'false');
-                                    }
-                                });
-                            }, 50);
-                        });
-                    });
-                }
-
-                // تحديث عداد الإشعارات كل 5 دقائق
-                setInterval(updateNotificationCount, 300000);
+                // تحديث عداد الإشعارات كل 5 دقائق (معطل حالياً)
+                // setInterval(updateNotificationCount, 300000);
 
                 // إعداد keyboard shortcuts
                 setupKeyboardShortcuts();
             });
-
-            // تحديث عداد الإشعارات
-            function updateNotificationCount() {
-                <?php if ($spare_parts_permissions['manage_spare_parts'] && $shop_id): ?>
-                fetch('<?= url('api/notifications.php') ?>?action=count')
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.success) {
-                            updateBadges(data.data);
-                        }
-                    })
-                    .catch(error => {
-                        // تجاهل الأخطاء بصمت
-                    });
-                <?php endif; ?>
-            }
-
-            // تحديث الشارات
-            function updateBadges(counts) {
-                // تحديث شارة الإشعارات الرئيسية
-                const mainBadge = document.querySelector('#notificationsDropdown .badge');
-                if (mainBadge) {
-                    const total = counts.low_stock || 0;
-                    if (total > 0) {
-                        mainBadge.textContent = total > 9 ? '9+' : total;
-                        mainBadge.style.display = 'inline';
-                    } else {
-                        mainBadge.style.display = 'none';
-                    }
-                }
-
-                // تحديث شارة قطع الغيار
-                const sparePartsBadge = document.querySelector('#sparePartsDropdown .badge');
-                if (sparePartsBadge && counts.low_stock) {
-                    sparePartsBadge.textContent = counts.low_stock;
-                    if (counts.low_stock > 0) {
-                        sparePartsBadge.classList.add('low-stock-indicator');
-                    } else {
-                        sparePartsBadge.classList.remove('low-stock-indicator');
-                    }
-                }
-            }
 
             // إعداد keyboard shortcuts
             function setupKeyboardShortcuts() {

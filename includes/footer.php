@@ -664,23 +664,24 @@ if (isset($_SESSION['user_id'])) {
     }
 
     function setupStatsAutoRefresh() {
-        // تحديث الإحصائيات كل 5 دقائق
-        setInterval(function() {
-            updateFooterStats();
-        }, 300000); // 5 minutes
+        // تحديث الإحصائيات كل 5 دقائق (معطل حالياً)
+        // setInterval(function() {
+        //     updateFooterStats();
+        // }, 300000); // 5 minutes
     }
 
     function updateFooterStats() {
-        fetch('<?= url('api/footer-stats.php') ?>')
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    updateStatsDisplay(data.stats);
-                }
-            })
-            .catch(error => {
-                console.log('Stats update failed:', error);
-            });
+        // معطل حالياً - سيتم تفعيله لاحقاً
+        // fetch('<?= url('api/footer-stats.php') ?>')
+        //     .then(response => response.json())
+        //     .then(data => {
+        //         if (data.success) {
+        //             updateStatsDisplay(data.stats);
+        //         }
+        //     })
+        //     .catch(error => {
+        //         console.log('Stats update failed:', error);
+        //     });
     }
 
     function updateStatsDisplay(stats) {
