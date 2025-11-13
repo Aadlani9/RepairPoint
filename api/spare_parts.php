@@ -88,8 +88,14 @@ try {
                     $limit = intval($_GET['limit'] ?? 50);
                     $offset = intval($_GET['offset'] ?? 0);
 
-                    $query = "SELECT sp.*, 
-                                     GROUP_CONCAT(DISTINCT CONCAT(b.name, ' ', m.name) SEPARATOR ', ') as compatible_phones,
+                    $query = "SELECT sp.*,
+                                     GROUP_CONCAT(DISTINCT CONCAT(
+                                         b.name, ' ', m.name,
+                                         CASE
+                                             WHEN m.model_reference IS NOT NULL THEN CONCAT(' (', m.model_reference, ')')
+                                             ELSE ''
+                                         END
+                                     ) SEPARATOR ', ') as compatible_phones,
                                      COUNT(DISTINCT spc.model_id) as compatibility_count";
 
                     // إخفاء معلومات التكلفة للموظفين العاديين
@@ -252,7 +258,7 @@ try {
 
                     // الحصول على الهواتف المتوافقة
                     $compatibility = $db->select(
-                        "SELECT spc.brand_id, spc.model_id, b.name as brand_name, m.name as model_name
+                        "SELECT spc.brand_id, spc.model_id, b.name as brand_name, m.name as model_name, m.model_reference
                          FROM spare_parts_compatibility spc
                          JOIN brands b ON spc.brand_id = b.id
                          JOIN models m ON spc.model_id = m.id
