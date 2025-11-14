@@ -65,12 +65,16 @@ $total_records = $db->selectOne(
 
 $total_pages = calculateTotalPages($total_records, $limit);
 
-// Obtener reparaciones - ✅ ترتيب محسن: الأحدث أولاً
+// Obtener reparaciones - ✅ ترتيب محسن: الأحدث أولاً (مع دعم الأجهزة المخصصة)
 $repairs = $db->select(
-    "SELECT r.*, b.name as brand_name, m.name as model_name, u.name as created_by_name
-     FROM repairs r 
-     JOIN brands b ON r.brand_id = b.id 
-     JOIN models m ON r.model_id = m.id 
+    "SELECT r.*,
+            b.name as brand_name,
+            m.name as model_name,
+            m.model_reference,
+            u.name as created_by_name
+     FROM repairs r
+     LEFT JOIN brands b ON r.brand_id = b.id
+     LEFT JOIN models m ON r.model_id = m.id
      JOIN users u ON r.created_by = u.id
      WHERE $where_clause
      ORDER BY 
@@ -408,12 +412,19 @@ require_once INCLUDES_PATH . 'header.php';
                                         </div>
                                     </td>
                                     <td>
+                                        <?php
+                                        // عرض الجهاز (مع دعم الأجهزة المخصصة)
+                                        $deviceName = getDeviceDisplayName($repair);
+                                        $parts = explode(' ', $deviceName, 2);
+                                        $brand = $parts[0] ?? '';
+                                        $model = $parts[1] ?? '';
+                                        ?>
                                         <div class="device-info">
                                             <div class="fw-semibold">
-                                                <?= htmlspecialchars($repair['brand_name']) ?>
+                                                <?= htmlspecialchars($brand) ?>
                                             </div>
                                             <small class="text-muted">
-                                                <?= htmlspecialchars($repair['model_name']) ?>
+                                                <?= htmlspecialchars($model) ?>
                                             </small>
                                         </div>
                                     </td>
@@ -527,8 +538,9 @@ require_once INCLUDES_PATH . 'header.php';
 
                                             <!-- ✅ زر WhatsApp الجديد -->
                                             <?php if ($repair['status'] === 'completed'): ?>
+                                                <?php $whatsappDevice = getDeviceDisplayName($repair); ?>
                                                 <button class="btn btn-outline-warning"
-                                                        onclick="sendWhatsApp('<?= htmlspecialchars($repair['customer_phone']) ?>', '<?= htmlspecialchars($repair['reference']) ?>', '<?= htmlspecialchars($repair['customer_name']) ?>', '<?= htmlspecialchars($repair['brand_name'] . ' ' . $repair['model_name']) ?>')"
+                                                        onclick="sendWhatsApp('<?= htmlspecialchars($repair['customer_phone']) ?>', '<?= htmlspecialchars($repair['reference']) ?>', '<?= htmlspecialchars($repair['customer_name']) ?>', '<?= htmlspecialchars($whatsappDevice) ?>')"
                                                         title="Notificar por WhatsApp">
                                                     <i class="bi bi-whatsapp"></i>
                                                 </button>

@@ -21,16 +21,20 @@ $shop_id = $_SESSION['shop_id'];
 // Obtener estadísticas
 $stats = getDashboardStats($shop_id);
 
-// Obtener reparaciones recientes
+// Obtener reparaciones recientes (مع دعم الأجهزة المخصصة)
 $db = getDB();
 $recent_repairs = $db->select(
-    "SELECT r.*, b.name as brand_name, m.name as model_name, u.name as created_by_name
-     FROM repairs r 
-     JOIN brands b ON r.brand_id = b.id 
-     JOIN models m ON r.model_id = m.id 
+    "SELECT r.*,
+            b.name as brand_name,
+            m.name as model_name,
+            m.model_reference,
+            u.name as created_by_name
+     FROM repairs r
+     LEFT JOIN brands b ON r.brand_id = b.id
+     LEFT JOIN models m ON r.model_id = m.id
      JOIN users u ON r.created_by = u.id
-     WHERE r.shop_id = ? 
-     ORDER BY r.created_at DESC 
+     WHERE r.shop_id = ?
+     ORDER BY r.created_at DESC
      LIMIT 8",
     [$shop_id]
 );
@@ -212,12 +216,19 @@ require_once INCLUDES_PATH . 'header.php';
                                             </div>
                                         </td>
                                         <td>
+                                            <?php
+                                            // عرض الجهاز (مع دعم الأجهزة المخصصة)
+                                            $deviceName = getDeviceDisplayName($repair);
+                                            $parts = explode(' ', $deviceName, 2);
+                                            $brand = $parts[0] ?? '';
+                                            $model = $parts[1] ?? '';
+                                            ?>
                                             <div>
                                                 <div class="fw-semibold">
-                                                    <?= htmlspecialchars($repair['brand_name']) ?>
+                                                    <?= htmlspecialchars($brand) ?>
                                                 </div>
                                                 <small class="text-muted">
-                                                    <?= htmlspecialchars($repair['model_name']) ?>
+                                                    <?= htmlspecialchars($model) ?>
                                                 </small>
                                             </div>
                                         </td>
@@ -277,7 +288,7 @@ require_once INCLUDES_PATH . 'header.php';
                                     <?= htmlspecialchars($delivery['customer_name']) ?>
                                 </div>
                                 <small class="text-muted">
-                                    <?= htmlspecialchars($delivery['brand_name'] . ' ' . $delivery['model_name']) ?>
+                                    <?= htmlspecialchars(getDeviceDisplayName($delivery)) ?>
                                 </small>
                             </div>
                             <div class="text-end">

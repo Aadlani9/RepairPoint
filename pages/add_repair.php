@@ -156,6 +156,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $reference = generateRepairReference();
 
                     // Insertar reparación مع دعم الأجهزة المخصصة
+                    // استخدام الماركة والموديل الافتراضي للأجهزة المخصصة
+                    $finalBrandId = $device_input_type === 'otro' ? getDefaultBrandId() : $data['brand_id'];
+                    $finalModelId = $device_input_type === 'otro' ? getDefaultModelId() : $data['model_id'];
+
                     $repair_id = $db->insert(
                         "INSERT INTO repairs (
                             reference, customer_name, customer_phone, brand_id, model_id,
@@ -167,8 +171,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             $reference,
                             $data['customer_name'],
                             $data['customer_phone'],
-                            $device_input_type === 'otro' ? null : $data['brand_id'],
-                            $device_input_type === 'otro' ? null : $data['model_id'],
+                            $finalBrandId,  // استخدام الماركة الافتراضية لـ 'otro'
+                            $finalModelId,  // استخدام الموديل الافتراضي لـ 'otro'
                             $device_input_type,
                             $device_input_type === 'otro' ? ($data['custom_brand'] ?? null) : null,
                             $device_input_type === 'otro' ? $data['custom_model'] : null,
