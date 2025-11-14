@@ -458,9 +458,6 @@ require_once INCLUDES_PATH . 'header.php';
                                                 Puedes buscar por nombre del modelo o por su referencia
                                             </div>
                                             <div id="device_search_results" class="search-results"></div>
-                                            <!-- Hidden fields للقيم المختارة -->
-                                            <input type="hidden" id="search_brand_id" name="brand_id_search">
-                                            <input type="hidden" id="search_model_id" name="model_id_search">
                                         </div>
                                     </div>
                                 </div>
@@ -889,26 +886,30 @@ require_once INCLUDES_PATH . 'header.php';
                 searchSection.style.display = 'none';
                 otroSection.style.display = 'none';
 
+                const brandField = document.getElementById('brand_id');
+                const modelField = document.getElementById('model_id');
+                const customModelField = document.getElementById('custom_model');
+
                 // إظهار القسم المختار
                 if (listRadio.checked) {
+                    // وضع القائمة
                     listSection.style.display = 'block';
-                    // تمكين الحقول
-                    document.getElementById('brand_id').removeAttribute('disabled');
-                    document.getElementById('brand_id').setAttribute('required', 'required');
-                    document.getElementById('model_id').setAttribute('required', 'required');
-                    document.getElementById('custom_model').removeAttribute('required');
+                    brandField.setAttribute('required', 'required');
+                    modelField.setAttribute('required', 'required');
+                    customModelField.removeAttribute('required');
                 } else if (searchRadio.checked) {
+                    // وضع البحث - نستخدم نفس brand_id و model_id
                     searchSection.style.display = 'block';
-                    // تعطيل حقول القائمة
-                    document.getElementById('brand_id').removeAttribute('required');
-                    document.getElementById('model_id').removeAttribute('required');
-                    document.getElementById('custom_model').removeAttribute('required');
+                    // الحقول ستُملأ عند اختيار من نتائج البحث
+                    brandField.setAttribute('required', 'required');
+                    modelField.setAttribute('required', 'required');
+                    customModelField.removeAttribute('required');
                 } else if (otroRadio.checked) {
+                    // وضع Otro
                     otroSection.style.display = 'block';
-                    // تعطيل حقول القائمة وتمكين custom_model
-                    document.getElementById('brand_id').removeAttribute('required');
-                    document.getElementById('model_id').removeAttribute('required');
-                    document.getElementById('custom_model').setAttribute('required', 'required');
+                    brandField.removeAttribute('required');
+                    modelField.removeAttribute('required');
+                    customModelField.setAttribute('required', 'required');
                 }
 
                 updateTicketPreview();
@@ -1011,26 +1012,76 @@ require_once INCLUDES_PATH . 'header.php';
 
         // اختيار جهاز من نتائج البحث
         function selectDeviceFromSearch(brandId, modelId, displayName) {
-            // ملء الحقول المخفية
-            document.getElementById('search_brand_id').value = brandId;
-            document.getElementById('search_model_id').value = modelId;
-
-            // تحديث brand_id و model_id الرئيسيين
-            document.getElementById('brand_id').value = brandId;
-            document.getElementById('model_id').value = modelId;
-
-            // عرض الجهاز المختار
+            const brandField = document.getElementById('brand_id');
+            const modelField = document.getElementById('model_id');
             const searchInput = document.getElementById('device_search_input');
-            searchInput.value = displayName;
-            searchInput.classList.add('is-valid');
 
-            // إخفاء النتائج
-            document.getElementById('device_search_results').style.display = 'none';
+            // تمكين الحقول أولاً (في حالة كانت معطلة)
+            brandField.disabled = false;
+            modelField.disabled = false;
 
-            // تحديث المعاينة
-            updateTicketPreview();
+            // ملء القيم
+            brandField.value = brandId;
 
-            console.log('✅ Dispositivo seleccionado:', displayName);
+            // تحميل الموديلات للماركة المختارة ثم اختيار الموديل
+            loadModelsForBrand(brandId, function() {
+                modelField.value = modelId;
+                modelField.disabled = false;
+
+                // عرض الجهاز المختار
+                searchInput.value = displayName;
+                searchInput.classList.add('is-valid');
+
+                // إخفاء النتائج
+                document.getElementById('device_search_results').style.display = 'none';
+
+                // تحديث المعاينة
+                updateTicketPreview();
+
+                console.log('✅ Dispositivo seleccionado:', displayName, `(Brand: ${brandId}, Model: ${modelId})`);
+            });
+        }
+
+        // دالة مساعدة لتحميل الموديلات
+        function loadModelsForBrand(brandId, callback) {
+            const modelSelect = document.getElementById('model_id');
+
+            if (!brandId) {
+                modelSelect.innerHTML = '<option value="">Primero selecciona una marca</option>';
+                modelSelect.disabled = true;
+                return;
+            }
+
+            modelSelect.innerHTML = '<option value="">Cargando modelos...</option>';
+            modelSelect.disabled = true;
+
+            fetch(`<?= url('api/models.php') ?>?brand_id=${brandId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.data) {
+                        modelSelect.innerHTML = '<option value="">Seleccionar modelo</option>';
+                        data.data.forEach(model => {
+                            const option = document.createElement('option');
+                            option.value = model.id;
+                            // عرض المعرّف إذا وُجد
+                            const displayText = model.model_reference
+                                ? `${model.name} (${model.model_reference})`
+                                : model.name;
+                            option.textContent = displayText;
+                            modelSelect.appendChild(option);
+                        });
+                        modelSelect.disabled = false;
+
+                        // استدعاء callback بعد التحميل
+                        if (callback) callback();
+                    } else {
+                        modelSelect.innerHTML = '<option value="">No hay modelos disponibles</option>';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error cargando modelos:', error);
+                    modelSelect.innerHTML = '<option value="">Error al cargar modelos</option>';
+                });
         }
 
         // إعداد تحميل الموديلات حسب الماركة
