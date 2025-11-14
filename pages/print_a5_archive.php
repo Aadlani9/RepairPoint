@@ -1,7 +1,7 @@
 <?php
 /**
  * RepairPoint - Ticket A5 para Archivo
- * Optimizado para papel A5 (148mm × 210mm)
+ * Optimizado para papel A5 (148mm × 210mm) - PÁGINA ÚNICA
  * Para ARCHIVO DEL ESTABLECIMIENTO - Con condiciones completas y firma
  */
 
@@ -72,27 +72,28 @@ logActivity('ticket_printed', "Ticket A5 archivo impreso para reparación #{$rep
             font-family: Arial, sans-serif;
             background: white;
             color: #000;
-            line-height: 1.4;
-            font-size: 10pt;
+            line-height: 1.2;
+            font-size: 8pt;
         }
 
-        /* Configuración A5 Portrait */
+        /* Configuración A5 Portrait - OPTIMIZADO PARA UNA PÁGINA */
         .document {
             width: 148mm;
-            min-height: 210mm;
+            height: 210mm;
             margin: 0 auto;
-            padding: 8mm;
+            padding: 5mm;
             background: white;
+            overflow: hidden;
         }
 
-        /* Header principal */
+        /* Header compacto */
         .header {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            border: 3px solid #000;
-            padding: 5mm;
-            margin-bottom: 4mm;
+            border: 2px solid #000;
+            padding: 2mm;
+            margin-bottom: 2mm;
         }
 
         .header-left {
@@ -100,79 +101,83 @@ logActivity('ticket_printed', "Ticket A5 archivo impreso para reparación #{$rep
         }
 
         .shop-logo {
-            max-width: 25mm;
-            max-height: 25mm;
-            margin-bottom: 2mm;
+            max-width: 15mm;
+            max-height: 15mm;
+            margin-bottom: 1mm;
         }
 
         .shop-name {
-            font-size: 14pt;
+            font-size: 10pt;
             font-weight: bold;
             text-transform: uppercase;
-            margin-bottom: 2mm;
+            margin-bottom: 1mm;
         }
 
         .shop-contact {
-            font-size: 8pt;
-            line-height: 1.3;
+            font-size: 6pt;
+            line-height: 1.2;
         }
 
         .header-right {
             text-align: center;
             border: 2px solid #000;
-            padding: 3mm;
-            min-width: 40mm;
+            padding: 2mm;
+            min-width: 35mm;
         }
 
         .doc-type {
-            font-size: 10pt;
+            font-size: 8pt;
             font-weight: bold;
             text-transform: uppercase;
-            margin-bottom: 2mm;
+            margin-bottom: 1mm;
         }
 
         .doc-number {
-            font-size: 16pt;
+            font-size: 12pt;
             font-weight: bold;
             letter-spacing: 1px;
-            margin-bottom: 2mm;
+            margin-bottom: 1mm;
         }
 
         .doc-date {
-            font-size: 8pt;
+            font-size: 6pt;
         }
 
         .archive-notice {
             background: #000;
             color: white;
-            padding: 2mm;
+            padding: 1mm;
             text-align: center;
             font-weight: bold;
-            font-size: 9pt;
-            margin-top: 2mm;
+            font-size: 6pt;
+            margin-top: 1mm;
         }
 
-        /* Información del cliente */
-        .client-section {
-            border: 2px solid #000;
-            padding: 4mm;
-            margin-bottom: 4mm;
+        /* Secciones compactas */
+        .section {
+            border: 1px solid #000;
+            margin-bottom: 2mm;
+            page-break-inside: avoid;
         }
 
         .section-title {
             background: #000;
             color: white;
-            padding: 2mm;
+            padding: 1mm 2mm;
             font-weight: bold;
-            font-size: 10pt;
-            margin: -4mm -4mm 3mm -4mm;
+            font-size: 7pt;
             text-transform: uppercase;
         }
 
+        .section-content {
+            padding: 2mm;
+        }
+
+        /* Grid de información */
         .info-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 3mm;
+            gap: 2mm;
         }
 
         .info-item {
@@ -182,179 +187,175 @@ logActivity('ticket_printed', "Ticket A5 archivo impreso para reparación #{$rep
 
         .info-label {
             font-weight: bold;
-            font-size: 8pt;
+            font-size: 6pt;
             color: #666;
             text-transform: uppercase;
-            margin-bottom: 1mm;
         }
 
         .info-value {
-            font-size: 10pt;
-            padding: 1mm;
+            font-size: 7pt;
+            padding: 0.5mm;
             border-bottom: 1px solid #000;
         }
 
-        /* Dispositivo */
-        .device-section {
-            border: 2px solid #000;
-            padding: 4mm;
-            margin-bottom: 4mm;
-            background: #f8f8f8;
+        /* Dispositivo y problema en línea */
+        .compact-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2mm;
+            margin-bottom: 2mm;
         }
 
         .device-box {
+            border: 1px solid #000;
+            padding: 2mm;
             text-align: center;
-            font-size: 12pt;
+        }
+
+        .device-label {
+            font-size: 6pt;
             font-weight: bold;
-            padding: 3mm;
-            border: 2px dashed #000;
-            background: white;
+            margin-bottom: 1mm;
         }
 
-        /* Problema */
-        .problem-section {
-            border: 2px solid #000;
-            padding: 4mm;
-            margin-bottom: 4mm;
-        }
-
-        .problem-text {
-            min-height: 15mm;
-            padding: 3mm;
-            border: 1px dashed #000;
-            background: white;
-            font-size: 9pt;
-        }
-
-        /* Costes */
-        .costs-section {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 3mm;
-            margin-bottom: 4mm;
+        .device-name {
+            font-size: 8pt;
+            font-weight: bold;
         }
 
         .cost-box {
             border: 2px solid #000;
-            padding: 3mm;
+            padding: 2mm;
             text-align: center;
+            background: #f0f0f0;
         }
 
         .cost-label {
-            font-size: 8pt;
+            font-size: 6pt;
             font-weight: bold;
-            margin-bottom: 2mm;
-            text-transform: uppercase;
+            margin-bottom: 1mm;
         }
 
         .cost-value {
-            font-size: 16pt;
+            font-size: 12pt;
             font-weight: bold;
         }
 
-        /* Código de barras */
+        /* Problema */
+        .problem-box {
+            border: 1px solid #000;
+            padding: 2mm;
+            margin-bottom: 2mm;
+        }
+
+        .problem-label {
+            font-size: 6pt;
+            font-weight: bold;
+            margin-bottom: 1mm;
+        }
+
+        .problem-text {
+            font-size: 7pt;
+            max-height: 12mm;
+            overflow: hidden;
+        }
+
+        /* Código de barras compacto */
         .barcode-section {
             text-align: center;
-            border: 2px dashed #000;
-            padding: 3mm;
-            margin-bottom: 4mm;
+            border: 1px dashed #000;
+            padding: 1mm;
+            margin-bottom: 2mm;
         }
 
         .barcode-svg {
-            width: 80mm;
+            width: 60mm;
             height: auto;
         }
 
-        /* CONDICIONES - LA PARTE MÁS IMPORTANTE */
+        /* CONDICIONES - Muy compactas */
         .terms-section {
-            border: 4px double #000;
-            padding: 4mm;
-            margin-bottom: 4mm;
+            border: 2px solid #000;
+            padding: 2mm;
+            margin-bottom: 2mm;
             background: #f9f9f9;
             page-break-inside: avoid;
         }
 
         .terms-title {
             text-align: center;
-            font-size: 12pt;
+            font-size: 8pt;
             font-weight: bold;
             text-transform: uppercase;
-            margin-bottom: 3mm;
-            padding-bottom: 2mm;
-            border-bottom: 2px solid #000;
+            margin-bottom: 1mm;
+            padding-bottom: 1mm;
+            border-bottom: 1px solid #000;
+        }
+
+        .terms-compact {
+            font-size: 6pt;
+            line-height: 1.3;
         }
 
         .term-item {
-            margin-bottom: 3mm;
-            padding: 2mm;
-            border-left: 3px solid #000;
-            padding-left: 3mm;
+            margin-bottom: 1.5mm;
+            padding-left: 2mm;
         }
 
         .term-number {
             display: inline-block;
             background: #000;
             color: white;
-            padding: 1mm 3mm;
+            padding: 0.5mm 1.5mm;
             font-weight: bold;
-            font-size: 9pt;
-            margin-bottom: 2mm;
+            font-size: 6pt;
+            margin-right: 1mm;
         }
 
         .term-title-text {
             font-weight: bold;
-            font-size: 10pt;
-            margin-bottom: 2mm;
+            font-size: 6pt;
         }
 
         .term-content {
-            font-size: 9pt;
-            line-height: 1.5;
-            margin-left: 3mm;
-        }
-
-        .term-content ul {
-            margin-top: 1mm;
-            margin-left: 5mm;
-        }
-
-        .term-content li {
-            margin-bottom: 1mm;
+            font-size: 6pt;
+            line-height: 1.3;
+            margin-left: 8mm;
+            margin-top: 0.5mm;
         }
 
         .warning-box {
             background: #000;
             color: white;
-            padding: 3mm;
-            margin: 3mm 0;
+            padding: 1mm;
+            margin: 1mm 0;
             text-align: center;
             font-weight: bold;
-            font-size: 10pt;
+            font-size: 6pt;
         }
 
-        /* Firma del cliente */
+        /* Firma compacta */
         .signature-section {
-            border: 3px solid #000;
-            padding: 4mm;
-            margin-bottom: 4mm;
+            border: 2px solid #000;
+            padding: 2mm;
             background: #fff;
             page-break-inside: avoid;
         }
 
         .signature-title {
             text-align: center;
-            font-size: 11pt;
+            font-size: 7pt;
             font-weight: bold;
-            margin-bottom: 3mm;
+            margin-bottom: 1mm;
             text-transform: uppercase;
         }
 
         .acceptance-text {
-            font-size: 9pt;
-            line-height: 1.5;
-            margin-bottom: 4mm;
+            font-size: 6pt;
+            line-height: 1.3;
+            margin-bottom: 2mm;
             text-align: justify;
-            padding: 2mm;
+            padding: 1mm;
             background: #fffbcc;
             border: 1px solid #000;
         }
@@ -362,40 +363,49 @@ logActivity('ticket_printed', "Ticket A5 archivo impreso para reparación #{$rep
         .signature-grid {
             display: grid;
             grid-template-columns: 2fr 1fr;
-            gap: 5mm;
-            margin-top: 4mm;
+            gap: 3mm;
+            margin-top: 2mm;
         }
 
         .signature-box {
-            border: 2px solid #000;
-            padding: 3mm;
-            min-height: 25mm;
+            border: 1px solid #000;
+            padding: 2mm;
+            min-height: 15mm;
         }
 
         .signature-label {
-            font-size: 8pt;
+            font-size: 6pt;
             font-weight: bold;
-            margin-bottom: 2mm;
+            margin-bottom: 1mm;
         }
 
         .signature-line {
-            border-bottom: 2px solid #000;
-            margin: 15mm 3mm 2mm 3mm;
+            border-bottom: 1px solid #000;
+            margin: 10mm 2mm 1mm 2mm;
         }
 
         .signature-sublabel {
-            font-size: 7pt;
+            font-size: 5pt;
             text-align: center;
             color: #666;
         }
 
-        /* Footer */
+        .employee-info {
+            margin-top: 2mm;
+            padding: 1mm;
+            background: #f0f0f0;
+            border: 1px solid #000;
+            font-size: 6pt;
+        }
+
+        /* Footer mínimo */
         .footer {
             text-align: center;
-            font-size: 7pt;
-            padding-top: 3mm;
+            font-size: 5pt;
+            padding-top: 1mm;
             border-top: 1px solid #000;
             color: #666;
+            margin-top: 2mm;
         }
 
         /* Controles de impresión */
@@ -437,12 +447,13 @@ logActivity('ticket_printed', "Ticket A5 archivo impreso para reparación #{$rep
             }
 
             .print-controls {
-                display: none;
+                display: none !important;
             }
 
             .document {
                 margin: 0;
-                padding: 8mm;
+                padding: 5mm;
+                page-break-after: avoid;
             }
 
             @page {
@@ -453,6 +464,7 @@ logActivity('ticket_printed', "Ticket A5 archivo impreso para reparación #{$rep
             * {
                 -webkit-print-color-adjust: exact !important;
                 color-adjust: exact !important;
+                print-color-adjust: exact !important;
             }
 
             .section-title,
@@ -461,6 +473,12 @@ logActivity('ticket_printed', "Ticket A5 archivo impreso para reparación #{$rep
             .term-number {
                 background: #000 !important;
                 color: white !important;
+            }
+
+            /* Forzar una sola página */
+            .document {
+                page-break-inside: avoid;
+                page-break-after: avoid;
             }
         }
 
@@ -485,7 +503,7 @@ logActivity('ticket_printed', "Ticket A5 archivo impreso para reparación #{$rep
     </div>
 
     <div class="document">
-        <!-- Header -->
+        <!-- Header compacto -->
         <div class="header">
             <div class="header-left">
                 <?php if (!empty($repair['logo'])): ?>
@@ -501,10 +519,9 @@ logActivity('ticket_printed', "Ticket A5 archivo impreso para reparación #{$rep
                         <?php if (!empty($repair['phone2'])): ?>
                             / <?= htmlspecialchars($repair['phone2']) ?>
                         <?php endif; ?>
-                        <br>
                     <?php endif; ?>
                     <?php if (!empty($repair['email'])): ?>
-                        📧 <?= htmlspecialchars($repair['email']) ?>
+                        <br>📧 <?= htmlspecialchars($repair['email']) ?>
                     <?php endif; ?>
                 </div>
             </div>
@@ -518,154 +535,123 @@ logActivity('ticket_printed', "Ticket A5 archivo impreso para reparación #{$rep
         </div>
 
         <!-- Información del cliente -->
-        <div class="client-section">
-            <div class="section-title">📋 Datos del Cliente</div>
-            <div class="info-grid">
-                <div class="info-item">
-                    <div class="info-label">Nombre Completo:</div>
-                    <div class="info-value"><?= htmlspecialchars($repair['customer_name']) ?></div>
-                </div>
-                <div class="info-item">
-                    <div class="info-label">Teléfono:</div>
-                    <div class="info-value"><?= htmlspecialchars($repair['customer_phone']) ?></div>
+        <div class="section">
+            <div class="section-title">📋 Cliente</div>
+            <div class="section-content">
+                <div class="info-grid">
+                    <div class="info-item">
+                        <div class="info-label">Nombre:</div>
+                        <div class="info-value"><?= htmlspecialchars($repair['customer_name']) ?></div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">Teléfono:</div>
+                        <div class="info-value"><?= htmlspecialchars($repair['customer_phone']) ?></div>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <!-- Dispositivo -->
-        <div class="device-section">
-            <div class="section-title">📱 Dispositivo</div>
+        <!-- Dispositivo y Coste en una fila -->
+        <div class="compact-row">
             <div class="device-box">
-                <?= htmlspecialchars($repair['brand_name']) ?> <?= htmlspecialchars($repair['model_name']) ?>
+                <div class="device-label">📱 DISPOSITIVO:</div>
+                <div class="device-name">
+                    <?= htmlspecialchars($repair['brand_name']) ?> <?= htmlspecialchars($repair['model_name']) ?>
+                </div>
             </div>
+
+            <?php if (!empty($repair['estimated_cost']) || !empty($repair['actual_cost'])): ?>
+                <div class="cost-box">
+                    <div class="cost-label">💰 COSTE:</div>
+                    <div class="cost-value">
+                        €<?= number_format($repair['actual_cost'] ?? $repair['estimated_cost'], 2) ?>
+                    </div>
+                </div>
+            <?php endif; ?>
         </div>
 
         <!-- Problema -->
-        <div class="problem-section">
-            <div class="section-title">⚠️ Problema Reportado</div>
+        <div class="problem-box">
+            <div class="problem-label">⚠️ PROBLEMA:</div>
             <div class="problem-text"><?= nl2br(htmlspecialchars($repair['issue_description'])) ?></div>
         </div>
-
-        <!-- Costes -->
-        <?php if (!empty($repair['estimated_cost']) || !empty($repair['actual_cost'])): ?>
-            <div class="costs-section">
-                <?php if (!empty($repair['estimated_cost'])): ?>
-                    <div class="cost-box">
-                        <div class="cost-label">Coste Estimado</div>
-                        <div class="cost-value">€<?= number_format($repair['estimated_cost'], 2) ?></div>
-                    </div>
-                <?php endif; ?>
-
-                <?php if (!empty($repair['actual_cost'])): ?>
-                    <div class="cost-box" style="background: #f0f0f0;">
-                        <div class="cost-label">Coste Final</div>
-                        <div class="cost-value">€<?= number_format($repair['actual_cost'], 2) ?></div>
-                    </div>
-                <?php endif; ?>
-            </div>
-        <?php endif; ?>
 
         <!-- Código de barras -->
         <div class="barcode-section">
             <svg id="barcode" class="barcode-svg"></svg>
         </div>
 
-        <!-- TÉRMINOS Y CONDICIONES - LA SECCIÓN MÁS IMPORTANTE -->
+        <!-- TÉRMINOS Y CONDICIONES - MUY COMPACTOS -->
         <div class="terms-section">
-            <div class="terms-title">⚖️ TÉRMINOS Y CONDICIONES DEL SERVICIO ⚖️</div>
+            <div class="terms-title">⚖️ TÉRMINOS Y CONDICIONES</div>
 
-            <!-- Término 1 - CUSTODIA Y RECOGIDA (EL MÁS IMPORTANTE) -->
-            <div class="term-item">
-                <div class="term-number">1</div>
-                <div class="term-title-text">CUSTODIA Y RECOGIDA DEL DISPOSITIVO</div>
-                <div class="term-content">
-                    <ul>
-                        <li><strong>El dispositivo debe recogerse en un plazo máximo de 30 días naturales tras COMPLETAR la reparación.</strong></li>
-                        <li><strong style="text-decoration: underline;">IMPORTANTE:</strong> Pasados 30 días desde la finalización de la reparación, el establecimiento NO se responsabiliza por pérdida, daños, robo o extravío del dispositivo.</li>
-                        <li>Pasados 60 días sin recoger el dispositivo, el establecimiento se reserva el derecho de disponer del mismo sin previo aviso ni compensación.</li>
-                        <li>El establecimiento conservará el dispositivo en condiciones normales, pero no se responsabiliza de daños causados por factores externos (humedad, temperatura, etc.).</li>
-                    </ul>
+            <div class="terms-compact">
+                <!-- Término 1 - El más importante -->
+                <div class="term-item">
+                    <span class="term-number">1</span>
+                    <span class="term-title-text">CUSTODIA Y RECOGIDA</span>
+                    <div class="term-content">
+                        • Recoger en <strong>30 días máx tras completar reparación</strong>. Pasados 30 días, NO nos responsabilizamos por pérdida/daños. Pasados 60 días, el establecimiento puede disponer del dispositivo.
+                    </div>
                 </div>
-            </div>
 
-            <div class="warning-box">
-                ⚠️ ATENCIÓN: RECOGER EL DISPOSITIVO DENTRO DE 30 DÍAS TRAS LA REPARACIÓN ⚠️
-            </div>
-
-            <!-- Término 2 - TIEMPO DE REPARACIÓN -->
-            <div class="term-item">
-                <div class="term-number">2</div>
-                <div class="term-title-text">TIEMPO DE REPARACIÓN</div>
-                <div class="term-content">
-                    <ul>
-                        <li>El tiempo estimado de reparación es de 3 a 30 días naturales, dependiendo de la disponibilidad de piezas y complejidad de la avería.</li>
-                        <li>El establecimiento notificará al cliente cuando la reparación esté completada.</li>
-                        <li>Los plazos son estimados y pueden variar sin constituir incumplimiento contractual.</li>
-                    </ul>
+                <div class="warning-box">
+                    ⚠️ RECOGER EN 30 DÍAS TRAS REPARACIÓN - DESPUÉS NO HAY RESPONSABILIDAD
                 </div>
-            </div>
 
-            <!-- Término 3 - ACCESORIOS -->
-            <div class="term-item">
-                <div class="term-number">3</div>
-                <div class="term-title-text">ACCESORIOS NO REGISTRADOS</div>
-                <div class="term-content">
-                    <ul>
-                        <li>Solo nos responsabilizamos de los accesorios expresamente listados en este documento.</li>
-                        <li>Se recomienda retirar fundas, tarjetas SIM, tarjetas de memoria y otros accesorios antes de entregar el dispositivo.</li>
-                        <li>El establecimiento no se responsabiliza de accesorios no declarados.</li>
-                    </ul>
+                <!-- Término 2 -->
+                <div class="term-item">
+                    <span class="term-number">2</span>
+                    <span class="term-title-text">TIEMPO REPARACIÓN</span>
+                    <div class="term-content">
+                        • 3-30 días según disponibilidad de piezas y complejidad.
+                    </div>
                 </div>
-            </div>
 
-            <!-- Término 4 - GARANTÍA -->
-            <div class="term-item">
-                <div class="term-number">4</div>
-                <div class="term-title-text">GARANTÍA DE REPARACIÓN</div>
-                <div class="term-content">
-                    <ul>
-                        <li>La reparación incluye <?= $warranty_days ?> días de garantía sobre el trabajo realizado.</li>
-                        <li><strong>Cualquier apertura, manipulación o reparación externa ANULA automáticamente toda garantía.</strong></li>
-                        <li>Daños causados por líquidos, golpes o caídas posteriores a la reparación NO están cubiertos por la garantía.</li>
-                        <li>La garantía solo cubre la reparación específica realizada, no otras averías del dispositivo.</li>
-                    </ul>
+                <!-- Término 3 -->
+                <div class="term-item">
+                    <span class="term-number">3</span>
+                    <span class="term-title-text">ACCESORIOS</span>
+                    <div class="term-content">
+                        • Solo responsables de accesorios registrados en este documento.
+                    </div>
                 </div>
-            </div>
 
-            <!-- Término 5 - RECOGIDA -->
-            <div class="term-item">
-                <div class="term-number">5</div>
-                <div class="term-title-text">PROCEDIMIENTO DE RECOGIDA</div>
-                <div class="term-content">
-                    <ul>
-                        <li><strong>Es OBLIGATORIO presentar el ticket de reparación para recoger el dispositivo.</strong></li>
-                        <li>Sin ticket, se requerirá documento de identidad (DNI/NIE) y verificación adicional.</li>
-                        <li>Solo el titular o persona autorizada expresamente puede recoger el dispositivo.</li>
-                    </ul>
+                <!-- Término 4 -->
+                <div class="term-item">
+                    <span class="term-number">4</span>
+                    <span class="term-title-text">GARANTÍA</span>
+                    <div class="term-content">
+                        • <?= $warranty_days ?> días. Apertura externa ANULA garantía. Daños líquidos/golpes NO cubiertos.
+                    </div>
                 </div>
-            </div>
 
-            <!-- Término 6 - PRESUPUESTO -->
-            <div class="term-item">
-                <div class="term-number">6</div>
-                <div class="term-title-text">INSPECCIÓN Y PRESUPUESTO</div>
-                <div class="term-content">
-                    <ul>
-                        <li>Puede aplicarse una tarifa de inspección si el cliente rechaza el presupuesto de reparación.</li>
-                        <li>El presupuesto aceptado es vinculante, salvo imprevistos técnicos que se comunicarán.</li>
-                    </ul>
+                <!-- Término 5 -->
+                <div class="term-item">
+                    <span class="term-number">5</span>
+                    <span class="term-title-text">RECOGIDA</span>
+                    <div class="term-content">
+                        • OBLIGATORIO presentar ticket. Sin ticket: DNI + verificación.
+                    </div>
+                </div>
+
+                <!-- Término 6 -->
+                <div class="term-item">
+                    <span class="term-number">6</span>
+                    <span class="term-title-text">PRESUPUESTO</span>
+                    <div class="term-content">
+                        • Posible tarifa inspección si se rechaza presupuesto.
+                    </div>
                 </div>
             </div>
         </div>
 
-        <!-- Firma del cliente -->
+        <!-- Firma -->
         <div class="signature-section">
             <div class="signature-title">✍️ Aceptación de Condiciones</div>
 
             <div class="acceptance-text">
-                <strong>DECLARO que he leído, entendido y acepto todos los términos y condiciones descritos anteriormente.</strong>
-                En particular, acepto que el dispositivo debe recogerse en un plazo máximo de 30 días tras completar la reparación,
-                y que pasado este plazo el establecimiento NO se responsabiliza por pérdida, daños o extravío del mismo.
+                <strong>DECLARO</strong> que he leído y acepto todos los términos, especialmente que el dispositivo debe recogerse en 30 días tras la reparación, y que pasado este plazo el establecimiento NO se responsabiliza por pérdida o daños.
             </div>
 
             <div class="signature-grid">
@@ -678,19 +664,19 @@ logActivity('ticket_printed', "Ticket A5 archivo impreso para reparación #{$rep
                 <div class="signature-box">
                     <div class="signature-label">FECHA:</div>
                     <div class="signature-line"></div>
-                    <div class="signature-sublabel">DD / MM / AAAA</div>
+                    <div class="signature-sublabel">DD/MM/AAAA</div>
                 </div>
             </div>
 
-            <div style="margin-top: 4mm; padding: 2mm; background: #f0f0f0; border: 1px solid #000; font-size: 8pt;">
+            <div class="employee-info">
                 <strong>Empleado:</strong> <?= htmlspecialchars($repair['created_by_name']) ?> |
-                <strong>Fecha recepción:</strong> <?= formatDate($repair['received_at'], 'd/m/Y H:i') ?>
+                <strong>Recepción:</strong> <?= formatDate($repair['received_at'], 'd/m/Y H:i') ?>
             </div>
         </div>
 
         <!-- Footer -->
         <div class="footer">
-            <div>Documento generado el <?= date('d/m/Y H:i') ?> - Este documento tiene validez legal como prueba de entrega y aceptación de condiciones</div>
+            Documento generado el <?= date('d/m/Y H:i') ?> - Validez legal como prueba de entrega y aceptación
         </div>
     </div>
 
@@ -712,14 +698,14 @@ logActivity('ticket_printed', "Ticket A5 archivo impreso para reparación #{$rep
 
                 JsBarcode("#barcode", barcodeData, {
                     format: "CODE128",
-                    width: 2,
-                    height: 50,
+                    width: 1.5,
+                    height: 30,
                     displayValue: true,
                     background: "#ffffff",
                     lineColor: "#000000",
-                    margin: 5,
-                    fontSize: 14,
-                    textMargin: 5
+                    margin: 2,
+                    fontSize: 10,
+                    textMargin: 2
                 });
             } catch (error) {
                 console.error('Error generando código de barras:', error);
