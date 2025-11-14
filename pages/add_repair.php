@@ -25,8 +25,14 @@ $suggested_part = null;
 if ($suggested_part_id > 0 && canUseSpareParts()) {
     $db = getDB();
     $suggested_part = $db->selectOne(
-        "SELECT sp.*, 
-                GROUP_CONCAT(DISTINCT CONCAT(b.name, ' ', m.name) SEPARATOR ', ') as compatible_phones
+        "SELECT sp.*,
+                GROUP_CONCAT(DISTINCT CONCAT(
+                    b.name, ' ', m.name,
+                    CASE
+                        WHEN m.model_reference IS NOT NULL THEN CONCAT(' (', m.model_reference, ')')
+                        ELSE ''
+                    END
+                ) SEPARATOR ', ') as compatible_phones
          FROM spare_parts sp
          LEFT JOIN spare_parts_compatibility spc ON sp.id = spc.spare_part_id
          LEFT JOIN brands b ON spc.brand_id = b.id
@@ -43,7 +49,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         setMessage('Token de seguridad inválido', MSG_ERROR);
     } else {
         // Validar datos básicos
-        $required_fields = ['customer_name', 'customer_phone', 'brand_id', 'model_id', 'issue_description'];
+        $device_input_type = $_POST['device_input_type'] ?? 'list';
+
+        // تحديد الحقول المطلوبة حسب نوع إدخال الجهاز
+        if ($device_input_type === 'otro') {
+            $required_fields = ['customer_name', 'customer_phone', 'custom_model', 'issue_description'];
+        } else {
+            $required_fields = ['customer_name', 'customer_phone', 'brand_id', 'model_id', 'issue_description'];
+        }
+
         $errors = validateRequired($_POST, $required_fields);
 
         if (empty($errors)) {
@@ -64,16 +78,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $warranty_days = $warranty_config['default_days'];
             }
 
-            // Verificar que la marca y modelo existen
-            $model = $db->selectOne(
-                "SELECT m.*, b.name as brand_name FROM models m 
-                 JOIN brands b ON m.brand_id = b.id 
-                 WHERE m.id = ? AND m.brand_id = ?",
-                [$data['model_id'], $data['brand_id']]
-            );
+            // Verificar الجهاز حسب نوع الإدخال
+            $model = null;
+            if ($device_input_type !== 'otro') {
+                // Verificar que la marca y modelo existen
+                $model = $db->selectOne(
+                    "SELECT m.*, b.name as brand_name FROM models m
+                     JOIN brands b ON m.brand_id = b.id
+                     WHERE m.id = ? AND m.brand_id = ?",
+                    [$data['model_id'], $data['brand_id']]
+                );
 
-            if (!$model) {
-                $errors[] = 'Marca o modelo no válido';
+                if (!$model) {
+                    $errors[] = 'Marca o modelo no válido';
+                }
+            } else {
+                // للأجهزة المخصصة، التحقق من وجود custom_model على الأقل
+                if (empty($data['custom_model'])) {
+                    $errors[] = 'Debe ingresar el modelo del dispositivo';
+                }
             }
 
             // التحقق من طريقة التسعير
@@ -132,19 +155,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     // Generar referencia única
                     $reference = generateRepairReference();
 
-                    // Insertar reparación
+                    // Insertar reparación مع دعم الأجهزة المخصصة
                     $repair_id = $db->insert(
                         "INSERT INTO repairs (
-                            reference, customer_name, customer_phone, brand_id, model_id, 
+                            reference, customer_name, customer_phone, brand_id, model_id,
+                            device_input_type, custom_brand, custom_model,
                             issue_description, estimated_cost, priority, status, warranty_days,
                             received_at, created_by, shop_id, notes
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, NOW(), ?, ?, ?)",
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, NOW(), ?, ?, ?)",
                         [
                             $reference,
                             $data['customer_name'],
                             $data['customer_phone'],
-                            $data['brand_id'],
-                            $data['model_id'],
+                            $device_input_type === 'otro' ? null : $data['brand_id'],
+                            $device_input_type === 'otro' ? null : $data['model_id'],
+                            $device_input_type,
+                            $device_input_type === 'otro' ? ($data['custom_brand'] ?? null) : null,
+                            $device_input_type === 'otro' ? $data['custom_model'] : null,
                             $data['issue_description'],
                             $total_cost,
                             $data['priority'] ?? 'medium',
@@ -320,42 +347,151 @@ require_once INCLUDES_PATH . 'header.php';
                                     </div>
                                 </div>
 
-                                <!-- Marca del dispositivo -->
-                                <div class="col-md-6">
-                                    <label for="brand_id" class="form-label">
-                                        Marca del Dispositivo <span class="text-danger">*</span>
+                                <!-- Tipo de entrada del dispositivo -->
+                                <div class="col-12">
+                                    <label class="form-label">
+                                        Método de Selección del Dispositivo <span class="text-danger">*</span>
                                     </label>
-                                    <select class="form-select"
-                                            id="brand_id"
-                                            name="brand_id"
-                                            required>
-                                        <option value="">Seleccionar marca</option>
-                                        <?php foreach ($brands as $brand): ?>
-                                            <option value="<?= $brand['id'] ?>"
-                                                <?= safeSelected($_POST['brand_id'] ?? '', $brand['id']) ?>>
-                                                <?= htmlspecialchars($brand['name']) ?>
-                                            </option>
-                                        <?php endforeach; ?>
-                                    </select>
-                                    <div class="invalid-feedback">
-                                        Por favor, seleccione una marca.
+                                    <div class="row">
+                                        <div class="col-md-4">
+                                            <div class="form-check device-input-option">
+                                                <input class="form-check-input"
+                                                       type="radio"
+                                                       name="device_input_type"
+                                                       id="device_input_list"
+                                                       value="list"
+                                                       checked>
+                                                <label class="form-check-label" for="device_input_list">
+                                                    <i class="bi bi-list-ul me-1"></i>
+                                                    <strong>Seleccionar de la lista</strong>
+                                                    <small class="d-block text-muted">Elige marca y modelo</small>
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="form-check device-input-option">
+                                                <input class="form-check-input"
+                                                       type="radio"
+                                                       name="device_input_type"
+                                                       id="device_input_search"
+                                                       value="search">
+                                                <label class="form-check-label" for="device_input_search">
+                                                    <i class="bi bi-search me-1"></i>
+                                                    <strong>Búsqueda rápida</strong>
+                                                    <small class="d-block text-muted">Buscar por modelo/referencia</small>
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="form-check device-input-option">
+                                                <input class="form-check-input"
+                                                       type="radio"
+                                                       name="device_input_type"
+                                                       id="device_input_otro"
+                                                       value="otro">
+                                                <label class="form-check-label" for="device_input_otro">
+                                                    <i class="bi bi-pencil me-1"></i>
+                                                    <strong>Otro</strong>
+                                                    <small class="d-block text-muted">Dispositivo no encontrado</small>
+                                                </label>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
 
-                                <!-- Modelo del dispositivo -->
-                                <div class="col-md-6">
-                                    <label for="model_id" class="form-label">
-                                        Modelo del Dispositivo <span class="text-danger">*</span>
-                                    </label>
-                                    <select class="form-select"
-                                            id="model_id"
-                                            name="model_id"
-                                            required
-                                            disabled>
-                                        <option value="">Primero selecciona una marca</option>
-                                    </select>
-                                    <div class="invalid-feedback">
-                                        Por favor, seleccione un modelo.
+                                <!-- Sección: Seleccionar de la lista -->
+                                <div id="device_list_section" class="col-12">
+                                    <div class="row">
+                                        <!-- Marca del dispositivo -->
+                                        <div class="col-md-6">
+                                            <label for="brand_id" class="form-label">
+                                                Marca del Dispositivo <span class="text-danger">*</span>
+                                            </label>
+                                            <select class="form-select"
+                                                    id="brand_id"
+                                                    name="brand_id">
+                                                <option value="">Seleccionar marca</option>
+                                                <?php foreach ($brands as $brand): ?>
+                                                    <option value="<?= $brand['id'] ?>"
+                                                        <?= safeSelected($_POST['brand_id'] ?? '', $brand['id']) ?>>
+                                                        <?= htmlspecialchars($brand['name']) ?>
+                                                    </option>
+                                                <?php endforeach; ?>
+                                            </select>
+                                            <div class="invalid-feedback">
+                                                Por favor, seleccione una marca.
+                                            </div>
+                                        </div>
+
+                                        <!-- Modelo del dispositivo -->
+                                        <div class="col-md-6">
+                                            <label for="model_id" class="form-label">
+                                                Modelo del Dispositivo <span class="text-danger">*</span>
+                                            </label>
+                                            <select class="form-select"
+                                                    id="model_id"
+                                                    name="model_id"
+                                                    disabled>
+                                                <option value="">Primero selecciona una marca</option>
+                                            </select>
+                                            <div class="invalid-feedback">
+                                                Por favor, seleccione un modelo.
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Sección: Búsqueda rápida -->
+                                <div id="device_search_section" class="col-12" style="display: none;">
+                                    <div class="row">
+                                        <div class="col-12">
+                                            <label for="device_search_input" class="form-label">
+                                                Buscar Dispositivo <span class="text-danger">*</span>
+                                            </label>
+                                            <input type="text"
+                                                   class="form-control"
+                                                   id="device_search_input"
+                                                   placeholder="Ej: V2244, iPhone 15, Galaxy S24..."
+                                                   autocomplete="off">
+                                            <div class="form-text">
+                                                <i class="bi bi-info-circle me-1"></i>
+                                                Puedes buscar por nombre del modelo o por su referencia
+                                            </div>
+                                            <div id="device_search_results" class="search-results"></div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Sección: Otro (dispositivo personalizado) -->
+                                <div id="device_otro_section" class="col-12" style="display: none;">
+                                    <div class="alert alert-warning">
+                                        <i class="bi bi-exclamation-triangle me-2"></i>
+                                        <strong>Dispositivo no encontrado:</strong> No habrá repuestos compatibles disponibles automáticamente.
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <label for="custom_brand" class="form-label">
+                                                Marca <small class="text-muted">(opcional)</small>
+                                            </label>
+                                            <input type="text"
+                                                   class="form-control"
+                                                   id="custom_brand"
+                                                   name="custom_brand"
+                                                   placeholder="Ej: Realme, OnePlus...">
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label for="custom_model" class="form-label">
+                                                Modelo <span class="text-danger">*</span>
+                                            </label>
+                                            <input type="text"
+                                                   class="form-control"
+                                                   id="custom_model"
+                                                   name="custom_model"
+                                                   placeholder="Ej: GT Neo 3, Nord 2T...">
+                                            <div class="invalid-feedback">
+                                                Por favor, ingrese el modelo del dispositivo.
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
 
@@ -666,6 +802,9 @@ require_once INCLUDES_PATH . 'header.php';
             // إعداد التحقق من صحة النموذج
             setupFormValidation();
 
+            // إعداد الأوضاع الثلاثة للجهاز
+            setupDeviceInputModes();
+
             // إعداد تحميل الموديلات
             setupBrandModelHandling();
 
@@ -729,6 +868,220 @@ require_once INCLUDES_PATH . 'header.php';
 
                 form.classList.add('was-validated');
             });
+        }
+
+        // إعداد الأوضاع الثلاثة لاختيار الجهاز
+        function setupDeviceInputModes() {
+            const listRadio = document.getElementById('device_input_list');
+            const searchRadio = document.getElementById('device_input_search');
+            const otroRadio = document.getElementById('device_input_otro');
+
+            const listSection = document.getElementById('device_list_section');
+            const searchSection = document.getElementById('device_search_section');
+            const otroSection = document.getElementById('device_otro_section');
+
+            function switchDeviceInputMode() {
+                // إخفاء جميع الأقسام
+                listSection.style.display = 'none';
+                searchSection.style.display = 'none';
+                otroSection.style.display = 'none';
+
+                const brandField = document.getElementById('brand_id');
+                const modelField = document.getElementById('model_id');
+                const customModelField = document.getElementById('custom_model');
+
+                // إظهار القسم المختار
+                if (listRadio.checked) {
+                    // وضع القائمة
+                    listSection.style.display = 'block';
+                    brandField.setAttribute('required', 'required');
+                    modelField.setAttribute('required', 'required');
+                    customModelField.removeAttribute('required');
+                } else if (searchRadio.checked) {
+                    // وضع البحث - نستخدم نفس brand_id و model_id
+                    searchSection.style.display = 'block';
+                    // الحقول ستُملأ عند اختيار من نتائج البحث
+                    brandField.setAttribute('required', 'required');
+                    modelField.setAttribute('required', 'required');
+                    customModelField.removeAttribute('required');
+                } else if (otroRadio.checked) {
+                    // وضع Otro
+                    otroSection.style.display = 'block';
+                    brandField.removeAttribute('required');
+                    modelField.removeAttribute('required');
+                    customModelField.setAttribute('required', 'required');
+                }
+
+                updateTicketPreview();
+            }
+
+            listRadio.addEventListener('change', switchDeviceInputMode);
+            searchRadio.addEventListener('change', switchDeviceInputMode);
+            otroRadio.addEventListener('change', switchDeviceInputMode);
+
+            // إعداد البحث السريع
+            setupQuickDeviceSearch();
+
+            // التحميل الأولي
+            switchDeviceInputMode();
+        }
+
+        // إعداد البحث السريع في الأجهزة
+        function setupQuickDeviceSearch() {
+            const searchInput = document.getElementById('device_search_input');
+            const searchResults = document.getElementById('device_search_results');
+            let searchTimeout;
+
+            if (!searchInput) return;
+
+            searchInput.addEventListener('input', function() {
+                clearTimeout(searchTimeout);
+                const searchTerm = this.value.trim();
+
+                if (searchTerm.length < 2) {
+                    searchResults.innerHTML = '';
+                    searchResults.style.display = 'none';
+                    return;
+                }
+
+                searchTimeout = setTimeout(() => {
+                    performDeviceSearch(searchTerm);
+                }, 300);
+            });
+        }
+
+        // تنفيذ البحث عن الأجهزة
+        function performDeviceSearch(searchTerm) {
+            const searchResults = document.getElementById('device_search_results');
+
+            searchResults.innerHTML = `
+                <div class="text-center p-2">
+                    <div class="spinner-border spinner-border-sm" role="status">
+                        <span class="visually-hidden">Buscando...</span>
+                    </div>
+                    <span class="ms-2">Buscando...</span>
+                </div>
+            `;
+            searchResults.style.display = 'block';
+
+            fetch(`<?= url('api/models_search.php') ?>?term=${encodeURIComponent(searchTerm)}&limit=10`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.data && data.data.length > 0) {
+                        displayDeviceSearchResults(data.data);
+                    } else {
+                        searchResults.innerHTML = `
+                            <div class="alert alert-info mb-0">
+                                <i class="bi bi-info-circle me-2"></i>
+                                No se encontraron dispositivos. Intenta con otro término.
+                            </div>
+                        `;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error buscando dispositivos:', error);
+                    searchResults.innerHTML = `
+                        <div class="alert alert-danger mb-0">
+                            <i class="bi bi-exclamation-triangle me-2"></i>
+                            Error al buscar. Por favor intenta de nuevo.
+                        </div>
+                    `;
+                });
+        }
+
+        // عرض نتائج البحث عن الأجهزة
+        function displayDeviceSearchResults(devices) {
+            const searchResults = document.getElementById('device_search_results');
+            let html = '<div class="list-group mt-2">';
+
+            devices.forEach(device => {
+                html += `
+                    <button type="button"
+                            class="list-group-item list-group-item-action"
+                            onclick="selectDeviceFromSearch(${device.brand_id}, ${device.model_id}, '${escapeHtml(device.display_name)}')">
+                        <i class="bi bi-phone me-2"></i>
+                        ${escapeHtml(device.display_name)}
+                    </button>
+                `;
+            });
+
+            html += '</div>';
+            searchResults.innerHTML = html;
+            searchResults.style.display = 'block';
+        }
+
+        // اختيار جهاز من نتائج البحث
+        function selectDeviceFromSearch(brandId, modelId, displayName) {
+            const brandField = document.getElementById('brand_id');
+            const modelField = document.getElementById('model_id');
+            const searchInput = document.getElementById('device_search_input');
+
+            // تمكين الحقول أولاً (في حالة كانت معطلة)
+            brandField.disabled = false;
+            modelField.disabled = false;
+
+            // ملء القيم
+            brandField.value = brandId;
+
+            // تحميل الموديلات للماركة المختارة ثم اختيار الموديل
+            loadModelsForBrand(brandId, function() {
+                modelField.value = modelId;
+                modelField.disabled = false;
+
+                // عرض الجهاز المختار
+                searchInput.value = displayName;
+                searchInput.classList.add('is-valid');
+
+                // إخفاء النتائج
+                document.getElementById('device_search_results').style.display = 'none';
+
+                // تحديث المعاينة
+                updateTicketPreview();
+
+                console.log('✅ Dispositivo seleccionado:', displayName, `(Brand: ${brandId}, Model: ${modelId})`);
+            });
+        }
+
+        // دالة مساعدة لتحميل الموديلات
+        function loadModelsForBrand(brandId, callback) {
+            const modelSelect = document.getElementById('model_id');
+
+            if (!brandId) {
+                modelSelect.innerHTML = '<option value="">Primero selecciona una marca</option>';
+                modelSelect.disabled = true;
+                return;
+            }
+
+            modelSelect.innerHTML = '<option value="">Cargando modelos...</option>';
+            modelSelect.disabled = true;
+
+            fetch(`<?= url('api/models.php') ?>?brand_id=${brandId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.data) {
+                        modelSelect.innerHTML = '<option value="">Seleccionar modelo</option>';
+                        data.data.forEach(model => {
+                            const option = document.createElement('option');
+                            option.value = model.id;
+                            // عرض المعرّف إذا وُجد
+                            const displayText = model.model_reference
+                                ? `${model.name} (${model.model_reference})`
+                                : model.name;
+                            option.textContent = displayText;
+                            modelSelect.appendChild(option);
+                        });
+                        modelSelect.disabled = false;
+
+                        // استدعاء callback بعد التحميل
+                        if (callback) callback();
+                    } else {
+                        modelSelect.innerHTML = '<option value="">No hay modelos disponibles</option>';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error cargando modelos:', error);
+                    modelSelect.innerHTML = '<option value="">Error al cargar modelos</option>';
+                });
         }
 
         // إعداد تحميل الموديلات حسب الماركة
@@ -1790,6 +2143,47 @@ require_once INCLUDES_PATH . 'header.php';
         .pricing-option .form-check-input:checked {
             background-color: #007bff;
             border-color: #007bff;
+        }
+
+        /* أنماط لأوضاع اختيار الجهاز */
+        .device-input-option {
+            border: 2px solid #e9ecef;
+            border-radius: 0.5rem;
+            padding: 0.75rem;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            height: 100%;
+        }
+
+        .device-input-option:hover {
+            border-color: #007bff;
+            background-color: #f8f9fa;
+        }
+
+        .device-input-option .form-check-input:checked ~ .form-check-label {
+            color: #007bff;
+        }
+
+        .device-input-option .form-check-input:checked {
+            background-color: #007bff;
+            border-color: #007bff;
+        }
+
+        /* نتائج البحث */
+        .search-results {
+            position: relative;
+            max-height: 300px;
+            overflow-y: auto;
+            z-index: 100;
+        }
+
+        .search-results .list-group-item {
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .search-results .list-group-item:hover {
+            background-color: #e3f2fd;
         }
 
         .selected-part-item {

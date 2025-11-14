@@ -82,7 +82,7 @@ try {
     }
 
     // Obtener modelos - intentar con y sin shop_id
-    $models_query = "SELECT id, name, brand_id, created_at FROM models WHERE brand_id = ?";
+    $models_query = "SELECT id, name, model_reference, brand_id, created_at FROM models WHERE brand_id = ?";
     $models_params = [$brand_id];
 
     // Si la tabla models tiene shop_id, agregarlo

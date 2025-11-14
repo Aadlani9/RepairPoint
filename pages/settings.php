@@ -71,7 +71,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 break;
 
             case 'add_model':
-                $success = addModel($_POST['brand_id'], $_POST['model_name'], $shop_id);
+                $success = addModel($_POST['brand_id'], $_POST['model_name'], $_POST['model_reference'] ?? null, $shop_id);
                 $message = $success ? 'Modelo agregado correctamente' : 'Error al agregar el modelo';
                 $active_tab = 'brands-models';
                 break;
@@ -260,9 +260,10 @@ function addBrand($name, $shop_id) {
     return false;
 }
 
-function addModel($brand_id, $name, $shop_id) {
+function addModel($brand_id, $name, $model_reference, $shop_id) {
     $brand_id = intval($brand_id);
     $name = trim($name);
+    $model_reference = !empty($model_reference) ? trim($model_reference) : null;
 
     if (!$brand_id || empty($name)) return false;
 
@@ -270,13 +271,27 @@ function addModel($brand_id, $name, $shop_id) {
     $brand = $db->selectOne("SELECT name FROM brands WHERE id = ?", [$brand_id]);
     if (!$brand) return false;
 
+    // التحقق من عدم تكرار الاسم
     $existing = $db->selectOne("SELECT id FROM models WHERE brand_id = ? AND name = ?", [$brand_id, $name]);
     if ($existing) return false;
 
+    // التحقق من عدم تكرار المعرّف (إذا كان موجوداً)
+    if ($model_reference) {
+        $existing_ref = $db->selectOne("SELECT id FROM models WHERE model_reference = ?", [$model_reference]);
+        if ($existing_ref) {
+            error_log("Model reference already exists: $model_reference");
+            return false;
+        }
+    }
+
     try {
-        $model_id = $db->insert("INSERT INTO models (brand_id, name) VALUES (?, ?)", [$brand_id, $name]);
+        $model_id = $db->insert(
+            "INSERT INTO models (brand_id, name, model_reference) VALUES (?, ?, ?)",
+            [$brand_id, $name, $model_reference]
+        );
         if ($model_id) {
-            logActivity('model_added', "Modelo agregado: {$brand['name']} $name", $_SESSION['user_id']);
+            $ref_text = $model_reference ? " ($model_reference)" : "";
+            logActivity('model_added', "Modelo agregado: {$brand['name']} $name$ref_text", $_SESSION['user_id']);
             return true;
         }
     } catch (Exception $e) {
@@ -816,6 +831,23 @@ require_once INCLUDES_PATH . 'header.php';
                                    placeholder="Ej: iPhone 15, Galaxy S24"
                                    required>
                         </div>
+
+                        <div class="mb-3">
+                            <label for="model_reference" class="form-label">
+                                Referencia del Modelo
+                                <small class="text-muted">(opcional)</small>
+                            </label>
+                            <input type="text"
+                                   class="form-control"
+                                   id="model_reference"
+                                   name="model_reference"
+                                   placeholder="Ej: V2244, SM-S928, A2849"
+                                   maxlength="50">
+                            <div class="form-text">
+                                <i class="bi bi-info-circle me-1"></i>
+                                El código único del modelo (debe ser único). Útil para búsqueda rápida.
+                            </div>
+                        </div>
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
@@ -1268,10 +1300,13 @@ require_once INCLUDES_PATH . 'header.php';
                 html += '<div class="p-2">';
 
                 models.forEach(model => {
+                    const referenceText = model.model_reference
+                        ? `<span class="badge bg-primary ms-2">${escapeHtml(model.model_reference)}</span>`
+                        : '';
                     html += `
                     <div class="model-item d-flex justify-content-between align-items-center p-2 mb-2">
                         <div>
-                            <strong>${escapeHtml(model.name)}</strong>
+                            <strong>${escapeHtml(model.name)}</strong> ${referenceText}
                             <small class="text-muted d-block">ID: ${model.id}</small>
                         </div>
                         <button class="btn btn-outline-danger btn-sm"
