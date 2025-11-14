@@ -26,19 +26,29 @@ if (!$repair_id) {
     exit;
 }
 
-// Obtener datos de la reparación
+// Obtener datos de la reparación (مع دعم الأجهزة المخصصة)
 $db = getDB();
 $repair = $db->selectOne(
-    "SELECT r.*, b.name as brand_name, m.name as model_name, 
-            u.name as created_by_name, s.name as shop_name
-     FROM repairs r 
-     JOIN brands b ON r.brand_id = b.id 
-     JOIN models m ON r.model_id = m.id 
+    "SELECT r.*,
+            b.name as brand_name,
+            m.name as model_name,
+            m.model_reference,
+            u.name as created_by_name,
+            s.name as shop_name
+     FROM repairs r
+     LEFT JOIN brands b ON r.brand_id = b.id
+     LEFT JOIN models m ON r.model_id = m.id
      JOIN users u ON r.created_by = u.id
      JOIN shops s ON r.shop_id = s.id
      WHERE r.id = ? AND r.shop_id = ?",
     [$repair_id, $shop_id]
 );
+
+// إعداد متغير لعرض الجهاز بشكل صحيح (مع دعم الأجهزة المخصصة)
+$deviceDisplayName = '';
+if ($repair) {
+    $deviceDisplayName = getDeviceDisplayName($repair);
+}
 
 if (!$repair) {
     setMessage('Reparación no encontrada', MSG_ERROR);

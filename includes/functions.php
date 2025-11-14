@@ -806,14 +806,17 @@ function searchRepairs($shop_id, $query, $limit = 20) {
  */
 function getUpcomingDeliveries($shop_id, $days = 7) {
     $db = getDB();
-    
+
     return $db->select(
-        "SELECT r.*, b.name as brand_name, m.name as model_name
-         FROM repairs r 
-         JOIN brands b ON r.brand_id = b.id 
-         JOIN models m ON r.model_id = m.id
-         WHERE r.shop_id = ? 
-         AND r.status = 'completed' 
+        "SELECT r.*,
+                b.name as brand_name,
+                m.name as model_name,
+                m.model_reference
+         FROM repairs r
+         LEFT JOIN brands b ON r.brand_id = b.id
+         LEFT JOIN models m ON r.model_id = m.id
+         WHERE r.shop_id = ?
+         AND r.status = 'completed'
          AND r.estimated_completion <= DATE_ADD(CURDATE(), INTERVAL ? DAY)
          ORDER BY r.estimated_completion ASC",
         [$shop_id, $days]
@@ -1561,8 +1564,105 @@ function getCurrentUserSparePartsPermissions() {
     ];
 }
 
+/**
+ * الحصول على ID الماركة الافتراضية للأجهزة المخصصة
+ * Get default brand ID for custom devices
+ */
+function getDefaultBrandId() {
+    static $brandId = null;
 
+    if ($brandId === null) {
+        $db = getDB();
 
+        // محاولة الحصول على ID من جدول config
+        $config = $db->selectOne(
+            "SELECT setting_value FROM config WHERE setting_key = 'default_unknown_brand_id' LIMIT 1"
+        );
 
+        if ($config && $config['setting_value']) {
+            $brandId = intval($config['setting_value']);
+        } else {
+            // البحث عن الماركة مباشرة
+            $brand = $db->selectOne(
+                "SELECT id FROM brands WHERE name = 'Desconocido' LIMIT 1"
+            );
+
+            if ($brand) {
+                $brandId = intval($brand['id']);
+            } else {
+                // إنشاء الماركة إذا لم تكن موجودة
+                $brandId = $db->insert(
+                    "INSERT INTO brands (name, created_at) VALUES ('Desconocido', NOW())"
+                );
+            }
+        }
+    }
+
+    return $brandId;
+}
+
+/**
+ * الحصول على ID الموديل الافتراضي للأجهزة المخصصة
+ * Get default model ID for custom devices
+ */
+function getDefaultModelId() {
+    static $modelId = null;
+
+    if ($modelId === null) {
+        $db = getDB();
+
+        // محاولة الحصول على ID من جدول config
+        $config = $db->selectOne(
+            "SELECT setting_value FROM config WHERE setting_key = 'default_unknown_model_id' LIMIT 1"
+        );
+
+        if ($config && $config['setting_value']) {
+            $modelId = intval($config['setting_value']);
+        } else {
+            // البحث عن الموديل مباشرة
+            $brandId = getDefaultBrandId();
+            $model = $db->selectOne(
+                "SELECT id FROM models WHERE brand_id = ? AND name = 'Dispositivo Personalizado' LIMIT 1",
+                [$brandId]
+            );
+
+            if ($model) {
+                $modelId = intval($model['id']);
+            } else {
+                // إنشاء الموديل إذا لم يكن موجوداً
+                $modelId = $db->insert(
+                    "INSERT INTO models (brand_id, name, created_at) VALUES (?, 'Dispositivo Personalizado', NOW())",
+                    [$brandId]
+                );
+            }
+        }
+    }
+
+    return $modelId;
+}
+
+/**
+ * الحصول على اسم الجهاز للعرض (مع دعم الأجهزة المخصصة)
+ * Get device display name (with custom device support)
+ *
+ * @param array $repair معلومات الإصلاح
+ * @return string
+ */
+function getDeviceDisplayName($repair) {
+    // إذا كان جهاز مخصص
+    if (isset($repair['device_input_type']) && $repair['device_input_type'] === 'otro') {
+        $brand = $repair['custom_brand'] ?? 'Desconocido';
+        $model = $repair['custom_model'] ?? 'Desconocido';
+        return trim($brand . ' ' . $model);
+    }
+
+    // جهاز عادي من القائمة
+    $brandName = $repair['brand_name'] ?? '';
+    $modelName = $repair['model_name'] ?? '';
+    $modelRef = isset($repair['model_reference']) && $repair['model_reference'] ?
+                " ({$repair['model_reference']})" : '';
+
+    return trim($brandName . ' ' . $modelName . $modelRef);
+}
 
 ?>
