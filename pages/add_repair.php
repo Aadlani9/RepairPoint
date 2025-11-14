@@ -214,7 +214,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                     // Redirigir según la opción elegida
                     if (isset($_POST['action']) && $_POST['action'] === 'print') {
-                        header('Location: ' . url('pages/print_ticket.php?id=' . $repair_id));
+                        header('Location: ' . url('pages/print_selector.php?id=' . $repair_id));
                     } elseif (isset($_POST['action']) && $_POST['action'] === 'continue') {
                         header('Location: ' . url('pages/add_repair.php'));
                     } else {

@@ -1285,7 +1285,7 @@ $brands = $db->select("SELECT * FROM brands ORDER BY name");
 
                 // طباعة إذا طُلب ذلك
                 if (shouldPrint) {
-                    window.open(`pages/print_ticket.php?id=${data.data.repair_id}`, '_blank');
+                    window.open(`pages/print_selector.php?id=${data.data.repair_id}`, '_blank');
                 }
             } else {
                 showErrorMessage(data.message || 'Error al crear la reparación');
