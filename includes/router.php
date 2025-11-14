@@ -171,6 +171,10 @@ class Router {
             'search' => ['file' => 'search.php', 'auth' => true, 'admin' => false],
             'profile' => ['file' => 'profile.php', 'auth' => true, 'admin' => false],
             'print_ticket' => ['file' => 'print_ticket.php', 'auth' => true, 'admin' => false],
+            'print_selector' => ['file' => 'print_selector.php', 'auth' => true, 'admin' => false],
+            'print_ticket_57mm' => ['file' => 'print_ticket_57mm.php', 'auth' => true, 'admin' => false],
+            'print_ticket_80mm' => ['file' => 'print_ticket_80mm.php', 'auth' => true, 'admin' => false],
+            'print_a5_archive' => ['file' => 'print_a5_archive.php', 'auth' => true, 'admin' => false],
             'users' => ['file' => 'users.php', 'auth' => true, 'admin' => true],
             'settings' => ['file' => 'settings.php', 'auth' => true, 'admin' => true],
             'reports' => ['file' => 'reports.php', 'auth' => true, 'admin' => true]
@@ -400,6 +404,10 @@ class Router {
         self::register('search', PAGES_PATH . 'search.php', true, false);
         self::register('profile', PAGES_PATH . 'profile.php', true, false);
         self::register('print_ticket', PAGES_PATH . 'print_ticket.php', true, false);
+        self::register('print_selector', PAGES_PATH . 'print_selector.php', true, false);
+        self::register('print_ticket_57mm', PAGES_PATH . 'print_ticket_57mm.php', true, false);
+        self::register('print_ticket_80mm', PAGES_PATH . 'print_ticket_80mm.php', true, false);
+        self::register('print_a5_archive', PAGES_PATH . 'print_a5_archive.php', true, false);
 
         // المسارات المحمية للإدارة فقط
         self::register('users', PAGES_PATH . 'users.php', true, true);

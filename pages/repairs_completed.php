@@ -796,7 +796,7 @@ window.printReport = function() {
 
 // Función para imprimir ticket
 window.printTicket = function(repairId) {
-    const printWindow = window.open(`<?= url('pages/print_ticket.php?id=') ?>${repairId}`, '_blank');
+    const printWindow = window.open(`<?= url('pages/print_selector.php?id=') ?>${repairId}`, '_blank');
     if (printWindow) {
         printWindow.focus();
     } else {
