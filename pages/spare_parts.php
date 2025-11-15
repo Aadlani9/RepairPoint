@@ -29,7 +29,6 @@ $permissions = getCurrentUserSparePartsPermissions();
 // معالجة طلبات البحث
 $search_term = $_GET['search'] ?? '';
 $category = $_GET['category'] ?? '';
-$stock_status = $_GET['stock_status'] ?? '';
 $brand_id = intval($_GET['brand_id'] ?? 0);
 $model_id = intval($_GET['model_id'] ?? 0);
 
@@ -52,7 +51,7 @@ if ($brand_id > 0) {
 $categories = getSparePartsCategories($shop_id);
 
 // البحث في قطع الغيار
-$parts = searchSpareParts($shop_id, $search_term, $category, $stock_status, $brand_id, $model_id, $limit, $offset);
+$parts = searchSpareParts($shop_id, $search_term, $category, '', $brand_id, $model_id, $limit, $offset);
 
 // حساب إجمالي النتائج للترقيم
 $total_query = "SELECT COUNT(DISTINCT sp.id) as total 
@@ -72,11 +71,6 @@ if (!empty($category)) {
     $total_params[] = $category;
 }
 
-if (!empty($stock_status)) {
-    $total_query .= " AND sp.stock_status = ?";
-    $total_params[] = $stock_status;
-}
-
 if ($brand_id > 0 && $model_id > 0) {
     $total_query .= " AND spc.brand_id = ? AND spc.model_id = ?";
     $total_params[] = $brand_id;
@@ -90,12 +84,6 @@ $total_pages = ceil($total_count / $limit);
 // فلترة البيانات حسب الصلاحيات
 if (!$permissions['view_detailed_costs']) {
     $parts = filterSparePartsData($parts);
-}
-
-// الحصول على تنبيهات المخزون للإدارة
-$low_stock_alerts = [];
-if ($permissions['manage_stock']) {
-    $low_stock_alerts = getLowStockParts($shop_id);
 }
 
 // تضمين header
@@ -139,21 +127,6 @@ require_once INCLUDES_PATH . 'header.php';
             </div>
         </div>
 
-        <!-- تنبيهات المخزون للإدارة -->
-        <?php if (!empty($low_stock_alerts) && $permissions['manage_stock']): ?>
-            <div class="row mb-4">
-                <div class="col-12">
-                    <div class="alert alert-warning">
-                        <i class="bi bi-exclamation-triangle-fill"></i>
-                        <strong>¡Atención!</strong> Hay <?= count($low_stock_alerts) ?> repuesto(s) con stock bajo.
-                        <a href="#" class="alert-link" data-bs-toggle="modal" data-bs-target="#stockAlertsModal">
-                            Ver detalles
-                        </a>
-                    </div>
-                </div>
-            </div>
-        <?php endif; ?>
-
         <!-- فلاتر البحث -->
         <div class="row mb-4">
             <div class="col-12">
@@ -178,7 +151,7 @@ require_once INCLUDES_PATH . 'header.php';
                                 </div>
 
                                 <!-- فئة القطعة -->
-                                <div class="col-md-2">
+                                <div class="col-md-3">
                                     <label class="form-label">Categoría</label>
                                     <select class="form-select" name="category">
                                         <option value="">Todas las categorías</option>
@@ -188,23 +161,6 @@ require_once INCLUDES_PATH . 'header.php';
                                                 <?= formatSparePartCategory($cat) ?>
                                             </option>
                                         <?php endforeach; ?>
-                                    </select>
-                                </div>
-
-                                <!-- حالة المخزون -->
-                                <div class="col-md-2">
-                                    <label class="form-label">Estado del stock</label>
-                                    <select class="form-select" name="stock_status">
-                                        <option value="">Todos los estados</option>
-                                        <option value="available" <?= $stock_status === 'available' ? 'selected' : '' ?>>
-                                            Disponible
-                                        </option>
-                                        <option value="order_required" <?= $stock_status === 'order_required' ? 'selected' : '' ?>>
-                                            Necesita pedido
-                                        </option>
-                                        <option value="out_of_stock" <?= $stock_status === 'out_of_stock' ? 'selected' : '' ?>>
-                                            Sin stock
-                                        </option>
                                     </select>
                                 </div>
 
@@ -308,7 +264,6 @@ require_once INCLUDES_PATH . 'header.php';
                                                 <th>Coste</th>
                                                 <th>Margen</th>
                                             <?php endif; ?>
-                                            <th>Stock</th>
                                             <th>Teléfonos compatibles</th>
                                             <th>Acciones</th>
                                         </tr>
@@ -374,11 +329,6 @@ require_once INCLUDES_PATH . 'header.php';
                                                     </td>
                                                 <?php endif; ?>
 
-                                                <!-- حالة المخزون -->
-                                                <td>
-                                                    <?= formatStockStatus($part['stock_status'], $part['stock_quantity']) ?>
-                                                </td>
-
                                                 <!-- الهواتف المتوافقة -->
                                                 <td>
                                                     <?php if (!empty($part['compatible_phones'])): ?>
@@ -409,7 +359,7 @@ require_once INCLUDES_PATH . 'header.php';
                                                         </button>
 
                                                         <!-- استخدام في إصلاح -->
-                                                        <?php if ($permissions['use_spare_parts'] && $part['stock_status'] !== 'out_of_stock'): ?>
+                                                        <?php if ($permissions['use_spare_parts']): ?>
                                                             <button type="button"
                                                                     class="btn btn-sm btn-outline-success"
                                                                     onclick="usePartInRepair(<?= $part['id'] ?>)"
@@ -453,11 +403,10 @@ require_once INCLUDES_PATH . 'header.php';
                                             <div class="card h-100">
                                                 <div class="card-body">
                                                     <!-- رأس البطاقة -->
-                                                    <div class="d-flex justify-content-between align-items-start mb-2">
+                                                    <div class="mb-2">
                                                         <h6 class="card-title mb-0">
                                                             <?= htmlspecialchars(safeTruncate($part['part_name'], 30)) ?>
                                                         </h6>
-                                                        <?= formatStockStatus($part['stock_status'], $part['stock_quantity']) ?>
                                                     </div>
 
                                                     <!-- معلومات القطعة -->
@@ -502,7 +451,7 @@ require_once INCLUDES_PATH . 'header.php';
                                                             Ver detalles
                                                         </button>
 
-                                                        <?php if ($permissions['use_spare_parts'] && $part['stock_status'] !== 'out_of_stock'): ?>
+                                                        <?php if ($permissions['use_spare_parts']): ?>
                                                             <button type="button"
                                                                     class="btn btn-success btn-sm"
                                                                     onclick="usePartInRepair(<?= $part['id'] ?>)">
@@ -576,73 +525,6 @@ require_once INCLUDES_PATH . 'header.php';
             </div>
         </div>
     </div>
-
-    <!-- Modal تنبيهات المخزون -->
-<?php if (!empty($low_stock_alerts) && $permissions['manage_stock']): ?>
-    <div class="modal fade" id="stockAlertsModal" tabindex="-1">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">
-                        <i class="bi bi-exclamation-triangle text-warning"></i>
-                        Alertas de Stock Bajo
-                    </h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="table-responsive">
-                        <table class="table table-sm">
-                            <thead>
-                            <tr>
-                                <th>Repuesto</th>
-                                <th>Stock Actual</th>
-                                <th>Mínimo</th>
-                                <th>Proveedor</th>
-                                <th>Acción</th>
-                            </tr>
-                            </thead>
-                            <tbody>
-                            <?php foreach ($low_stock_alerts as $alert): ?>
-                                <tr>
-                                    <td>
-                                        <strong><?= htmlspecialchars($alert['part_name']) ?></strong>
-                                        <?php if (!empty($alert['part_code'])): ?>
-                                            <br><small class="text-muted"><?= htmlspecialchars($alert['part_code']) ?></small>
-                                        <?php endif; ?>
-                                    </td>
-                                    <td>
-                                        <span class="badge bg-danger"><?= $alert['stock_quantity'] ?></span>
-                                    </td>
-                                    <td><?= $alert['min_stock_level'] ?></td>
-                                    <td>
-                                        <?php if (!empty($alert['supplier_name'])): ?>
-                                            <?= htmlspecialchars($alert['supplier_name']) ?>
-                                            <?php if (!empty($alert['supplier_contact'])): ?>
-                                                <br><small class="text-muted"><?= htmlspecialchars($alert['supplier_contact']) ?></small>
-                                            <?php endif; ?>
-                                        <?php else: ?>
-                                            <span class="text-muted">Sin especificar</span>
-                                        <?php endif; ?>
-                                    </td>
-                                    <td>
-                                        <a href="<?= url('pages/edit_spare_part.php?id=' . $alert['id']) ?>"
-                                           class="btn btn-sm btn-outline-primary">
-                                            Actualizar
-                                        </a>
-                                    </td>
-                                </tr>
-                            <?php endforeach; ?>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
-                </div>
-            </div>
-        </div>
-    </div>
-<?php endif; ?>
 
     <!-- JavaScript -->
     <script>
@@ -856,7 +738,7 @@ require_once INCLUDES_PATH . 'header.php';
                     </small>
 
                     <div>
-                        ${userPermissions.use_spare_parts && part.stock_status !== 'out_of_stock' ?
+                        ${userPermissions.use_spare_parts ?
                 `<button type="button" class="btn btn-success" onclick="usePartInRepair(${part.id})">
                                 <i class="bi bi-plus"></i> Usar en reparación
                             </button>` : ''
