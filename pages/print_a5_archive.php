@@ -1,8 +1,8 @@
 <?php
 /**
- * RepairPoint - Ticket A5 para Archivo
- * Optimizado para papel A5 (148mm × 210mm)
- * Para ARCHIVO DEL ESTABLECIMIENTO - Con condiciones completas y firma
+ * RepairPoint - Ticket A5 para Archivo - DISEÑO OPTIMIZADO
+ * UNA SOLA PÁGINA - 148mm × 210mm
+ * Diseño ultra-compacto con toda la información necesaria
  */
 
 // Definir acceso seguro
@@ -55,13 +55,9 @@ logActivity('ticket_printed', "Ticket A5 archivo impreso para reparación #{$rep
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Recibo Archivo A5 - #<?= htmlspecialchars($repair['reference']) ?></title>
-
-    <!-- JsBarcode para códigos de barras -->
+    <title>Archivo A5 - #<?= htmlspecialchars($repair['reference']) ?></title>
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
-
     <style>
-        /* Reset */
         * {
             margin: 0;
             padding: 0;
@@ -70,379 +66,333 @@ logActivity('ticket_printed', "Ticket A5 archivo impreso para reparación #{$rep
 
         body {
             font-family: Arial, sans-serif;
-            background: white;
+            font-size: 7pt;
+            line-height: 1.1;
             color: #000;
-            line-height: 1.4;
-            font-size: 10pt;
-        }
-
-        /* Configuración A5 Portrait */
-        .document {
-            width: 148mm;
-            min-height: 210mm;
-            margin: 0 auto;
-            padding: 8mm;
             background: white;
         }
 
-        /* Header principal */
+        /* PÁGINA A5 - UNA SOLA PÁGINA */
+        .page {
+            width: 148mm;
+            height: 210mm;
+            margin: 0 auto;
+            padding: 4mm;
+            background: white;
+            position: relative;
+        }
+
+        /* HEADER COMPACTO - 15mm */
         .header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            border: 3px solid #000;
-            padding: 5mm;
-            margin-bottom: 4mm;
+            display: grid;
+            grid-template-columns: 1fr 35mm;
+            gap: 2mm;
+            border: 2px solid #000;
+            padding: 1.5mm;
+            margin-bottom: 2mm;
+            height: 15mm;
         }
 
         .header-left {
-            flex: 1;
+            display: flex;
+            align-items: center;
+            gap: 2mm;
         }
 
-        .shop-logo {
-            max-width: 25mm;
-            max-height: 25mm;
-            margin-bottom: 2mm;
+        .logo {
+            width: 10mm;
+            height: 10mm;
+            object-fit: contain;
+        }
+
+        .shop-info {
+            font-size: 6pt;
+            line-height: 1.2;
         }
 
         .shop-name {
-            font-size: 14pt;
-            font-weight: bold;
-            text-transform: uppercase;
-            margin-bottom: 2mm;
-        }
-
-        .shop-contact {
             font-size: 8pt;
-            line-height: 1.3;
+            font-weight: bold;
+            margin-bottom: 0.5mm;
         }
 
         .header-right {
             text-align: center;
             border: 2px solid #000;
-            padding: 3mm;
-            min-width: 40mm;
+            padding: 1mm;
+            background: #f5f5f5;
         }
 
-        .doc-type {
-            font-size: 10pt;
+        .doc-title {
+            font-size: 7pt;
             font-weight: bold;
-            text-transform: uppercase;
-            margin-bottom: 2mm;
         }
 
-        .doc-number {
-            font-size: 16pt;
+        .doc-ref {
+            font-size: 11pt;
             font-weight: bold;
-            letter-spacing: 1px;
-            margin-bottom: 2mm;
+            margin: 0.5mm 0;
+            letter-spacing: 0.5px;
         }
 
         .doc-date {
-            font-size: 8pt;
+            font-size: 5pt;
         }
 
-        .archive-notice {
-            background: #000;
-            color: white;
-            padding: 2mm;
-            text-align: center;
-            font-weight: bold;
-            font-size: 9pt;
-            margin-top: 2mm;
-        }
-
-        /* Información del cliente */
-        .client-section {
-            border: 2px solid #000;
-            padding: 4mm;
-            margin-bottom: 4mm;
-        }
-
-        .section-title {
-            background: #000;
-            color: white;
-            padding: 2mm;
-            font-weight: bold;
-            font-size: 10pt;
-            margin: -4mm -4mm 3mm -4mm;
-            text-transform: uppercase;
+        /* INFORMACIÓN DE REPARACIÓN - 35mm */
+        .repair-info {
+            border: 1px solid #000;
+            margin-bottom: 2mm;
         }
 
         .info-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 3mm;
+            gap: 0;
         }
 
-        .info-item {
-            display: flex;
-            flex-direction: column;
+        .info-cell {
+            border-bottom: 1px solid #000;
+            border-right: 1px solid #000;
+            padding: 1mm;
+            min-height: 7mm;
+        }
+
+        .info-cell:nth-child(2n) {
+            border-right: none;
+        }
+
+        .info-cell:nth-last-child(-n+2) {
+            border-bottom: none;
         }
 
         .info-label {
-            font-weight: bold;
-            font-size: 8pt;
+            font-size: 5pt;
             color: #666;
+            font-weight: bold;
             text-transform: uppercase;
-            margin-bottom: 1mm;
+            display: block;
+            margin-bottom: 0.5mm;
         }
 
         .info-value {
-            font-size: 10pt;
-            padding: 1mm;
-            border-bottom: 1px solid #000;
-        }
-
-        /* Dispositivo */
-        .device-section {
-            border: 2px solid #000;
-            padding: 4mm;
-            margin-bottom: 4mm;
-            background: #f8f8f8;
-        }
-
-        .device-box {
-            text-align: center;
-            font-size: 12pt;
+            font-size: 7pt;
             font-weight: bold;
-            padding: 3mm;
-            border: 2px dashed #000;
-            background: white;
         }
 
-        /* Problema */
-        .problem-section {
-            border: 2px solid #000;
-            padding: 4mm;
-            margin-bottom: 4mm;
+        .problem-cell {
+            grid-column: 1 / -1;
+            min-height: 12mm;
+            max-height: 12mm;
+            overflow: hidden;
         }
 
         .problem-text {
-            min-height: 15mm;
-            padding: 3mm;
+            font-size: 6pt;
+            line-height: 1.2;
+        }
+
+        /* BARCODE COMPACTO - 25mm */
+        .barcode-box {
+            text-align: center;
             border: 1px dashed #000;
-            background: white;
-            font-size: 9pt;
-        }
-
-        /* Costes */
-        .costs-section {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 3mm;
-            margin-bottom: 4mm;
-        }
-
-        .cost-box {
-            border: 2px solid #000;
-            padding: 3mm;
-            text-align: center;
-        }
-
-        .cost-label {
-            font-size: 8pt;
-            font-weight: bold;
+            padding: 1mm;
             margin-bottom: 2mm;
-            text-transform: uppercase;
-        }
-
-        .cost-value {
-            font-size: 16pt;
-            font-weight: bold;
-        }
-
-        /* Código de barras */
-        .barcode-section {
-            text-align: center;
-            border: 2px dashed #000;
-            padding: 3mm;
-            margin-bottom: 4mm;
+            height: 25mm;
         }
 
         .barcode-svg {
-            width: 80mm;
-            height: auto;
+            width: 50mm;
+            height: 18mm;
         }
 
-        /* CONDICIONES - LA PARTE MÁS IMPORTANTE */
-        .terms-section {
-            border: 4px double #000;
-            padding: 4mm;
-            margin-bottom: 4mm;
-            background: #f9f9f9;
-            page-break-inside: avoid;
+        /* TÉRMINOS Y CONDICIONES - 90mm */
+        .terms {
+            border: 2px solid #000;
+            padding: 2mm;
+            margin-bottom: 2mm;
+            background: #fafafa;
         }
 
         .terms-title {
-            text-align: center;
-            font-size: 12pt;
+            font-size: 8pt;
             font-weight: bold;
+            text-align: center;
+            margin-bottom: 1.5mm;
+            padding-bottom: 1mm;
+            border-bottom: 1px solid #000;
             text-transform: uppercase;
-            margin-bottom: 3mm;
-            padding-bottom: 2mm;
-            border-bottom: 2px solid #000;
         }
 
         .term-item {
-            margin-bottom: 3mm;
-            padding: 2mm;
-            border-left: 3px solid #000;
-            padding-left: 3mm;
+            margin-bottom: 1.5mm;
+            font-size: 6pt;
+            line-height: 1.3;
+        }
+
+        .term-main {
+            background: #000;
+            color: white;
+            padding: 1.5mm;
+            margin-bottom: 1mm;
+            font-weight: bold;
+            border-radius: 1mm;
         }
 
         .term-number {
             display: inline-block;
             background: #000;
             color: white;
-            padding: 1mm 3mm;
+            padding: 0.3mm 1.5mm;
+            margin-right: 1mm;
             font-weight: bold;
-            font-size: 9pt;
-            margin-bottom: 2mm;
+            border-radius: 0.5mm;
         }
 
-        .term-title-text {
+        .term-title {
             font-weight: bold;
-            font-size: 10pt;
-            margin-bottom: 2mm;
         }
 
-        .term-content {
-            font-size: 9pt;
-            line-height: 1.5;
-            margin-left: 3mm;
-        }
-
-        .term-content ul {
-            margin-top: 1mm;
-            margin-left: 5mm;
-        }
-
-        .term-content li {
-            margin-bottom: 1mm;
+        .term-desc {
+            margin-left: 6mm;
+            margin-top: 0.3mm;
         }
 
         .warning-box {
             background: #000;
             color: white;
-            padding: 3mm;
-            margin: 3mm 0;
             text-align: center;
+            padding: 1mm;
+            margin: 1.5mm 0;
             font-weight: bold;
-            font-size: 10pt;
+            font-size: 6pt;
         }
 
-        /* Firma del cliente */
-        .signature-section {
-            border: 3px solid #000;
-            padding: 4mm;
-            margin-bottom: 4mm;
-            background: #fff;
-            page-break-inside: avoid;
-        }
-
-        .signature-title {
-            text-align: center;
-            font-size: 11pt;
-            font-weight: bold;
-            margin-bottom: 3mm;
-            text-transform: uppercase;
-        }
-
-        .acceptance-text {
-            font-size: 9pt;
-            line-height: 1.5;
-            margin-bottom: 4mm;
-            text-align: justify;
-            padding: 2mm;
-            background: #fffbcc;
-            border: 1px solid #000;
-        }
-
-        .signature-grid {
-            display: grid;
-            grid-template-columns: 2fr 1fr;
-            gap: 5mm;
-            margin-top: 4mm;
-        }
-
-        .signature-box {
+        /* FIRMA - 35mm */
+        .signature {
             border: 2px solid #000;
-            padding: 3mm;
-            min-height: 25mm;
-        }
-
-        .signature-label {
-            font-size: 8pt;
-            font-weight: bold;
+            padding: 2mm;
             margin-bottom: 2mm;
         }
 
-        .signature-line {
-            border-bottom: 2px solid #000;
-            margin: 15mm 3mm 2mm 3mm;
+        .sig-title {
+            font-size: 7pt;
+            font-weight: bold;
+            text-align: center;
+            margin-bottom: 1mm;
         }
 
-        .signature-sublabel {
-            font-size: 7pt;
+        .sig-declaration {
+            font-size: 5.5pt;
+            line-height: 1.2;
+            padding: 1mm;
+            background: #fffbcc;
+            border: 1px solid #000;
+            margin-bottom: 2mm;
+            text-align: justify;
+        }
+
+        .sig-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 3mm;
+            margin-bottom: 1.5mm;
+        }
+
+        .sig-box {
+            border: 1px solid #000;
+            padding: 1.5mm;
+            height: 14mm;
+            position: relative;
+        }
+
+        .sig-label {
+            font-size: 5pt;
+            font-weight: bold;
+            margin-bottom: 0.5mm;
+        }
+
+        .sig-line {
+            position: absolute;
+            bottom: 3mm;
+            left: 2mm;
+            right: 2mm;
+            border-bottom: 1px solid #000;
+        }
+
+        .sig-sublabel {
+            position: absolute;
+            bottom: 1mm;
+            left: 0;
+            right: 0;
             text-align: center;
+            font-size: 4.5pt;
             color: #666;
         }
 
-        /* Footer */
+        .employee-bar {
+            background: #f0f0f0;
+            border: 1px solid #000;
+            padding: 1mm;
+            font-size: 5.5pt;
+            text-align: center;
+        }
+
+        /* FOOTER - 5mm */
         .footer {
+            position: absolute;
+            bottom: 4mm;
+            left: 4mm;
+            right: 4mm;
             text-align: center;
-            font-size: 7pt;
-            padding-top: 3mm;
-            border-top: 1px solid #000;
+            font-size: 4.5pt;
             color: #666;
+            border-top: 1px solid #ccc;
+            padding-top: 0.5mm;
         }
 
-        /* Controles de impresión */
-        .print-controls {
+        /* Controles */
+        .controls {
             position: fixed;
             top: 10px;
             right: 10px;
             background: rgba(0,0,0,0.9);
             color: white;
-            padding: 12px;
-            border-radius: 6px;
-            z-index: 1000;
+            padding: 10px;
+            border-radius: 5px;
+            z-index: 9999;
         }
 
-        .print-controls button {
-            background: #333;
+        .controls button {
+            background: #667eea;
             color: white;
             border: none;
-            padding: 10px 18px;
-            margin: 3px;
-            border-radius: 4px;
+            padding: 8px 15px;
+            margin: 2px;
+            border-radius: 3px;
             cursor: pointer;
-            font-size: 12px;
+            font-size: 11px;
         }
 
-        .print-controls button:hover {
-            background: #555;
+        .controls button:hover {
+            background: #5568d3;
         }
 
-        .print-controls button.primary {
-            background: #667eea;
-        }
-
-        /* Print styles */
+        /* PRINT STYLES */
         @media print {
             body {
                 margin: 0;
                 padding: 0;
             }
 
-            .print-controls {
-                display: none;
+            .controls {
+                display: none !important;
             }
 
-            .document {
+            .page {
                 margin: 0;
-                padding: 8mm;
+                padding: 4mm;
+                box-shadow: none;
             }
 
             @page {
@@ -452,245 +402,182 @@ logActivity('ticket_printed', "Ticket A5 archivo impreso para reparación #{$rep
 
             * {
                 -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
                 color-adjust: exact !important;
             }
 
-            .section-title,
-            .archive-notice,
+            .header-right,
+            .term-main,
             .warning-box,
             .term-number {
                 background: #000 !important;
                 color: white !important;
             }
+
+            .sig-declaration {
+                background: #fffbcc !important;
+            }
+
+            .terms {
+                background: #fafafa !important;
+            }
+
+            /* Forzar una sola página */
+            .page {
+                page-break-after: avoid;
+                page-break-inside: avoid;
+            }
         }
 
-        /* Vista previa en pantalla */
         @media screen {
             body {
                 background: #e0e0e0;
                 padding: 20px;
             }
 
-            .document {
-                box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            .page {
+                box-shadow: 0 5px 20px rgba(0,0,0,0.3);
             }
         }
     </style>
 </head>
 <body>
-    <!-- Controles de impresión -->
-    <div class="print-controls">
-        <button onclick="window.print()" class="primary">🖨️ Imprimir</button>
+    <!-- Controles -->
+    <div class="controls">
+        <button onclick="window.print()">🖨️ Imprimir</button>
         <button onclick="window.close()">❌ Cerrar</button>
     </div>
 
-    <div class="document">
-        <!-- Header -->
+    <div class="page">
+        <!-- HEADER -->
         <div class="header">
             <div class="header-left">
                 <?php if (!empty($repair['logo'])): ?>
-                    <img src="<?= url(htmlspecialchars($repair['logo'])) ?>" alt="Logo" class="shop-logo">
+                    <img src="<?= url(htmlspecialchars($repair['logo'])) ?>" class="logo" alt="Logo">
                 <?php endif; ?>
-                <div class="shop-name"><?= htmlspecialchars($repair['name']) ?></div>
-                <div class="shop-contact">
-                    <?php if (!empty($repair['address'])): ?>
-                        📍 <?= htmlspecialchars($repair['address']) ?><br>
-                    <?php endif; ?>
+                <div class="shop-info">
+                    <div class="shop-name"><?= htmlspecialchars($repair['name']) ?></div>
                     <?php if (!empty($repair['phone1'])): ?>
-                        📞 <?= htmlspecialchars($repair['phone1']) ?>
-                        <?php if (!empty($repair['phone2'])): ?>
-                            / <?= htmlspecialchars($repair['phone2']) ?>
-                        <?php endif; ?>
-                        <br>
+                        Tel: <?= htmlspecialchars($repair['phone1']) ?>
                     <?php endif; ?>
                     <?php if (!empty($repair['email'])): ?>
-                        📧 <?= htmlspecialchars($repair['email']) ?>
+                        <br><?= htmlspecialchars($repair['email']) ?>
                     <?php endif; ?>
                 </div>
             </div>
-
             <div class="header-right">
-                <div class="doc-type">REPARACIÓN</div>
-                <div class="doc-number">#<?= htmlspecialchars($repair['reference']) ?></div>
+                <div class="doc-title">REPARACIÓN</div>
+                <div class="doc-ref">#<?= htmlspecialchars($repair['reference']) ?></div>
                 <div class="doc-date"><?= formatDate($repair['received_at'], 'd/m/Y') ?></div>
-                <div class="archive-notice">COPIA ARCHIVO</div>
             </div>
         </div>
 
-        <!-- Información del cliente -->
-        <div class="client-section">
-            <div class="section-title">📋 Datos del Cliente</div>
+        <!-- INFORMACIÓN DE REPARACIÓN -->
+        <div class="repair-info">
             <div class="info-grid">
-                <div class="info-item">
-                    <div class="info-label">Nombre Completo:</div>
+                <div class="info-cell">
+                    <span class="info-label">Cliente:</span>
                     <div class="info-value"><?= htmlspecialchars($repair['customer_name']) ?></div>
                 </div>
-                <div class="info-item">
-                    <div class="info-label">Teléfono:</div>
+                <div class="info-cell">
+                    <span class="info-label">Teléfono:</span>
                     <div class="info-value"><?= htmlspecialchars($repair['customer_phone']) ?></div>
+                </div>
+                <div class="info-cell">
+                    <span class="info-label">Dispositivo:</span>
+                    <div class="info-value"><?= htmlspecialchars($repair['brand_name']) ?> <?= htmlspecialchars($repair['model_name']) ?></div>
+                </div>
+                <div class="info-cell">
+                    <span class="info-label">Coste:</span>
+                    <div class="info-value">€<?= number_format($repair['actual_cost'] ?? $repair['estimated_cost'] ?? 0, 2) ?></div>
+                </div>
+                <div class="info-cell problem-cell">
+                    <span class="info-label">Problema:</span>
+                    <div class="problem-text"><?= htmlspecialchars(substr($repair['issue_description'], 0, 180)) ?><?= strlen($repair['issue_description']) > 180 ? '...' : '' ?></div>
                 </div>
             </div>
         </div>
 
-        <!-- Dispositivo -->
-        <div class="device-section">
-            <div class="section-title">📱 Dispositivo</div>
-            <div class="device-box">
-                <?= htmlspecialchars($repair['brand_name']) ?> <?= htmlspecialchars($repair['model_name']) ?>
-            </div>
-        </div>
-
-        <!-- Problema -->
-        <div class="problem-section">
-            <div class="section-title">⚠️ Problema Reportado</div>
-            <div class="problem-text"><?= nl2br(htmlspecialchars($repair['issue_description'])) ?></div>
-        </div>
-
-        <!-- Costes -->
-        <?php if (!empty($repair['estimated_cost']) || !empty($repair['actual_cost'])): ?>
-            <div class="costs-section">
-                <?php if (!empty($repair['estimated_cost'])): ?>
-                    <div class="cost-box">
-                        <div class="cost-label">Coste Estimado</div>
-                        <div class="cost-value">€<?= number_format($repair['estimated_cost'], 2) ?></div>
-                    </div>
-                <?php endif; ?>
-
-                <?php if (!empty($repair['actual_cost'])): ?>
-                    <div class="cost-box" style="background: #f0f0f0;">
-                        <div class="cost-label">Coste Final</div>
-                        <div class="cost-value">€<?= number_format($repair['actual_cost'], 2) ?></div>
-                    </div>
-                <?php endif; ?>
-            </div>
-        <?php endif; ?>
-
-        <!-- Código de barras -->
-        <div class="barcode-section">
+        <!-- BARCODE -->
+        <div class="barcode-box">
             <svg id="barcode" class="barcode-svg"></svg>
         </div>
 
-        <!-- TÉRMINOS Y CONDICIONES - LA SECCIÓN MÁS IMPORTANTE -->
-        <div class="terms-section">
-            <div class="terms-title">⚖️ TÉRMINOS Y CONDICIONES DEL SERVICIO ⚖️</div>
+        <!-- TÉRMINOS Y CONDICIONES -->
+        <div class="terms">
+            <div class="terms-title">⚖️ Términos y Condiciones</div>
 
-            <!-- Término 1 - CUSTODIA Y RECOGIDA (EL MÁS IMPORTANTE) -->
-            <div class="term-item">
-                <div class="term-number">1</div>
-                <div class="term-title-text">CUSTODIA Y RECOGIDA DEL DISPOSITIVO</div>
-                <div class="term-content">
-                    <ul>
-                        <li><strong>El dispositivo debe recogerse en un plazo máximo de 30 días naturales tras COMPLETAR la reparación.</strong></li>
-                        <li><strong style="text-decoration: underline;">IMPORTANTE:</strong> Pasados 30 días desde la finalización de la reparación, el establecimiento NO se responsabiliza por pérdida, daños, robo o extravío del dispositivo.</li>
-                        <li>Pasados 60 días sin recoger el dispositivo, el establecimiento se reserva el derecho de disponer del mismo sin previo aviso ni compensación.</li>
-                        <li>El establecimiento conservará el dispositivo en condiciones normales, pero no se responsabiliza de daños causados por factores externos (humedad, temperatura, etc.).</li>
-                    </ul>
-                </div>
+            <!-- Término principal -->
+            <div class="term-main">
+                ★ 1. CUSTODIA Y RECOGIDA: Dispositivo debe recogerse en 30 días máximo tras completar reparación. Pasados 30 días, NO nos responsabilizamos por pérdida, daño o extravío. Pasados 60 días, podemos disponer del dispositivo sin previo aviso.
             </div>
 
             <div class="warning-box">
-                ⚠️ ATENCIÓN: RECOGER EL DISPOSITIVO DENTRO DE 30 DÍAS TRAS LA REPARACIÓN ⚠️
+                ⚠️ IMPORTANTE: RECOGER EN 30 DÍAS TRAS REPARACIÓN ⚠️
             </div>
 
-            <!-- Término 2 - TIEMPO DE REPARACIÓN -->
+            <!-- Resto de términos -->
             <div class="term-item">
-                <div class="term-number">2</div>
-                <div class="term-title-text">TIEMPO DE REPARACIÓN</div>
-                <div class="term-content">
-                    <ul>
-                        <li>El tiempo estimado de reparación es de 3 a 30 días naturales, dependiendo de la disponibilidad de piezas y complejidad de la avería.</li>
-                        <li>El establecimiento notificará al cliente cuando la reparación esté completada.</li>
-                        <li>Los plazos son estimados y pueden variar sin constituir incumplimiento contractual.</li>
-                    </ul>
-                </div>
+                <span class="term-number">2</span>
+                <span class="term-title">TIEMPO REPARACIÓN:</span>
+                <div class="term-desc">3-30 días según disponibilidad de piezas y complejidad.</div>
             </div>
 
-            <!-- Término 3 - ACCESORIOS -->
             <div class="term-item">
-                <div class="term-number">3</div>
-                <div class="term-title-text">ACCESORIOS NO REGISTRADOS</div>
-                <div class="term-content">
-                    <ul>
-                        <li>Solo nos responsabilizamos de los accesorios expresamente listados en este documento.</li>
-                        <li>Se recomienda retirar fundas, tarjetas SIM, tarjetas de memoria y otros accesorios antes de entregar el dispositivo.</li>
-                        <li>El establecimiento no se responsabiliza de accesorios no declarados.</li>
-                    </ul>
-                </div>
+                <span class="term-number">3</span>
+                <span class="term-title">ACCESORIOS:</span>
+                <div class="term-desc">Solo responsables de accesorios registrados en este documento.</div>
             </div>
 
-            <!-- Término 4 - GARANTÍA -->
             <div class="term-item">
-                <div class="term-number">4</div>
-                <div class="term-title-text">GARANTÍA DE REPARACIÓN</div>
-                <div class="term-content">
-                    <ul>
-                        <li>La reparación incluye <?= $warranty_days ?> días de garantía sobre el trabajo realizado.</li>
-                        <li><strong>Cualquier apertura, manipulación o reparación externa ANULA automáticamente toda garantía.</strong></li>
-                        <li>Daños causados por líquidos, golpes o caídas posteriores a la reparación NO están cubiertos por la garantía.</li>
-                        <li>La garantía solo cubre la reparación específica realizada, no otras averías del dispositivo.</li>
-                    </ul>
-                </div>
+                <span class="term-number">4</span>
+                <span class="term-title">GARANTÍA:</span>
+                <div class="term-desc"><?= $warranty_days ?> días. Apertura/manipulación externa ANULA garantía. Daños líquidos/golpes NO cubiertos.</div>
             </div>
 
-            <!-- Término 5 - RECOGIDA -->
             <div class="term-item">
-                <div class="term-number">5</div>
-                <div class="term-title-text">PROCEDIMIENTO DE RECOGIDA</div>
-                <div class="term-content">
-                    <ul>
-                        <li><strong>Es OBLIGATORIO presentar el ticket de reparación para recoger el dispositivo.</strong></li>
-                        <li>Sin ticket, se requerirá documento de identidad (DNI/NIE) y verificación adicional.</li>
-                        <li>Solo el titular o persona autorizada expresamente puede recoger el dispositivo.</li>
-                    </ul>
-                </div>
+                <span class="term-number">5</span>
+                <span class="term-title">RECOGIDA:</span>
+                <div class="term-desc">OBLIGATORIO presentar ticket. Sin ticket: DNI + verificación.</div>
             </div>
 
-            <!-- Término 6 - PRESUPUESTO -->
             <div class="term-item">
-                <div class="term-number">6</div>
-                <div class="term-title-text">INSPECCIÓN Y PRESUPUESTO</div>
-                <div class="term-content">
-                    <ul>
-                        <li>Puede aplicarse una tarifa de inspección si el cliente rechaza el presupuesto de reparación.</li>
-                        <li>El presupuesto aceptado es vinculante, salvo imprevistos técnicos que se comunicarán.</li>
-                    </ul>
-                </div>
+                <span class="term-number">6</span>
+                <span class="term-title">PRESUPUESTO:</span>
+                <div class="term-desc">Posible tarifa inspección si se rechaza presupuesto.</div>
             </div>
         </div>
 
-        <!-- Firma del cliente -->
-        <div class="signature-section">
-            <div class="signature-title">✍️ Aceptación de Condiciones</div>
+        <!-- FIRMA -->
+        <div class="signature">
+            <div class="sig-title">✍️ Aceptación de Condiciones</div>
 
-            <div class="acceptance-text">
-                <strong>DECLARO que he leído, entendido y acepto todos los términos y condiciones descritos anteriormente.</strong>
-                En particular, acepto que el dispositivo debe recogerse en un plazo máximo de 30 días tras completar la reparación,
-                y que pasado este plazo el establecimiento NO se responsabiliza por pérdida, daños o extravío del mismo.
+            <div class="sig-declaration">
+                <strong>DECLARO</strong> haber leído y aceptar todos los términos, especialmente la recogida en 30 días máximo tras reparación, y que pasado este plazo el establecimiento NO se responsabiliza por pérdida o daños.
             </div>
 
-            <div class="signature-grid">
-                <div class="signature-box">
-                    <div class="signature-label">FIRMA DEL CLIENTE:</div>
-                    <div class="signature-line"></div>
-                    <div class="signature-sublabel">Firma y DNI</div>
+            <div class="sig-grid">
+                <div class="sig-box">
+                    <div class="sig-label">FIRMA DEL CLIENTE:</div>
+                    <div class="sig-line"></div>
+                    <div class="sig-sublabel">Firma y DNI</div>
                 </div>
-
-                <div class="signature-box">
-                    <div class="signature-label">FECHA:</div>
-                    <div class="signature-line"></div>
-                    <div class="signature-sublabel">DD / MM / AAAA</div>
+                <div class="sig-box">
+                    <div class="sig-label">FECHA:</div>
+                    <div class="sig-line"></div>
+                    <div class="sig-sublabel">DD/MM/AAAA</div>
                 </div>
             </div>
 
-            <div style="margin-top: 4mm; padding: 2mm; background: #f0f0f0; border: 1px solid #000; font-size: 8pt;">
+            <div class="employee-bar">
                 <strong>Empleado:</strong> <?= htmlspecialchars($repair['created_by_name']) ?> |
-                <strong>Fecha recepción:</strong> <?= formatDate($repair['received_at'], 'd/m/Y H:i') ?>
+                <strong>Recepción:</strong> <?= formatDate($repair['received_at'], 'd/m/Y H:i') ?>
             </div>
         </div>
 
-        <!-- Footer -->
+        <!-- FOOTER -->
         <div class="footer">
-            <div>Documento generado el <?= date('d/m/Y H:i') ?> - Este documento tiene validez legal como prueba de entrega y aceptación de condiciones</div>
+            Documento generado <?= date('d/m/Y H:i') ?> - Validez legal como prueba de entrega y aceptación de condiciones
         </div>
     </div>
 
@@ -699,49 +586,41 @@ logActivity('ticket_printed', "Ticket A5 archivo impreso para reparación #{$rep
             generateBarcode();
 
             <?php if ($auto_print): ?>
-            // Auto-imprimir si está activado
-            setTimeout(function() {
-                window.print();
-            }, 1500);
+            setTimeout(() => window.print(), 1500);
             <?php endif; ?>
         });
 
         function generateBarcode() {
             try {
-                const barcodeData = '<?= $repair['reference'] ?>';
-
-                JsBarcode("#barcode", barcodeData, {
+                JsBarcode("#barcode", '<?= $repair['reference'] ?>', {
                     format: "CODE128",
-                    width: 2,
-                    height: 50,
+                    width: 1.3,
+                    height: 18,
                     displayValue: true,
                     background: "#ffffff",
                     lineColor: "#000000",
-                    margin: 5,
-                    fontSize: 14,
-                    textMargin: 5
+                    margin: 0,
+                    fontSize: 9,
+                    textMargin: 1
                 });
             } catch (error) {
-                console.error('Error generando código de barras:', error);
+                console.error('Error barcode:', error);
             }
         }
 
-        // Atajos de teclado
         document.addEventListener('keydown', function(e) {
             if ((e.ctrlKey || e.metaKey) && e.key === 'p') {
                 e.preventDefault();
                 window.print();
             }
-
             if (e.key === 'Escape') {
                 window.close();
             }
         });
 
-        // Opcional: auto-cerrar después de imprimir
         window.addEventListener('afterprint', function() {
             setTimeout(() => {
-                if (confirm('¿Desea cerrar la ventana?')) {
+                if (confirm('¿Cerrar ventana?')) {
                     window.close();
                 }
             }, 1000);
