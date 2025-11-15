@@ -45,15 +45,38 @@ if (!$input || !isset($input['action']) || $input['action'] !== 'import') {
     exit;
 }
 
-// بيانات الهواتف - نفس المصفوفة من ملف import_phones_data.php
-require_once __DIR__ . '/../import_phones_data.php';
-
 try {
     // الاتصال بقاعدة البيانات
     $db = getDB();
 
-    // تنظيم البيانات
-    $organized_data = organizePhoneData($phones_data);
+    // قراءة البيانات من API معاينة البيانات
+    $data_file = __DIR__ . '/preview_phones_data.php';
+
+    // الحصول على البيانات عبر include
+    ob_start();
+    include $data_file;
+    $output = ob_get_clean();
+
+    $result = json_decode($output, true);
+
+    if (!$result || !$result['success']) {
+        throw new Exception('فشل في قراءة بيانات الهواتف');
+    }
+
+    $all_data = $result['data'];
+
+    // تنظيم البيانات حسب البراند
+    $organized_data = [];
+    foreach ($all_data as $item) {
+        $brand = $item['brand'];
+        if (!isset($organized_data[$brand])) {
+            $organized_data[$brand] = [];
+        }
+        $organized_data[$brand][] = [
+            'name' => $item['model'],
+            'model_code' => $item['reference']
+        ];
+    }
 
     // بدء المعاملة
     $db->beginTransaction();
