@@ -1078,6 +1078,252 @@ function formatWarrantyStatus($delivered_at, $warranty_days = 30) {
     }
 }
 
+// ===================================================
+// FUNCIONES MEJORADAS PARA نظام الضمان وإعادة الفتح
+// ===================================================
+
+/**
+ * حساب المدة الحالية للإصلاح (من آخر حدث)
+ * - إذا تم إعادة فتح الإصلاح، تُحسب المدة من تاريخ إعادة الفتح
+ * - وإلا تُحسب من تاريخ الاستلام الأصلي
+ */
+function calculateCurrentRepairDuration($repair) {
+    if (empty($repair)) return 0;
+
+    try {
+        // تحديد نقطة البداية
+        $start_date = null;
+
+        if (!empty($repair['is_reopened']) && !empty($repair['reopen_date'])) {
+            // إذا تم إعادة الفتح، نبدأ من تاريخ إعادة الفتح
+            $start_date = $repair['reopen_date'];
+        } else {
+            // وإلا نبدأ من تاريخ الاستلام الأصلي
+            $start_date = $repair['received_at'];
+        }
+
+        if (empty($start_date)) return 0;
+
+        $start = new DateTime($start_date);
+
+        // تحديد نقطة النهاية
+        $end_date = null;
+        if (!empty($repair['reopen_delivered_at'])) {
+            $end_date = $repair['reopen_delivered_at'];
+        } elseif (!empty($repair['delivered_at'])) {
+            $end_date = $repair['delivered_at'];
+        }
+
+        $end = $end_date ? new DateTime($end_date) : new DateTime();
+
+        $interval = $start->diff($end);
+        return $interval->days;
+    } catch (Exception $e) {
+        error_log("Error calculating current repair duration: " . $e->getMessage());
+        return 0;
+    }
+}
+
+/**
+ * حساب المدة الكلية للإصلاح (من البداية حتى الآن)
+ */
+function calculateTotalRepairDuration($repair) {
+    if (empty($repair) || empty($repair['received_at'])) return 0;
+
+    try {
+        $start = new DateTime($repair['received_at']);
+
+        // نقطة النهاية هي آخر تسليم أو الآن
+        $end_date = null;
+        if (!empty($repair['reopen_delivered_at'])) {
+            $end_date = $repair['reopen_delivered_at'];
+        } elseif (!empty($repair['delivered_at'])) {
+            $end_date = $repair['delivered_at'];
+        }
+
+        $end = $end_date ? new DateTime($end_date) : new DateTime();
+
+        $interval = $start->diff($end);
+        return $interval->days;
+    } catch (Exception $e) {
+        error_log("Error calculating total repair duration: " . $e->getMessage());
+        return 0;
+    }
+}
+
+/**
+ * الحصول على معلومات الضمان الحالية (مع مراعاة إعادة الفتح)
+ */
+function getCurrentWarrantyInfo($repair) {
+    $warranty_info = [
+        'warranty_days' => 30,
+        'delivered_at' => null,
+        'warranty_expires_at' => null,
+        'days_left' => 0,
+        'is_valid' => false,
+        'is_reopened' => false,
+        'original_warranty_days' => 30,
+        'original_delivered_at' => null
+    ];
+
+    if (empty($repair)) return $warranty_info;
+
+    // معلومات الضمان الأصلية
+    $warranty_info['original_warranty_days'] = $repair['warranty_days'] ?? 30;
+    $warranty_info['original_delivered_at'] = $repair['original_delivered_at'] ?? $repair['delivered_at'] ?? null;
+
+    // إذا تم إعادة الفتح والتسليم بعد إعادة الفتح
+    if (!empty($repair['is_reopened']) && !empty($repair['reopen_delivered_at'])) {
+        $warranty_info['is_reopened'] = true;
+        $warranty_info['delivered_at'] = $repair['reopen_delivered_at'];
+        $warranty_info['warranty_days'] = $repair['reopen_warranty_days'] ?? 30;
+    } else {
+        // الضمان الأصلي
+        $warranty_info['delivered_at'] = $repair['delivered_at'] ?? null;
+        $warranty_info['warranty_days'] = $repair['warranty_days'] ?? 30;
+    }
+
+    // حساب انتهاء الضمان والأيام المتبقية
+    if (!empty($warranty_info['delivered_at'])) {
+        try {
+            $delivered = new DateTime($warranty_info['delivered_at']);
+            $expires = clone $delivered;
+            $expires->add(new DateInterval("P{$warranty_info['warranty_days']}D"));
+
+            $warranty_info['warranty_expires_at'] = $expires->format('Y-m-d H:i:s');
+
+            $now = new DateTime();
+            if ($now <= $expires) {
+                $interval = $now->diff($expires);
+                $warranty_info['days_left'] = $interval->days;
+                $warranty_info['is_valid'] = true;
+            }
+        } catch (Exception $e) {
+            error_log("Error calculating warranty info: " . $e->getMessage());
+        }
+    }
+
+    return $warranty_info;
+}
+
+/**
+ * تنسيق عرض الضمان المحسّن (مع مراعاة إعادة الفتح)
+ */
+function formatWarrantyStatusEnhanced($repair) {
+    $warranty = getCurrentWarrantyInfo($repair);
+
+    if (empty($warranty['delivered_at'])) {
+        return '<span class="badge bg-secondary">Sin entregar</span>';
+    }
+
+    $badge_class = 'bg-danger';
+    $badge_text = 'Garantía expirada';
+
+    if ($warranty['is_valid']) {
+        if ($warranty['days_left'] > 7) {
+            $badge_class = 'bg-success';
+            $badge_text = 'Garantía válida (' . $warranty['days_left'] . ' días)';
+        } else {
+            $badge_class = 'bg-warning';
+            $badge_text = 'Expira pronto (' . $warranty['days_left'] . ' días)';
+        }
+    }
+
+    $reopened_indicator = $warranty['is_reopened'] ? ' <i class="bi bi-arrow-clockwise" title="Garantía renovada"></i>' : '';
+
+    return '<span class="badge ' . $badge_class . '">' . $badge_text . $reopened_indicator . '</span>';
+}
+
+/**
+ * إضافة حدث لسجل تاريخ الإصلاح
+ */
+function addRepairHistoryEvent($repair_id, $shop_id, $event_type, $event_data = [], $performed_by = null) {
+    $db = getDB();
+
+    if ($performed_by === null) {
+        $performed_by = $_SESSION['user_id'] ?? 0;
+    }
+
+    try {
+        $event_data_json = !empty($event_data) ? json_encode($event_data, JSON_UNESCAPED_UNICODE) : null;
+
+        $inserted = $db->insert(
+            "INSERT INTO repair_history
+            (repair_id, shop_id, event_type, event_data, description, performed_by, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, NOW())",
+            [
+                $repair_id,
+                $shop_id,
+                $event_type,
+                $event_data_json,
+                $event_data['description'] ?? '',
+                $performed_by
+            ]
+        );
+
+        return $inserted;
+    } catch (Exception $e) {
+        error_log("Error adding repair history event: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * الحصول على سجل تاريخ إصلاح معين
+ */
+function getRepairHistory($repair_id, $limit = 50) {
+    $db = getDB();
+
+    try {
+        $history = $db->select(
+            "SELECT rh.*, u.name as performed_by_name
+             FROM repair_history rh
+             LEFT JOIN users u ON rh.performed_by = u.id
+             WHERE rh.repair_id = ?
+             ORDER BY rh.created_at DESC
+             LIMIT ?",
+            [$repair_id, $limit]
+        );
+
+        return $history;
+    } catch (Exception $e) {
+        error_log("Error getting repair history: " . $e->getMessage());
+        return [];
+    }
+}
+
+/**
+ * الحصول على الإصلاحات في حالة ضمان نشط
+ */
+function getRepairsUnderWarranty($shop_id, $limit = 100) {
+    $db = getDB();
+
+    try {
+        // استخدام الـ VIEW المحسّن
+        $repairs = $db->select(
+            "SELECT r.*, b.name as brand_name, m.name as model_name,
+                    v.current_delivered_at, v.current_warranty_days,
+                    v.warranty_days_remaining, v.is_under_warranty
+             FROM repairs r
+             LEFT JOIN v_repairs_latest_event v ON r.id = v.repair_id
+             LEFT JOIN brands b ON r.brand_id = b.id
+             LEFT JOIN models m ON r.model_id = m.id
+             WHERE r.shop_id = ?
+             AND r.status IN ('pending', 'in_progress', 'completed', 'reopened')
+             AND r.is_reopened = TRUE
+             AND v.is_under_warranty = TRUE
+             ORDER BY r.reopen_date DESC
+             LIMIT ?",
+            [$shop_id, $limit]
+        );
+
+        return $repairs;
+    } catch (Exception $e) {
+        error_log("Error getting repairs under warranty: " . $e->getMessage());
+        return [];
+    }
+}
+
 
 // ===================================================
 // FUNCIONES DE قطع الغيار (SPARE PARTS)

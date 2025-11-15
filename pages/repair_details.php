@@ -65,16 +65,18 @@ $spare_parts_cost = calculateRepairSparePartsCost($repair_id);
 // صلاحيات قطع الغيار
 $spare_parts_permissions = getCurrentUserSparePartsPermissions();
 
-// حساب المدة والضمانة الصحيحة
-$repair_duration = calculateRepairDuration($repair['received_at'], $repair['delivered_at']);
-$warranty_days = $repair['warranty_days'] ?? 30;
-$warranty_days_left = 0;
-$is_under_warranty = false;
+// حساب المدة والضمانة الصحيحة (مع مراعاة إعادة الفتح)
+$current_duration = calculateCurrentRepairDuration($repair);
+$total_duration = calculateTotalRepairDuration($repair);
+$warranty_info = getCurrentWarrantyInfo($repair);
 
-if ($repair['delivered_at']) {
-    $warranty_days_left = calculateWarrantyDaysLeft($repair['delivered_at'], $warranty_days);
-    $is_under_warranty = isUnderWarranty($repair['delivered_at'], $warranty_days);
-}
+// للتوافق مع الكود القديم
+$warranty_days = $warranty_info['warranty_days'];
+$warranty_days_left = $warranty_info['days_left'];
+$is_under_warranty = $warranty_info['is_valid'];
+
+// الحصول على سجل الأحداث
+$repair_history = getRepairHistory($repair_id);
 
 // Procesar acciones de قطع الغيار
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['spare_part_action'])) {
@@ -291,29 +293,71 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     try {
                         $db->beginTransaction();
 
+                        // حفظ التسليم الأصلي إذا لم يكن محفوظًا
+                        if (!empty($repair['delivered_at']) && empty($repair['original_delivered_at'])) {
+                            $db->update(
+                                "UPDATE repairs SET original_delivered_at = ? WHERE id = ?",
+                                [$repair['delivered_at'], $repair_id]
+                            );
+                        }
+
+                        // تحديث الإصلاح مع تعيين الضمان الجديد
                         $updated = $db->update(
-                            "UPDATE repairs SET 
-                                status = 'reopened', 
-                                reopen_type = ?, 
-                                reopen_reason = ?, 
-                                reopen_notes = ?, 
+                            "UPDATE repairs SET
+                                status = 'reopened',
+                                reopen_type = ?,
+                                reopen_reason = ?,
+                                reopen_notes = ?,
                                 reopen_date = NOW(),
                                 is_reopened = TRUE,
-                                updated_at = NOW() 
+                                reopen_warranty_days = 30,
+                                reopen_count = COALESCE(reopen_count, 0) + 1,
+                                last_reopen_by = ?,
+                                updated_at = NOW(),
+                                updated_by = ?
                              WHERE id = ? AND shop_id = ?",
-                            [$reopen_type, $reopen_reason, $reopen_notes, $repair_id, $shop_id]
+                            [
+                                $reopen_type,
+                                $reopen_reason,
+                                $reopen_notes,
+                                $_SESSION['user_id'],
+                                $_SESSION['user_id'],
+                                $repair_id,
+                                $shop_id
+                            ]
                         );
 
                         if ($updated !== false) {
-                            $db->commit();
+                            // تسجيل الحدث في السجل التاريخي
+                            $event_type = match($reopen_type) {
+                                'warranty' => 'warranty_reopened',
+                                'paid' => 'paid_reopened',
+                                'goodwill' => 'goodwill_reopened',
+                                default => 'reopened'
+                            };
 
                             $reopen_config = getConfig('reopen_types');
                             $type_name = $reopen_config[$reopen_type]['name'];
 
+                            addRepairHistoryEvent(
+                                $repair_id,
+                                $shop_id,
+                                $event_type,
+                                [
+                                    'description' => "Reparación reabierta como: $type_name",
+                                    'reopen_type' => $reopen_type,
+                                    'reopen_reason' => $reopen_reason,
+                                    'reopen_notes' => $reopen_notes,
+                                    'new_warranty_days' => 30
+                                ]
+                            );
+
+                            $db->commit();
+
                             logActivity('repair_reopened', "Reparación #{$repair['reference']} reabierta como $type_name", $_SESSION['user_id']);
 
                             $success = true;
-                            $message = "Reparación reabierta correctamente como: $type_name";
+                            $message = "Reparación reabierta correctamente como: $type_name con nueva garantía de 30 días";
 
                             // تحديث البيانات المحلية
                             $repair['status'] = 'reopened';
@@ -322,6 +366,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                             $repair['reopen_notes'] = $reopen_notes;
                             $repair['reopen_date'] = getCurrentDateTime();
                             $repair['is_reopened'] = true;
+                            $repair['reopen_warranty_days'] = 30;
                         } else {
                             $db->rollback();
                             $message = 'Error al reabrir la reparación';
@@ -788,83 +833,124 @@ require_once INCLUDES_PATH . 'header.php';
                         </h5>
                     </div>
                     <div class="card-body">
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="warranty-info">
-                                    <label class="fw-bold text-muted">Días de Garantía:</label>
-                                    <div class="warranty-value">
-                                        <span class="h6 text-info"><?= $warranty_days ?> días</span>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="warranty-status">
-                                    <label class="fw-bold text-muted">Estado de Garantía:</label>
-                                    <div class="mt-2">
-                                        <?= formatWarrantyStatus($repair['delivered_at'], $warranty_days) ?>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <?php if ($repair['delivered_at']): ?>
-                            <hr>
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <small class="text-muted">
-                                        <i class="bi bi-calendar-check me-1"></i>
-                                        Entregado: <?= formatDateTime($repair['delivered_at']) ?>
-                                    </small>
-                                </div>
-                                <div class="col-md-6">
-                                    <small class="text-muted">
-                                        <i class="bi bi-calendar-x me-1"></i>
-                                        Garantía expira:
-                                        <?php
-                                        $warranty_expires = date('d/m/Y', strtotime($repair['delivered_at'] . " +{$warranty_days} days"));
-                                        echo $warranty_expires;
-                                        ?>
-                                    </small>
-                                </div>
-                            </div>
-                        <?php endif; ?>
-
-                        <!-- Información de reapertura si existe -->
-                        <?php if ($repair['is_reopened']): ?>
-                            <hr>
-                            <div class="reopen-info bg-warning bg-opacity-10 p-3 rounded">
-                                <h6 class="text-warning">
-                                    <i class="bi bi-arrow-clockwise me-2"></i>
-                                    Reparación Reabierta
+                        <?php if ($repair['is_reopened'] && $warranty_info['original_delivered_at']): ?>
+                            <!-- Garantía Original -->
+                            <div class="mb-4 p-3 bg-light rounded">
+                                <h6 class="text-muted mb-3">
+                                    <i class="bi bi-clock-history me-2"></i>Reparación Original
                                 </h6>
                                 <div class="row">
-                                    <?php if ($repair['reopen_type']): ?>
-                                        <div class="col-md-6">
-                                            <small><strong>Tipo:</strong>
-                                                <?php
-                                                $reopen_config = getConfig('reopen_types');
-                                                echo $reopen_config[$repair['reopen_type']]['name'];
-                                                ?>
-                                            </small>
+                                    <div class="col-md-6">
+                                        <small class="text-muted d-block mb-1">Garantía original:</small>
+                                        <span class="fw-bold"><?= $warranty_info['original_warranty_days'] ?> días</span>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <small class="text-muted d-block mb-1">Entregado:</small>
+                                        <span class="fw-bold"><?= formatDate($warranty_info['original_delivered_at'], 'd/m/Y H:i') ?></span>
+                                    </div>
+                                    <div class="col-12 mt-2">
+                                        <small class="text-muted d-block mb-1">Expira:</small>
+                                        <span class="text-muted">
+                                            <?php
+                                            $original_expires = date('d/m/Y', strtotime($warranty_info['original_delivered_at'] . " +{$warranty_info['original_warranty_days']} days"));
+                                            echo $original_expires;
+                                            ?>
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Garantía Actual (Reabierta) -->
+                            <div class="p-3 bg-warning bg-opacity-10 border border-warning rounded">
+                                <h6 class="text-warning mb-3">
+                                    <i class="bi bi-arrow-clockwise me-2"></i>Garantía Actual (Reabierta)
+                                </h6>
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <small class="text-muted d-block mb-1">Nueva garantía:</small>
+                                        <span class="fw-bold text-warning"><?= $warranty_info['warranty_days'] ?> días</span>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <small class="text-muted d-block mb-1">Estado:</small>
+                                        <?php if ($warranty_info['is_valid']): ?>
+                                            <span class="badge bg-success">
+                                                Válida - <?= $warranty_info['days_left'] ?> días restantes
+                                            </span>
+                                        <?php else: ?>
+                                            <span class="badge bg-danger">Expirada</span>
+                                        <?php endif; ?>
+                                    </div>
+                                    <?php if ($warranty_info['delivered_at']): ?>
+                                        <div class="col-md-6 mt-2">
+                                            <small class="text-muted d-block mb-1">Re-entregado:</small>
+                                            <span class="fw-bold"><?= formatDate($warranty_info['delivered_at'], 'd/m/Y H:i') ?></span>
+                                        </div>
+                                        <div class="col-md-6 mt-2">
+                                            <small class="text-muted d-block mb-1">Expira:</small>
+                                            <span class="fw-bold">
+                                                <?= date('d/m/Y', strtotime($warranty_info['warranty_expires_at'])) ?>
+                                            </span>
                                         </div>
                                     <?php endif; ?>
-                                    <?php if ($repair['reopen_date']): ?>
-                                        <div class="col-md-6">
-                                            <small><strong>Fecha:</strong> <?= formatDateTime($repair['reopen_date']) ?></small>
+                                    <?php if ($repair['reopen_type']): ?>
+                                        <div class="col-12 mt-2">
+                                            <small class="text-muted d-block mb-1">Tipo de reapertura:</small>
+                                            <?php
+                                            $reopen_config = getConfig('reopen_types');
+                                            $reopen_type_info = $reopen_config[$repair['reopen_type']];
+                                            ?>
+                                            <span class="badge bg-<?= $reopen_type_info['color'] ?>">
+                                                <?= $reopen_type_info['name'] ?>
+                                            </span>
                                         </div>
                                     <?php endif; ?>
                                     <?php if ($repair['reopen_reason']): ?>
                                         <div class="col-12 mt-2">
-                                            <small><strong>Motivo:</strong> <?= htmlspecialchars($repair['reopen_reason']) ?></small>
-                                        </div>
-                                    <?php endif; ?>
-                                    <?php if ($repair['reopen_notes']): ?>
-                                        <div class="col-12 mt-2">
-                                            <small><strong>Notas:</strong> <?= htmlspecialchars($repair['reopen_notes']) ?></small>
+                                            <small class="text-muted d-block mb-1">Motivo:</small>
+                                            <span><?= htmlspecialchars($repair['reopen_reason']) ?></span>
                                         </div>
                                     <?php endif; ?>
                                 </div>
                             </div>
+                        <?php else: ?>
+                            <!-- Garantía Normal (Sin reapertura) -->
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="warranty-info">
+                                        <label class="fw-bold text-muted">Días de Garantía:</label>
+                                        <div class="warranty-value">
+                                            <span class="h6 text-info"><?= $warranty_days ?> días</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="warranty-status">
+                                        <label class="fw-bold text-muted">Estado de Garantía:</label>
+                                        <div class="mt-2">
+                                            <?= formatWarrantyStatusEnhanced($repair) ?>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <?php if ($warranty_info['delivered_at']): ?>
+                                <hr>
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <small class="text-muted">
+                                            <i class="bi bi-calendar-check me-1"></i>
+                                            Entregado: <?= formatDateTime($warranty_info['delivered_at']) ?>
+                                        </small>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <small class="text-muted">
+                                            <i class="bi bi-calendar-x me-1"></i>
+                                            Garantía expira:
+                                            <?= date('d/m/Y', strtotime($warranty_info['warranty_expires_at'])) ?>
+                                        </small>
+                                    </div>
+                                </div>
+                            <?php endif; ?>
                         <?php endif; ?>
                     </div>
                 </div>
@@ -942,10 +1028,13 @@ require_once INCLUDES_PATH . 'header.php';
                     </div>
                     <div class="card-body">
                         <div class="timeline">
+                            <!-- Recibido -->
                             <div class="timeline-item">
                                 <div class="timeline-marker bg-primary"></div>
                                 <div class="timeline-content">
-                                    <div class="timeline-title">Recibido</div>
+                                    <div class="timeline-title">
+                                        <i class="bi bi-inbox me-2"></i>Recibido
+                                    </div>
                                     <div class="timeline-date">
                                         <?= formatDateTime($repair['received_at']) ?>
                                     </div>
@@ -955,11 +1044,14 @@ require_once INCLUDES_PATH . 'header.php';
                                 </div>
                             </div>
 
+                            <!-- Completado primera vez -->
                             <?php if ($repair['completed_at']): ?>
                                 <div class="timeline-item">
                                     <div class="timeline-marker bg-success"></div>
                                     <div class="timeline-content">
-                                        <div class="timeline-title">Completado</div>
+                                        <div class="timeline-title">
+                                            <i class="bi bi-check-circle me-2"></i>Completado
+                                        </div>
                                         <div class="timeline-date">
                                             <?= formatDateTime($repair['completed_at']) ?>
                                         </div>
@@ -967,52 +1059,148 @@ require_once INCLUDES_PATH . 'header.php';
                                 </div>
                             <?php endif; ?>
 
-                            <?php if ($repair['delivered_at']): ?>
+                            <!-- Entregado primera vez -->
+                            <?php if ($repair['delivered_at'] || $repair['original_delivered_at']): ?>
                                 <div class="timeline-item">
                                     <div class="timeline-marker bg-info"></div>
                                     <div class="timeline-content">
-                                        <div class="timeline-title">Entregado</div>
+                                        <div class="timeline-title">
+                                            <i class="bi bi-hand-thumbs-up me-2"></i>Entregado
+                                        </div>
                                         <div class="timeline-date">
-                                            <?= formatDateTime($repair['delivered_at']) ?>
+                                            <?= formatDateTime($repair['original_delivered_at'] ?? $repair['delivered_at']) ?>
                                         </div>
                                         <?php if ($repair['delivered_by']): ?>
                                             <small class="text-muted">
                                                 Por <?= htmlspecialchars($repair['delivered_by']) ?>
                                             </small>
                                         <?php endif; ?>
+                                        <?php if ($warranty_info['original_warranty_days']): ?>
+                                            <div class="mt-1">
+                                                <small class="badge bg-info">Garantía: <?= $warranty_info['original_warranty_days'] ?> días</small>
+                                            </div>
+                                        <?php endif; ?>
                                     </div>
                                 </div>
                             <?php endif; ?>
 
+                            <!-- Reabierto -->
                             <?php if ($repair['reopen_date']): ?>
                                 <div class="timeline-item">
                                     <div class="timeline-marker bg-warning"></div>
                                     <div class="timeline-content">
-                                        <div class="timeline-title">Reabierto</div>
+                                        <div class="timeline-title fw-bold text-warning">
+                                            <i class="bi bi-arrow-clockwise me-2"></i>REABIERTO POR GARANTÍA
+                                        </div>
                                         <div class="timeline-date">
                                             <?= formatDateTime($repair['reopen_date']) ?>
                                         </div>
                                         <?php if ($repair['reopen_type']): ?>
-                                            <small class="text-muted">
-                                                Tipo: <?php
-                                                $reopen_config = getConfig('reopen_types');
-                                                echo $reopen_config[$repair['reopen_type']]['name'];
-                                                ?>
-                                            </small>
+                                            <?php
+                                            $reopen_config = getConfig('reopen_types');
+                                            $reopen_type_info = $reopen_config[$repair['reopen_type']];
+                                            ?>
+                                            <div class="mt-2">
+                                                <small class="badge bg-<?= $reopen_type_info['color'] ?>">
+                                                    <?= $reopen_type_info['name'] ?>
+                                                </small>
+                                            </div>
+                                        <?php endif; ?>
+                                        <?php if ($repair['reopen_reason']): ?>
+                                            <div class="mt-2">
+                                                <small class="text-muted">
+                                                    <strong>Motivo:</strong> <?= htmlspecialchars($repair['reopen_reason']) ?>
+                                                </small>
+                                            </div>
+                                        <?php endif; ?>
+                                        <?php if ($repair['reopen_notes']): ?>
+                                            <div class="mt-1">
+                                                <small class="text-muted">
+                                                    <?= htmlspecialchars($repair['reopen_notes']) ?>
+                                                </small>
+                                            </div>
+                                        <?php endif; ?>
+                                    </div>
+                                </div>
+                            <?php endif; ?>
+
+                            <!-- Completado después de reapertura -->
+                            <?php if ($repair['reopen_completed_at']): ?>
+                                <div class="timeline-item">
+                                    <div class="timeline-marker bg-success"></div>
+                                    <div class="timeline-content">
+                                        <div class="timeline-title">
+                                            <i class="bi bi-check-circle me-2"></i>Completado nuevamente
+                                        </div>
+                                        <div class="timeline-date">
+                                            <?= formatDateTime($repair['reopen_completed_at']) ?>
+                                        </div>
+                                    </div>
+                                </div>
+                            <?php endif; ?>
+
+                            <!-- Entregado después de reapertura -->
+                            <?php if ($repair['reopen_delivered_at']): ?>
+                                <div class="timeline-item">
+                                    <div class="timeline-marker bg-info"></div>
+                                    <div class="timeline-content">
+                                        <div class="timeline-title">
+                                            <i class="bi bi-hand-thumbs-up me-2"></i>Re-entregado
+                                        </div>
+                                        <div class="timeline-date">
+                                            <?= formatDateTime($repair['reopen_delivered_at']) ?>
+                                        </div>
+                                        <?php if ($repair['reopen_warranty_days']): ?>
+                                            <div class="mt-1">
+                                                <small class="badge bg-success">Nueva garantía: <?= $repair['reopen_warranty_days'] ?> días</small>
+                                            </div>
                                         <?php endif; ?>
                                     </div>
                                 </div>
                             <?php endif; ?>
                         </div>
 
-                        <div class="duration-info mt-3 p-3 bg-light rounded">
-                            <div class="text-center">
-                                <div class="fw-bold text-primary">
-                                    <?= formatDurationSpanish($repair_duration) ?>
-                                </div>
-                                <small class="text-muted">
-                                    <?= $repair['status'] === 'delivered' ? 'Duración total' : 'Días transcurridos' ?>
-                                </small>
+                        <!-- Duración -->
+                        <div class="duration-info mt-3">
+                            <div class="row g-2">
+                                <?php if ($repair['is_reopened']): ?>
+                                    <!-- Duración Actual (desde reapertura) -->
+                                    <div class="col-6">
+                                        <div class="p-3 bg-info bg-opacity-10 rounded">
+                                            <div class="text-center">
+                                                <div class="fw-bold text-info">
+                                                    <?= formatDurationSpanish($current_duration) ?>
+                                                </div>
+                                                <small class="text-muted">Duración Actual</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <!-- Duración Total -->
+                                    <div class="col-6">
+                                        <div class="p-3 bg-primary bg-opacity-10 rounded">
+                                            <div class="text-center">
+                                                <div class="fw-bold text-primary">
+                                                    <?= formatDurationSpanish($total_duration) ?>
+                                                </div>
+                                                <small class="text-muted">Duración Total</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                <?php else: ?>
+                                    <!-- Solo duración total si no hay reapertura -->
+                                    <div class="col-12">
+                                        <div class="p-3 bg-light rounded">
+                                            <div class="text-center">
+                                                <div class="fw-bold text-primary">
+                                                    <?= formatDurationSpanish($current_duration) ?>
+                                                </div>
+                                                <small class="text-muted">
+                                                    <?= $repair['status'] === 'delivered' ? 'Duración total' : 'Días transcurridos' ?>
+                                                </small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                <?php endif; ?>
                             </div>
                         </div>
                     </div>
