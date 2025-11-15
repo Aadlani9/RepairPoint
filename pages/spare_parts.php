@@ -694,15 +694,9 @@ require_once INCLUDES_PATH . 'header.php';
                     </div>
                 </div>
 
-                <div class="row mb-3">
-                    <div class="col-sm-6">
-                        <strong>Estado del stock:</strong><br>
-                        ${formatStockStatusBadge(part.stock_status, part.stock_quantity)}
-                    </div>
-                    <div class="col-sm-6">
-                        <strong>Garantía:</strong><br>
-                        ${part.warranty_days || 30} días
-                    </div>
+                <div class="mb-3">
+                    <strong>Garantía:</strong><br>
+                    ${part.warranty_days || 30} días
                 </div>
 
                 ${part.notes ? `
@@ -814,19 +808,6 @@ require_once INCLUDES_PATH . 'header.php';
             };
 
             return categories[category.toLowerCase()] || category;
-        }
-
-        function formatStockStatusBadge(status, quantity) {
-            switch (status) {
-                case 'available':
-                    return `<span class="badge bg-success">Disponible (${quantity})</span>`;
-                case 'order_required':
-                    return `<span class="badge bg-warning">Necesita pedido (${quantity})</span>`;
-                case 'out_of_stock':
-                    return `<span class="badge bg-danger">Sin stock</span>`;
-                default:
-                    return `<span class="badge bg-secondary">Desconocido</span>`;
-            }
         }
 
         function formatDate(dateString) {
