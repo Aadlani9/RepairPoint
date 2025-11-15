@@ -409,7 +409,7 @@ require_once INCLUDES_PATH . 'header.php';
                                         <?php if (isset($repair['reopen_reason']) && $repair['reopen_reason']): ?>
                                             <div class="text-warning">
                                                 <i class="bi bi-arrow-clockwise me-1"></i>
-                                                <?= htmlspecialchars(mb_strimwidth($repair['reopen_reason'], 0, 30, '...')) ?>
+                                                <?= htmlspecialchars(mb_strimwidth(formatReopenReason($repair['reopen_reason']), 0, 30, '...')) ?>
                                             </div>
                                         <?php endif; ?>
                                         <?php if (isset($repair['reopen_type']) && $repair['reopen_type']): ?>

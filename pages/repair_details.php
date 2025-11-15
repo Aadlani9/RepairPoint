@@ -907,7 +907,7 @@ require_once INCLUDES_PATH . 'header.php';
                                     <?php if ($repair['reopen_reason']): ?>
                                         <div class="col-12 mt-2">
                                             <small class="text-muted d-block mb-1">Motivo:</small>
-                                            <span><?= htmlspecialchars($repair['reopen_reason']) ?></span>
+                                            <span><?= htmlspecialchars(formatReopenReason($repair['reopen_reason'])) ?></span>
                                         </div>
                                     <?php endif; ?>
                                 </div>
@@ -1109,7 +1109,7 @@ require_once INCLUDES_PATH . 'header.php';
                                         <?php if ($repair['reopen_reason']): ?>
                                             <div class="mt-2">
                                                 <small class="text-muted">
-                                                    <strong>Motivo:</strong> <?= htmlspecialchars($repair['reopen_reason']) ?>
+                                                    <strong>Motivo:</strong> <?= htmlspecialchars(formatReopenReason($repair['reopen_reason'])) ?>
                                                 </small>
                                             </div>
                                         <?php endif; ?>
@@ -1125,7 +1125,7 @@ require_once INCLUDES_PATH . 'header.php';
                             <?php endif; ?>
 
                             <!-- Completado después de reapertura -->
-                            <?php if ($repair['reopen_completed_at']): ?>
+                            <?php if (!empty($repair['reopen_completed_at'])): ?>
                                 <div class="timeline-item">
                                     <div class="timeline-marker bg-success"></div>
                                     <div class="timeline-content">
@@ -1140,7 +1140,7 @@ require_once INCLUDES_PATH . 'header.php';
                             <?php endif; ?>
 
                             <!-- Entregado después de reapertura -->
-                            <?php if ($repair['reopen_delivered_at']): ?>
+                            <?php if (!empty($repair['reopen_delivered_at'])): ?>
                                 <div class="timeline-item">
                                     <div class="timeline-marker bg-info"></div>
                                     <div class="timeline-content">
@@ -1150,7 +1150,7 @@ require_once INCLUDES_PATH . 'header.php';
                                         <div class="timeline-date">
                                             <?= formatDateTime($repair['reopen_delivered_at']) ?>
                                         </div>
-                                        <?php if ($repair['reopen_warranty_days']): ?>
+                                        <?php if (!empty($repair['reopen_warranty_days'])): ?>
                                             <div class="mt-1">
                                                 <small class="badge bg-success">Nueva garantía: <?= $repair['reopen_warranty_days'] ?> días</small>
                                             </div>
