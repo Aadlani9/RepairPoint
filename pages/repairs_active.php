@@ -100,6 +100,9 @@ $stats = [
     'high_priority' => $db->selectOne("SELECT COUNT(*) as count FROM repairs WHERE shop_id = ? AND priority = 'high' AND status IN ('pending', 'in_progress', 'completed', 'reopened')", [$shop_id])['count'] ?? 0
 ];
 
+// Obtener reparaciones en garantía activa (reopened)
+$warranty_repairs = getRepairsUnderWarranty($shop_id, 50);
+
 // Incluir header
 require_once INCLUDES_PATH . 'header.php';
 ?>
@@ -326,12 +329,163 @@ require_once INCLUDES_PATH . 'header.php';
             </div>
         </div>
 
+        <!-- Sección de Reparaciones en Garantía -->
+        <?php if (!empty($warranty_repairs) && empty($status_filter)): ?>
+            <div class="card mb-4 border-warning">
+                <div class="card-header bg-warning bg-opacity-10 border-warning">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="card-title mb-0 text-warning">
+                            <i class="bi bi-shield-check me-2"></i>
+                            Reparaciones en Garantía
+                            <span class="badge bg-warning ms-2"><?= count($warranty_repairs) ?></span>
+                        </h5>
+                        <span class="badge bg-warning">
+                            <i class="bi bi-arrow-clockwise me-1"></i>Reabiertas - Bajo Garantía
+                        </span>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-warning bg-opacity-25">
+                            <tr>
+                                <th>Referencia</th>
+                                <th>Cliente</th>
+                                <th>Dispositivo</th>
+                                <th>Motivo Reapertura</th>
+                                <th>Estado</th>
+                                <th>Reabierto</th>
+                                <th>Duración</th>
+                                <th>Garantía</th>
+                                <th>Acciones</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            <?php foreach ($warranty_repairs as $repair): ?>
+                                <?php
+                                // حساب المدة والضمانة الحالية للإصلاح المعاد فتحه
+                                $current_duration = calculateCurrentRepairDuration($repair);
+                                $warranty_info = getCurrentWarrantyInfo($repair);
+                                ?>
+                                <tr class="table-warning bg-opacity-10">
+                                    <td>
+                                        <div class="fw-bold text-primary">
+                                            #<?= htmlspecialchars($repair['reference']) ?>
+                                        </div>
+                                        <?php if ($repair['estimated_cost']): ?>
+                                            <small class="text-success">
+                                                €<?= number_format($repair['estimated_cost'], 2) ?>
+                                            </small>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td>
+                                        <div class="customer-info">
+                                            <div class="fw-semibold">
+                                                <?= htmlspecialchars($repair['customer_name']) ?>
+                                            </div>
+                                            <small class="text-muted">
+                                                <i class="bi bi-telephone me-1"></i>
+                                                <?= htmlspecialchars($repair['customer_phone']) ?>
+                                            </small>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <?php
+                                        $deviceName = getDeviceDisplayName($repair);
+                                        $parts = explode(' ', $deviceName, 2);
+                                        $brand = $parts[0] ?? '';
+                                        $model = $parts[1] ?? '';
+                                        ?>
+                                        <div class="device-info">
+                                            <div class="fw-semibold">
+                                                <?= htmlspecialchars($brand) ?>
+                                            </div>
+                                            <small class="text-muted">
+                                                <?= htmlspecialchars($model) ?>
+                                            </small>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <?php if (isset($repair['reopen_reason']) && $repair['reopen_reason']): ?>
+                                            <div class="text-warning">
+                                                <i class="bi bi-arrow-clockwise me-1"></i>
+                                                <?= htmlspecialchars(mb_strimwidth($repair['reopen_reason'], 0, 30, '...')) ?>
+                                            </div>
+                                        <?php endif; ?>
+                                        <?php if (isset($repair['reopen_type']) && $repair['reopen_type']): ?>
+                                            <div class="mt-1">
+                                                <?php
+                                                $reopen_config = getConfig('reopen_types');
+                                                $reopen_info = $reopen_config[$repair['reopen_type']];
+                                                ?>
+                                                <small class="badge bg-<?= $reopen_info['color'] ?>">
+                                                    <?= $reopen_info['name'] ?>
+                                                </small>
+                                            </div>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td>
+                                        <?= getStatusBadge($repair['status']) ?>
+                                    </td>
+                                    <td>
+                                        <div class="date-info">
+                                            <div class="small">
+                                                <?= formatDate($repair['reopen_date'], 'd/m/Y') ?>
+                                            </div>
+                                            <small class="text-muted">
+                                                <?= formatDate($repair['reopen_date'], 'H:i') ?>
+                                            </small>
+                                            <div class="small text-muted">
+                                                Hace <?= daysSince($repair['reopen_date']) ?> días
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-info">
+                                            <?= formatDurationSpanish($current_duration) ?>
+                                        </span>
+                                        <?php if ($current_duration > 7): ?>
+                                            <div class="mt-1">
+                                                <small class="badge bg-warning">Lenta</small>
+                                            </div>
+                                        <?php elseif ($current_duration <= 2): ?>
+                                            <div class="mt-1">
+                                                <small class="badge bg-success">Rápida</small>
+                                            </div>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td>
+                                        <?= formatWarrantyStatusEnhanced($repair) ?>
+                                    </td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm">
+                                            <a href="<?= url('pages/repair_details.php?id=' . $repair['id']) ?>"
+                                               class="btn btn-outline-primary"
+                                               title="Ver detalles">
+                                                <i class="bi bi-eye"></i>
+                                            </a>
+                                            <a href="<?= url('pages/edit_repair.php?id=' . $repair['id']) ?>"
+                                               class="btn btn-outline-secondary"
+                                               title="Editar">
+                                                <i class="bi bi-pencil"></i>
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        <?php endif; ?>
+
         <!-- Tabla de reparaciones -->
         <div class="card">
             <div class="card-header d-flex justify-content-between align-items-center">
                 <h5 class="card-title mb-0">
                     <i class="bi bi-list-check me-2"></i>
-                    Listado de Reparaciones
+                    Reparaciones Activas
                     <span class="badge bg-primary ms-2"><?= $total_records ?></span>
                 </h5>
                 <div class="btn-group btn-group-sm">
@@ -369,7 +523,6 @@ require_once INCLUDES_PATH . 'header.php';
                                 <th>Dispositivo</th>
                                 <th>Problema</th>
                                 <th>Estado</th>
-                                <th>Prioridad</th>
                                 <th>Fecha</th>
                                 <th>Duración</th>
                                 <th>Garantía</th>
@@ -380,9 +533,9 @@ require_once INCLUDES_PATH . 'header.php';
                             <tbody>
                             <?php foreach ($repairs as $repair): ?>
                                 <?php
-                                // حساب المدة والضمانة للإصلاح الحالي
-                                $duration = calculateRepairDuration($repair['received_at'], $repair['delivered_at']);
-                                $warranty_days = $repair['warranty_days'] ?? 30;
+                                // حساب المدة الحالية والضمانة بشكل صحيح (مع مراعاة إعادة الفتح)
+                                $current_duration = calculateCurrentRepairDuration($repair);
+                                $warranty_info = getCurrentWarrantyInfo($repair);
                                 ?>
                                 <tr class="repair-row <?= $repair['status'] === 'reopened' ? 'table-warning' : '' ?>" data-id="<?= $repair['id'] ?>">
                                     <td>
@@ -461,9 +614,6 @@ require_once INCLUDES_PATH . 'header.php';
                                         <?php endif; ?>
                                     </td>
                                     <td>
-                                        <?= getPriorityBadge($repair['priority']) ?>
-                                    </td>
-                                    <td>
                                         <div class="date-info">
                                             <div class="small">
                                                 <?= formatDate($repair['received_at'], 'd/m/Y') ?>
@@ -484,33 +634,20 @@ require_once INCLUDES_PATH . 'header.php';
                                     </td>
                                     <td>
                                     <span class="badge bg-info">
-                                        <?= formatDurationSpanish($duration) ?>
+                                        <?= formatDurationSpanish($current_duration) ?>
                                     </span>
-                                        <?php if ($duration > 7): ?>
+                                        <?php if ($current_duration > 7): ?>
                                             <div class="mt-1">
                                                 <small class="badge bg-warning">Lenta</small>
                                             </div>
-                                        <?php elseif ($duration <= 2): ?>
+                                        <?php elseif ($current_duration <= 2): ?>
                                             <div class="mt-1">
                                                 <small class="badge bg-success">Rápida</small>
                                             </div>
                                         <?php endif; ?>
                                     </td>
                                     <td>
-                                        <div class="warranty-info">
-                                            <small class="text-muted">
-                                                <?= $warranty_days ?> días
-                                            </small>
-                                            <?php if (isset($repair['delivered_at']) && $repair['delivered_at']): ?>
-                                                <div class="mt-1">
-                                                    <?= formatWarrantyStatus($repair['delivered_at'], $warranty_days) ?>
-                                                </div>
-                                            <?php else: ?>
-                                                <div class="mt-1">
-                                                    <small class="badge bg-secondary">Sin entregar</small>
-                                                </div>
-                                            <?php endif; ?>
-                                        </div>
+                                        <?= formatWarrantyStatusEnhanced($repair) ?>
                                     </td>
                                     <td>
                                         <small class="text-muted">
