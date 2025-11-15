@@ -1324,6 +1324,31 @@ function getRepairsUnderWarranty($shop_id, $limit = 100) {
     }
 }
 
+/**
+ * ترجمة سبب إعادة الفتح إلى نص واضح
+ */
+function formatReopenReason($reason_key) {
+    // قاموس الترجمات
+    $translations = [
+        'mismo_problema' => 'Mismo problema persiste',
+        'problema_relacionado' => 'Problema relacionado',
+        'daño_adicional' => 'Daño adicional detectado',
+        'reparacion_incompleta' => 'Reparación incompleta',
+        'pieza_defectuosa' => 'Pieza defectuosa o incompatible',
+        'solicitud_cliente' => 'Solicitud del cliente',
+        'error_diagnostico' => 'Error en diagnóstico inicial',
+        'otro' => 'Otro motivo'
+    ];
+
+    // إذا كان المفتاح موجود في القاموس، نرجع الترجمة
+    if (isset($translations[$reason_key])) {
+        return $translations[$reason_key];
+    }
+
+    // إذا لم يكن موجودًا، نعيد النص كما هو (قد يكون نص مخصص)
+    return ucfirst(str_replace('_', ' ', $reason_key));
+}
+
 
 // ===================================================
 // FUNCIONES DE قطع الغيار (SPARE PARTS)
