@@ -9,20 +9,13 @@ define('SECURE_ACCESS', true);
 // Incluir configuración
 require_once 'config/config.php';
 require_once INCLUDES_PATH . 'functions.php';
+require_once INCLUDES_PATH . 'auth.php';
 
-// التحقق من تسجيل الدخول
-checkLogin();
+// التحقق من تسجيل الدخول (يجب أن يكون admin)
+authMiddleware(true); // true = يتطلب صلاحيات admin
 
 // الحصول على معلومات المستخدم
-$user_id = $_SESSION['user_id'] ?? null;
-$user_role = $_SESSION['role'] ?? null;
-
-// يجب أن يكون المستخدم admin
-if ($user_role !== 'admin') {
-    $_SESSION['error_message'] = 'يجب أن تكون مسؤولاً للوصول إلى هذه الصفحة';
-    header('Location: pages/dashboard.php');
-    exit;
-}
+$current_user = getCurrentUser();
 
 $page_title = "معاينة بيانات الهواتف";
 ?>
