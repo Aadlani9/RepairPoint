@@ -27,7 +27,7 @@ if (!$repair_id) {
     die('ID de reparación no válido');
 }
 
-// Obtener datos de la reparación
+// Obtener datos de la reparación con información de reapertura
 $db = getDB();
 $repair = $db->selectOne(
     "SELECT r.*, b.name as brand_name, m.name as model_name, s.*
@@ -41,6 +41,16 @@ $repair = $db->selectOne(
 
 if (!$repair) {
     die('Reparación no encontrada');
+}
+
+// Calcular información de garantía
+$warranty_days = $repair['warranty_days'] ?? 30;
+$warranty_days_left = 0;
+$is_under_warranty = false;
+
+if ($repair['delivered_at']) {
+    $warranty_days_left = calculateWarrantyDaysLeft($repair['delivered_at'], $warranty_days);
+    $is_under_warranty = isUnderWarranty($repair['delivered_at'], $warranty_days);
 }
 
 // Log de actividad
@@ -235,6 +245,55 @@ logActivity('ticket_printed', "Ticket 80mm impreso para reparación #{$repair['r
             font-weight: bold;
             font-size: 9pt;
             text-transform: uppercase;
+        }
+
+        /* Sección de garantía/reapertura */
+        .warranty-section {
+            margin: 3mm 0;
+            padding: 3mm;
+            border: 3px solid #000;
+            background: repeating-linear-gradient(
+                45deg,
+                white,
+                white 2mm,
+                #f0f0f0 2mm,
+                #f0f0f0 4mm
+            );
+        }
+
+        .warranty-header {
+            text-align: center;
+            font-weight: bold;
+            font-size: 10pt;
+            margin-bottom: 2mm;
+            padding: 2mm;
+            background: #000;
+            color: white;
+            text-transform: uppercase;
+        }
+
+        .warranty-alert {
+            text-align: center;
+            font-weight: bold;
+            font-size: 9pt;
+            margin: 2mm 0;
+            padding: 2mm;
+            border: 2px solid #000;
+            background: white;
+        }
+
+        .warranty-info {
+            font-size: 8pt;
+            margin: 1mm 0;
+            padding: 2mm;
+            background: white;
+            border: 1px solid #000;
+        }
+
+        .warranty-info strong {
+            display: block;
+            font-size: 7pt;
+            margin-bottom: 1mm;
         }
 
         /* Separador */
@@ -485,6 +544,39 @@ logActivity('ticket_printed', "Ticket 80mm impreso para reparación #{$repair['r
             <div class="status-label">Estado actual:</div>
             <div class="status-badge"><?= getStatusName($repair['status']) ?></div>
         </div>
+
+        <!-- Información de garantía - Solo si está reabierto -->
+        <?php if (!empty($repair['is_reopened'])): ?>
+            <div class="warranty-section">
+                <div class="warranty-header">*** DISPOSITIVO BAJO GARANTÍA ***</div>
+
+                <div class="warranty-alert">
+                    REPARACIÓN REABIERTA BAJO GARANTÍA
+                </div>
+
+                <?php if (!empty($repair['reopen_date'])): ?>
+                    <div class="warranty-info">
+                        <strong>FECHA REAPERTURA:</strong>
+                        <?= formatDate($repair['reopen_date'], 'd/m/Y') ?>
+                    </div>
+                <?php endif; ?>
+
+                <?php if (!empty($repair['delivered_at']) && !empty($warranty_days)): ?>
+                    <div class="warranty-info">
+                        <strong>GARANTÍA VÁLIDA HASTA:</strong>
+                        <?= date('d/m/Y', strtotime($repair['delivered_at'] . " +{$warranty_days} days")) ?>
+                        (<?= $warranty_days_left ?> días restantes)
+                    </div>
+                <?php endif; ?>
+
+                <?php if (!empty($repair['reopen_reason'])): ?>
+                    <div class="warranty-info">
+                        <strong>MOTIVO:</strong>
+                        <?= htmlspecialchars($repair['reopen_reason']) ?>
+                    </div>
+                <?php endif; ?>
+            </div>
+        <?php endif; ?>
 
         <!-- Separador doble -->
         <div class="separator-double"></div>
