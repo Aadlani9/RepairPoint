@@ -1,109 +1,90 @@
 <?php
 /**
- * Script لتطبيق migration نظام تتبع الضمان والتاريخ
+ * تشغيل Migration لإضافة حقول الضمان
  */
 
-// تعريف الوصول الآمن
 define('SECURE_ACCESS', true);
-
-// تضمين ملفات الإعداد
 require_once 'config/config.php';
-require_once 'includes/functions.php';
 
-echo "=== بدء تطبيق Migration: نظام تتبع الضمان والتاريخ ===\n\n";
+echo "🚀 بدء تشغيل migration...\n\n";
 
-try {
-    $db = getDB();
-    $pdo = $db->getConnection();
+// قراءة ملف migration
+$migration_file = __DIR__ . '/sql/migrations/add_warranty_tracking_and_history.sql';
 
-    // قراءة ملف SQL
-    $sqlFile = __DIR__ . '/sql/migrations/add_warranty_tracking_and_history.sql';
-
-    if (!file_exists($sqlFile)) {
-        throw new Exception("ملف SQL غير موجود: $sqlFile");
-    }
-
-    $sql = file_get_contents($sqlFile);
-
-    // تقسيم الـ SQL إلى statements منفصلة
-    // إزالة التعليقات والسطور الفارغة
-    $sql = preg_replace('/--.*$/m', '', $sql);
-    $sql = preg_replace('/^\s*$/m', '', $sql);
-
-    // تقسيم حسب DELIMITER
-    $parts = explode('DELIMITER', $sql);
-
-    $pdo->beginTransaction();
-
-    echo "تطبيق التعديلات على قاعدة البيانات...\n";
-
-    // تنفيذ الجزء الأول (قبل DELIMITER)
-    if (!empty($parts[0])) {
-        $statements = array_filter(array_map('trim', explode(';', $parts[0])));
-        foreach ($statements as $statement) {
-            if (!empty($statement)) {
-                try {
-                    $pdo->exec($statement);
-                    echo "✓ تم تنفيذ statement بنجاح\n";
-                } catch (PDOException $e) {
-                    // تجاهل أخطاء "already exists"
-                    if (strpos($e->getMessage(), 'already exists') === false &&
-                        strpos($e->getMessage(), 'Duplicate') === false) {
-                        echo "⚠ تحذير: " . $e->getMessage() . "\n";
-                    }
-                }
-            }
-        }
-    }
-
-    // تنفيذ الـ triggers (إذا وجدت)
-    if (isset($parts[1])) {
-        // استخراج كل trigger
-        preg_match_all('/CREATE TRIGGER.*?END\$\$/s', $parts[1], $triggers);
-        foreach ($triggers[0] as $trigger) {
-            $trigger = trim($trigger);
-            if (!empty($trigger)) {
-                try {
-                    $pdo->exec($trigger);
-                    echo "✓ تم إنشاء Trigger بنجاح\n";
-                } catch (PDOException $e) {
-                    echo "⚠ تحذير Trigger: " . $e->getMessage() . "\n";
-                }
-            }
-        }
-    }
-
-    $pdo->commit();
-
-    echo "\n✅ تم تطبيق Migration بنجاح!\n";
-    echo "\nالتغييرات المطبقة:\n";
-    echo "1. ✓ جدول repair_history للسجل التاريخي\n";
-    echo "2. ✓ حقول جديدة في جدول repairs\n";
-    echo "3. ✓ فهارس محسنة للأداء\n";
-    echo "4. ✓ Triggers تلقائية لتسجيل الأحداث\n";
-    echo "5. ✓ View محسن v_repairs_latest_event\n";
-    echo "6. ✓ نقل البيانات الموجودة\n\n";
-
-    // التحقق من النتائج
-    echo "التحقق من التطبيق:\n";
-
-    $tables = $pdo->query("SHOW TABLES LIKE 'repair_history'")->fetchAll();
-    if (count($tables) > 0) {
-        echo "✓ جدول repair_history موجود\n";
-    }
-
-    $columns = $pdo->query("SHOW COLUMNS FROM repairs LIKE 'reopen_delivered_at'")->fetchAll();
-    if (count($columns) > 0) {
-        echo "✓ الحقول الجديدة موجودة في repairs\n";
-    }
-
-    echo "\n=== انتهى تطبيق Migration بنجاح ===\n";
-
-} catch (Exception $e) {
-    if (isset($pdo) && $pdo->inTransaction()) {
-        $pdo->rollBack();
-    }
-    echo "\n❌ خطأ: " . $e->getMessage() . "\n";
-    echo "تم التراجع عن التغييرات.\n";
-    exit(1);
+if (!file_exists($migration_file)) {
+    die("❌ ملف migration غير موجود: $migration_file\n");
 }
+
+echo "📄 قراءة ملف: $migration_file\n";
+$sql = file_get_contents($migration_file);
+
+// تقسيم SQL إلى أوامر منفصلة
+$statements = [];
+$current_statement = '';
+$in_delimiter_block = false;
+$custom_delimiter = ';';
+
+$lines = explode("\n", $sql);
+foreach ($lines as $line) {
+    $line = trim($line);
+
+    if (empty($line) || substr($line, 0, 2) === '--') {
+        continue;
+    }
+
+    if (preg_match('/^DELIMITER\s+(.+)$/i', $line, $matches)) {
+        $custom_delimiter = trim($matches[1]);
+        $in_delimiter_block = ($custom_delimiter !== ';');
+        continue;
+    }
+
+    $current_statement .= $line . "\n";
+
+    if ($in_delimiter_block) {
+        if (substr(rtrim($line), -strlen($custom_delimiter)) === $custom_delimiter) {
+            $current_statement = substr($current_statement, 0, -strlen($custom_delimiter) - 1);
+            $statements[] = trim($current_statement);
+            $current_statement = '';
+        }
+    } else {
+        if (substr($line, -1) === ';') {
+            $statements[] = trim($current_statement);
+            $current_statement = '';
+        }
+    }
+}
+
+if (!empty(trim($current_statement))) {
+    $statements[] = trim($current_statement);
+}
+
+echo "📊 عدد الأوامر: " . count($statements) . "\n\n";
+
+$db = getDB();
+$success_count = 0;
+$error_count = 0;
+
+foreach ($statements as $index => $statement) {
+    if (empty($statement)) continue;
+
+    $preview = substr($statement, 0, 60) . '...';
+    echo "⚡ أمر " . ($index + 1) . ": $preview\n";
+
+    try {
+        $db->getPDO()->exec($statement);
+        echo "   ✅ نجح\n";
+        $success_count++;
+    } catch (Exception $e) {
+        $msg = $e->getMessage();
+        if (strpos($msg, 'already exists') !== false || strpos($msg, 'Duplicate') !== false) {
+            echo "   ⚠️  موجود مسبقاً\n";
+            $success_count++;
+        } else {
+            echo "   ❌ خطأ: " . $msg . "\n";
+            $error_count++;
+        }
+    }
+}
+
+echo "\n📈 النتائج: ✅ $success_count | ❌ $error_count\n";
+echo ($error_count === 0 ? "✨ نجح!\n" : "⚠️  توجد أخطاء\n");
