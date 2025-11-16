@@ -773,10 +773,10 @@ logActivity('ticket_printed', "Ticket A5 impreso para reparación #{$repair['ref
             <!-- Información de reapertura - Solo si está reabierto -->
             <?php if (!empty($repair['is_reopened'])): ?>
                 <div class="reopen-section">
-                    <div class="reopen-header">DISPOSITIVO DEVUELTO EN GARANTIA</div>
+                    <div class="reopen-header">*** DISPOSITIVO BAJO GARANTIA ***</div>
 
                     <div class="reopen-alert">
-                        <div class="reopen-alert-text">REPARACION REABIERTA</div>
+                        <div class="reopen-alert-text">REPARACION REABIERTA BAJO GARANTIA</div>
                     </div>
 
                     <div class="reopen-details">
@@ -794,14 +794,25 @@ logActivity('ticket_printed', "Ticket A5 impreso para reparación #{$repair['ref
 
                         <?php if (!empty($repair['reopen_date'])): ?>
                             <div class="reopen-item">
-                                <div class="reopen-label">Fecha:</div>
+                                <div class="reopen-label">Fecha Reapertura:</div>
                                 <div class="reopen-value"><?= formatDate($repair['reopen_date'], 'd/m/Y') ?></div>
+                            </div>
+                        <?php endif; ?>
+
+                        <!-- إضافة تاريخ انتهاء الضمان -->
+                        <?php if (!empty($repair['delivered_at']) && !empty($warranty_days)): ?>
+                            <div class="reopen-item">
+                                <div class="reopen-label">Garantía Válida Hasta:</div>
+                                <div class="reopen-value">
+                                    <?= date('d/m/Y', strtotime($repair['delivered_at'] . " +{$warranty_days} days")) ?>
+                                    (<?= $warranty_days_left ?> días restantes)
+                                </div>
                             </div>
                         <?php endif; ?>
 
                         <?php if (!empty($repair['reopen_reason'])): ?>
                             <div class="reopen-reason">
-                                <div class="reopen-reason-title">Motivo:</div>
+                                <div class="reopen-reason-title">Motivo Reapertura:</div>
                                 <div class="reopen-reason-text"><?= htmlspecialchars($repair['reopen_reason']) ?></div>
                             </div>
                         <?php endif; ?>

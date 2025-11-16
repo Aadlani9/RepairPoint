@@ -27,7 +27,7 @@ if (!$repair_id) {
     die('ID de reparación no válido');
 }
 
-// Obtener datos de la reparación
+// Obtener datos de la reparación con información de reapertura
 $db = getDB();
 $repair = $db->selectOne(
     "SELECT r.*, b.name as brand_name, m.name as model_name, s.*
@@ -41,6 +41,16 @@ $repair = $db->selectOne(
 
 if (!$repair) {
     die('Reparación no encontrada');
+}
+
+// Calcular información de garantía
+$warranty_days = $repair['warranty_days'] ?? 30;
+$warranty_days_left = 0;
+$is_under_warranty = false;
+
+if ($repair['delivered_at']) {
+    $warranty_days_left = calculateWarrantyDaysLeft($repair['delivered_at'], $warranty_days);
+    $is_under_warranty = isUnderWarranty($repair['delivered_at'], $warranty_days);
 }
 
 // Log de actividad
@@ -189,6 +199,53 @@ logActivity('ticket_printed', "Ticket 57mm impreso para reparación #{$repair['r
         .cost-value {
             font-size: 14pt;
             font-weight: bold;
+        }
+
+        /* Sección de garantía compacta */
+        .warranty-box {
+            border: 2px solid #000;
+            padding: 2mm;
+            margin: 2mm 0;
+            background: repeating-linear-gradient(
+                45deg,
+                white,
+                white 1mm,
+                #f0f0f0 1mm,
+                #f0f0f0 2mm
+            );
+        }
+
+        .warranty-header {
+            text-align: center;
+            font-weight: bold;
+            font-size: 8pt;
+            padding: 1mm;
+            background: #000;
+            color: white;
+            margin-bottom: 2mm;
+        }
+
+        .warranty-alert {
+            text-align: center;
+            font-weight: bold;
+            font-size: 7pt;
+            margin-bottom: 1mm;
+            padding: 1mm;
+            border: 1px solid #000;
+            background: white;
+        }
+
+        .warranty-info {
+            font-size: 6pt;
+            margin: 1mm 0;
+            padding: 1mm;
+            background: white;
+            border: 1px solid #000;
+        }
+
+        .warranty-info strong {
+            display: block;
+            margin-bottom: 0.5mm;
         }
 
         /* Separador */
@@ -370,6 +427,31 @@ logActivity('ticket_printed', "Ticket 57mm impreso para reparación #{$repair['r
                 <div class="cost-value">
                     €<?= number_format($repair['actual_cost'] ?? $repair['estimated_cost'], 2) ?>
                 </div>
+            </div>
+        <?php endif; ?>
+
+        <!-- Información de garantía - Solo si está reabierto -->
+        <?php if (!empty($repair['is_reopened'])): ?>
+            <div class="warranty-box">
+                <div class="warranty-header">*** BAJO GARANTÍA ***</div>
+
+                <div class="warranty-alert">
+                    REAPERTURA BAJO GARANTÍA
+                </div>
+
+                <?php if (!empty($repair['delivered_at']) && !empty($warranty_days)): ?>
+                    <div class="warranty-info">
+                        <strong>VÁLIDA HASTA:</strong>
+                        <?= date('d/m/Y', strtotime($repair['delivered_at'] . " +{$warranty_days} days")) ?>
+                    </div>
+                <?php endif; ?>
+
+                <?php if (!empty($repair['reopen_reason'])): ?>
+                    <div class="warranty-info">
+                        <strong>MOTIVO:</strong>
+                        <?= htmlspecialchars(substr($repair['reopen_reason'], 0, 50)) ?><?= strlen($repair['reopen_reason']) > 50 ? '...' : '' ?>
+                    </div>
+                <?php endif; ?>
             </div>
         <?php endif; ?>
 
