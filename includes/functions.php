@@ -1443,49 +1443,12 @@ function calculateSparePartsCost($parts_array) {
 
 /**
  * تحديث المخزون لقطعة غيار
+ * ملاحظة: تم تعطيل التحديث التلقائي للمخزون - الدالة لا تفعل شيئاً الآن
  */
 function updateSparePartStock($part_id, $quantity_used, $operation = 'subtract') {
-    $db = getDB();
-
-    try {
-        // الحصول على البيانات الحالية
-        $part = $db->selectOne(
-            "SELECT stock_quantity, min_stock_level FROM spare_parts WHERE id = ?",
-            [$part_id]
-        );
-
-        if (!$part) {
-            return false;
-        }
-
-        // حساب الكمية الجديدة
-        switch ($operation) {
-            case 'add':
-                $new_quantity = $part['stock_quantity'] + $quantity_used;
-                break;
-            case 'subtract':
-            default:
-                $new_quantity = max(0, $part['stock_quantity'] - $quantity_used);
-        }
-
-        // تحديد حالة المخزون
-        $new_status = 'available';
-        if ($new_quantity <= 0) {
-            $new_status = 'out_of_stock';
-        } elseif ($new_quantity <= $part['min_stock_level']) {
-            $new_status = 'order_required';
-        }
-
-        // تحديث المخزون
-        return $db->update(
-            "UPDATE spare_parts SET stock_quantity = ?, stock_status = ? WHERE id = ?",
-            [$new_quantity, $new_status, $part_id]
-        );
-
-    } catch (Exception $e) {
-        error_log("Error updating spare part stock: " . $e->getMessage());
-        return false;
-    }
+    // ✅ تم تعطيل تحديث المخزون - نحتفظ بالدالة لتجنب كسر الكود الموجود
+    // المخزون سيتم تحديثه يدوياً عند الحاجة فقط
+    return true;
 }
 
 /**
@@ -1536,15 +1499,12 @@ function getLowStockParts($shop_id) {
 
 /**
  * إضافة قطعة غيار مستخدمة في الإصلاح
+ * ملاحظة: لا يتم تحديث المخزون تلقائياً - نسجل الاستخدام فقط
  */
-// ابحث عن دالة addRepairSparePart واستبدلها بهذا
 function addRepairSparePart($repair_id, $spare_part_id, $quantity = 1, $unit_price = null) {
     $db = getDB();
 
     try {
-        // ❌ احذف هذا السطر - لا نحتاج transaction جديد
-        // $db->beginTransaction();
-
         // الحصول على بيانات القطعة
         $part = $db->selectOne(
             "SELECT * FROM spare_parts WHERE id = ?",
@@ -1555,11 +1515,6 @@ function addRepairSparePart($repair_id, $spare_part_id, $quantity = 1, $unit_pri
             throw new Exception('القطعة غير موجودة');
         }
 
-        // التحقق من توفر المخزون
-        if ($part['stock_quantity'] < $quantity) {
-            throw new Exception('الكمية المطلوبة غير متوفرة في المخزون');
-        }
-
         // استخدام السعر الحالي إذا لم يتم تحديد سعر
         if ($unit_price === null) {
             $unit_price = $part['total_price'];
@@ -1567,9 +1522,9 @@ function addRepairSparePart($repair_id, $spare_part_id, $quantity = 1, $unit_pri
 
         $total_price = $unit_price * $quantity;
 
-        // إدراج استخدام القطعة
+        // إدراج استخدام القطعة (بدون تحديث المخزون)
         $usage_id = $db->insert(
-            "INSERT INTO repair_spare_parts (repair_id, spare_part_id, quantity, 
+            "INSERT INTO repair_spare_parts (repair_id, spare_part_id, quantity,
                                            unit_cost_price, unit_labor_cost, unit_price, total_price, warranty_days)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
             [
@@ -1588,19 +1543,11 @@ function addRepairSparePart($repair_id, $spare_part_id, $quantity = 1, $unit_pri
             throw new Exception('فشل في تسجيل استخدام القطعة');
         }
 
-        // تحديث المخزون
-        if (!updateSparePartStock($spare_part_id, $quantity, 'subtract')) {
-            throw new Exception('فشل في تحديث المخزون');
-        }
-
-        // ❌ احذف هذا السطر - add_repair.php سيتولى commit
-        // $db->commit();
+        // ✅ تم إزالة تحديث المخزون - سيتم التحديث يدوياً عند الحاجة
 
         return $usage_id;
 
     } catch (Exception $e) {
-        // ❌ احذف rollback - add_repair.php سيتولاه
-        // $db->rollback();
         error_log("Error adding repair spare part: " . $e->getMessage());
         throw $e;
     }
@@ -1662,13 +1609,14 @@ function calculateRepairSparePartsCost($repair_id) {
 
 /**
  * التحقق من توفر قطعة غيار
+ * ملاحظة: لا نتحقق من المخزون - نتحقق فقط من وجود القطعة
  */
 function checkSparePartAvailability($part_id, $required_quantity = 1) {
     $db = getDB();
 
     $part = $db->selectOne(
-        "SELECT stock_quantity, stock_status, part_name 
-         FROM spare_parts 
+        "SELECT stock_quantity, stock_status, part_name
+         FROM spare_parts
          WHERE id = ? AND is_active = TRUE",
         [$part_id]
     );
@@ -1681,14 +1629,7 @@ function checkSparePartAvailability($part_id, $required_quantity = 1) {
         ];
     }
 
-    if ($part['stock_status'] === 'out_of_stock' || $part['stock_quantity'] < $required_quantity) {
-        return [
-            'available' => false,
-            'message' => 'الكمية المطلوبة غير متوفرة في المخزون',
-            'stock_quantity' => $part['stock_quantity']
-        ];
-    }
-
+    // ✅ دائماً متوفر إذا كانت القطعة موجودة (لا نتحقق من المخزون)
     return [
         'available' => true,
         'message' => 'متوفر',

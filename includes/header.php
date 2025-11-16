@@ -167,24 +167,6 @@ if (isset($_SESSION['user_id']) && $shop_id) {
                            href="#" id="sparePartsDropdown" role="button" data-dropdown-toggle>
                             <i class="bi bi-gear me-1"></i>
                             Repuestos
-                            <?php
-                            // عرض إشعار المخزون المنخفض
-                            try {
-                                $low_stock_count = 0;
-                                if ($spare_parts_permissions['manage_spare_parts'] && function_exists('getLowStockParts')) {
-                                    $low_stock_parts = getLowStockParts($shop_id);
-                                    $low_stock_count = count($low_stock_parts);
-                                }
-                                if ($low_stock_count > 0):
-                                    ?>
-                                    <span class="badge bg-warning ms-1"><?= $low_stock_count ?></span>
-                                <?php
-                                endif;
-                            } catch (Exception $e) {
-                                // تجاهل الأخطاء في حالة عدم وجود الجداول
-                                error_log("Low stock check error: " . $e->getMessage());
-                            }
-                            ?>
                         </a>
                         <ul class="dropdown-menu">
                             <li>
@@ -222,17 +204,6 @@ if (isset($_SESSION['user_id']) && $shop_id) {
                                     </li>
                                 <?php endif; ?>
 
-                                <?php if ($spare_parts_permissions['manage_stock']): ?>
-                                    <li>
-                                        <a class="dropdown-item" href="<?= url('pages/spare_parts.php?filter=low_stock') ?>">
-                                            <i class="bi bi-exclamation-triangle me-2"></i>
-                                            Stock Bajo
-                                            <?php if (isset($low_stock_count) && $low_stock_count > 0): ?>
-                                                <span class="badge bg-warning ms-1"><?= $low_stock_count ?></span>
-                                            <?php endif; ?>
-                                        </a>
-                                    </li>
-                                <?php endif; ?>
 
                                 <?php if ($spare_parts_permissions['view_profit_reports']): ?>
                                     <li>
@@ -328,32 +299,11 @@ if (isset($_SESSION['user_id']) && $shop_id) {
                     </a>
                 </li>
 
-                <!-- إشعارات (اختيارية) -->
+                <!-- إشعارات (اختيارية) - تم تعطيل إشعارات المخزون -->
                 <?php if ($spare_parts_permissions['manage_spare_parts'] && $shop_id): ?>
                     <li class="nav-item dropdown">
                         <a class="nav-link position-relative" href="#" id="notificationsDropdown" role="button" data-dropdown-toggle>
                             <i class="bi bi-bell"></i>
-                            <?php
-                            try {
-                                $notifications_count = 0;
-                                if ($spare_parts_permissions['manage_stock'] && isset($_SESSION['shop_id'])) {
-                                    $low_stock_parts = getLowStockParts($_SESSION['shop_id']);
-                                    $notifications_count += count($low_stock_parts);
-                                }
-
-                                if ($notifications_count > 0):
-                                    ?>
-                                    <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
-            <?= $notifications_count > 9 ? '9+' : $notifications_count ?>
-            <span class="visually-hidden">notificaciones pendientes</span>
-        </span>
-                                <?php
-                                endif;
-                            } catch (Exception $e) {
-                                // تجاهل الأخطاء
-                                error_log("Notifications error: " . $e->getMessage());
-                            }
-                            ?>
                         </a>
                         <ul class="dropdown-menu dropdown-menu-end">
                             <li>
@@ -363,26 +313,12 @@ if (isset($_SESSION['user_id']) && $shop_id) {
                                 </h6>
                             </li>
 
-                            <?php if (isset($low_stock_parts) && count($low_stock_parts) > 0): ?>
-                                <li>
-                                    <a class="dropdown-item" href="<?= url('pages/spare_parts.php?filter=low_stock') ?>">
-                                        <i class="bi bi-exclamation-triangle text-warning me-2"></i>
-                                        <div>
-                                            <div class="fw-bold">Stock Bajo</div>
-                                            <small class="text-muted"><?= count($low_stock_parts) ?> repuesto(s) necesitan reposición</small>
-                                        </div>
-                                    </a>
-                                </li>
-                            <?php endif; ?>
-
-                            <?php if ((!isset($low_stock_parts) || count($low_stock_parts) == 0)): ?>
-                                <li>
-                            <span class="dropdown-item-text text-muted">
-                                <i class="bi bi-check-circle text-success me-2"></i>
-                                No hay notificaciones pendientes
-                            </span>
-                                </li>
-                            <?php endif; ?>
+                            <li>
+                                <span class="dropdown-item-text text-muted">
+                                    <i class="bi bi-check-circle text-success me-2"></i>
+                                    No hay notificaciones pendientes
+                                </span>
+                            </li>
 
                             <li><hr class="dropdown-divider"></li>
                             <li>
@@ -793,54 +729,9 @@ if (isset($_SESSION['user_id']) && $shop_id) {
                     });
                 }
 
-                // تحديث عداد الإشعارات كل 5 دقائق
-                setInterval(updateNotificationCount, 300000);
-
                 // إعداد keyboard shortcuts
                 setupKeyboardShortcuts();
             });
-
-            // تحديث عداد الإشعارات
-            function updateNotificationCount() {
-                <?php if ($spare_parts_permissions['manage_spare_parts'] && $shop_id): ?>
-                fetch('<?= url('api/notifications.php') ?>?action=count')
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.success) {
-                            updateBadges(data.data);
-                        }
-                    })
-                    .catch(error => {
-                        // تجاهل الأخطاء بصمت
-                    });
-                <?php endif; ?>
-            }
-
-            // تحديث الشارات
-            function updateBadges(counts) {
-                // تحديث شارة الإشعارات الرئيسية
-                const mainBadge = document.querySelector('#notificationsDropdown .badge');
-                if (mainBadge) {
-                    const total = counts.low_stock || 0;
-                    if (total > 0) {
-                        mainBadge.textContent = total > 9 ? '9+' : total;
-                        mainBadge.style.display = 'inline';
-                    } else {
-                        mainBadge.style.display = 'none';
-                    }
-                }
-
-                // تحديث شارة قطع الغيار
-                const sparePartsBadge = document.querySelector('#sparePartsDropdown .badge');
-                if (sparePartsBadge && counts.low_stock) {
-                    sparePartsBadge.textContent = counts.low_stock;
-                    if (counts.low_stock > 0) {
-                        sparePartsBadge.classList.add('low-stock-indicator');
-                    } else {
-                        sparePartsBadge.classList.remove('low-stock-indicator');
-                    }
-                }
-            }
 
             // إعداد keyboard shortcuts
             function setupKeyboardShortcuts() {
