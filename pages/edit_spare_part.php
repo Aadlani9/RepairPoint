@@ -146,7 +146,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $update_params
             );
 
-            if (!$updated) {
+            // التحقق من الخطأ (false) وليس من عدم تحديث الصفوف (0)
+            if ($updated === false) {
                 throw new Exception('Error al actualizar el repuesto');
             }
 
