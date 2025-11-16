@@ -58,6 +58,14 @@ if (!$repair) {
 
 $page_title = 'Reparación #' . $repair['reference'];
 
+// 🔧 التوافق مع قواعد البيانات - تعيين قيم افتراضية للحقول التي قد لا تكون موجودة
+$repair['original_delivered_at'] = $repair['original_delivered_at'] ?? null;
+$repair['reopen_delivered_at'] = $repair['reopen_delivered_at'] ?? null;
+$repair['reopen_warranty_days'] = $repair['reopen_warranty_days'] ?? null;
+$repair['reopen_count'] = $repair['reopen_count'] ?? 0;
+$repair['reopen_completed_at'] = $repair['reopen_completed_at'] ?? null;
+$repair['last_reopen_by'] = $repair['last_reopen_by'] ?? null;
+
 // Obtener qطع الغيار المستخدمة en esta reparación
 $used_spare_parts = getRepairSpareParts($repair_id);
 $spare_parts_cost = calculateRepairSparePartsCost($repair_id);
