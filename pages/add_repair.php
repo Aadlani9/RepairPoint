@@ -1372,7 +1372,9 @@ require_once INCLUDES_PATH . 'header.php';
 
             parts.forEach(part => {
                 const isSelected = selectedParts.find(p => p.id === part.id);
-                const isAvailable = part.stock_status !== 'out_of_stock' && part.stock_quantity > 0;
+                // السماح بإضافة القطع حتى مع stock_quantity = 0 أو null
+                // نحن لا نركز على إدارة المخزون حالياً
+                const isAvailable = part.stock_status !== 'out_of_stock';
 
                 html += `
             <div class="list-group-item ${isSelected ? 'list-group-item-success' : ''} ${!isAvailable ? 'list-group-item-secondary' : ''}"
@@ -1574,11 +1576,14 @@ require_once INCLUDES_PATH . 'header.php';
         }
 
         function getStockBadge(status, quantity) {
+            // معالجة null و undefined
+            const stockQty = quantity !== null && quantity !== undefined ? quantity : 0;
+
             switch (status) {
                 case 'available':
-                    return `<span class="badge bg-success">Disponible (${quantity})</span>`;
+                    return `<span class="badge bg-success">Disponible (${stockQty})</span>`;
                 case 'order_required':
-                    return `<span class="badge bg-warning">Necesita pedido (${quantity})</span>`;
+                    return `<span class="badge bg-warning">Necesita pedido (${stockQty})</span>`;
                 case 'out_of_stock':
                     return `<span class="badge bg-danger">Sin stock</span>`;
                 default:
