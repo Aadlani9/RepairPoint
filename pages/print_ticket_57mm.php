@@ -75,19 +75,22 @@ logActivity('ticket_printed', "Ticket 57mm impreso para reparación #{$repair['r
         }
 
         body {
-            font-family: 'Courier New', monospace;
+            font-family: 'Courier New', 'Arial', monospace;
             background: white;
             color: #000;
             line-height: 1.3;
             font-size: 9pt;
+            -webkit-font-smoothing: antialiased;
         }
 
-        /* Configuración para ticket 57mm */
+        /* Configuración para ticket 57mm - Optimizado para impresoras térmicas */
         .ticket {
             width: 57mm;
+            max-width: 57mm;
             margin: 0 auto;
             padding: 2mm;
             background: white;
+            color: #000;
         }
 
         /* Header compacto */
@@ -102,6 +105,9 @@ logActivity('ticket_printed', "Ticket 57mm impreso para reparación #{$repair['r
             max-width: 20mm;
             max-height: 20mm;
             margin-bottom: 1mm;
+            display: block;
+            margin-left: auto;
+            margin-right: auto;
         }
 
         .shop-name {
@@ -109,11 +115,13 @@ logActivity('ticket_printed', "Ticket 57mm impreso para reparación #{$repair['r
             font-weight: bold;
             text-transform: uppercase;
             margin-bottom: 1mm;
+            color: #000;
         }
 
         .shop-contact {
             font-size: 7pt;
-            line-height: 1.2;
+            line-height: 1.3;
+            color: #000;
         }
 
         /* Título del ticket */
@@ -123,6 +131,7 @@ logActivity('ticket_printed', "Ticket 57mm impreso para reparación #{$repair['r
             font-weight: bold;
             margin: 2mm 0;
             text-transform: uppercase;
+            color: #000;
         }
 
         .ticket-reference {
@@ -131,6 +140,7 @@ logActivity('ticket_printed', "Ticket 57mm impreso para reparación #{$repair['r
             font-weight: bold;
             margin-bottom: 2mm;
             letter-spacing: 1px;
+            color: #000;
         }
 
         /* Información del cliente */
@@ -142,25 +152,28 @@ logActivity('ticket_printed', "Ticket 57mm impreso para reparación #{$repair['r
         .info-label {
             font-weight: bold;
             margin-top: 1mm;
+            color: #000;
         }
 
         .info-value {
             margin-left: 1mm;
             word-wrap: break-word;
+            color: #000;
         }
 
         /* Dispositivo */
         .device-box {
             text-align: center;
-            border: 1px solid #000;
+            border: 2px solid #000;
             padding: 2mm;
             margin: 2mm 0;
-            background: #f8f8f8;
+            background: white;
         }
 
         .device-name {
             font-size: 9pt;
             font-weight: bold;
+            color: #000;
         }
 
         /* Problema */
@@ -174,73 +187,75 @@ logActivity('ticket_printed', "Ticket 57mm impreso para reparación #{$repair['r
         .problem-label {
             font-weight: bold;
             margin-bottom: 1mm;
+            color: #000;
         }
 
         .problem-text {
             font-style: italic;
             word-wrap: break-word;
+            color: #000;
         }
 
-        /* Coste */
+        /* Coste - Simplificado para impresoras térmicas */
         .cost-box {
             text-align: center;
-            border: 2px solid #000;
-            padding: 2mm;
+            border: 3px double #000;
+            padding: 3mm;
             margin: 2mm 0;
-            background: #000;
-            color: white;
+            background: white;
+            color: #000;
         }
 
         .cost-label {
             font-size: 8pt;
             margin-bottom: 1mm;
+            color: #000;
         }
 
         .cost-value {
-            font-size: 14pt;
+            font-size: 16pt;
             font-weight: bold;
+            color: #000;
+            text-decoration: underline;
         }
 
-        /* Sección de garantía compacta */
+        /* Sección de garantía compacta - Sin gradientes */
         .warranty-box {
-            border: 2px solid #000;
+            border: 3px double #000;
             padding: 2mm;
             margin: 2mm 0;
-            background: repeating-linear-gradient(
-                45deg,
-                white,
-                white 1mm,
-                #f0f0f0 1mm,
-                #f0f0f0 2mm
-            );
+            background: white;
         }
 
         .warranty-header {
             text-align: center;
             font-weight: bold;
-            font-size: 8pt;
-            padding: 1mm;
-            background: #000;
-            color: white;
+            font-size: 9pt;
+            padding: 2mm;
+            border: 2px solid #000;
+            color: #000;
             margin-bottom: 2mm;
+            text-decoration: underline;
         }
 
         .warranty-alert {
             text-align: center;
             font-weight: bold;
-            font-size: 7pt;
+            font-size: 8pt;
             margin-bottom: 1mm;
             padding: 1mm;
             border: 1px solid #000;
             background: white;
+            color: #000;
         }
 
         .warranty-info {
-            font-size: 6pt;
+            font-size: 7pt;
             margin: 1mm 0;
             padding: 1mm;
             background: white;
             border: 1px solid #000;
+            color: #000;
         }
 
         .warranty-info strong {
@@ -263,15 +278,17 @@ logActivity('ticket_printed', "Ticket 57mm impreso para reparación #{$repair['r
         .barcode-svg {
             width: 50mm;
             height: auto;
+            max-width: 100%;
         }
 
         /* Condiciones compactas */
         .conditions {
-            font-size: 6pt;
-            line-height: 1.2;
+            font-size: 7pt;
+            line-height: 1.3;
             margin-top: 2mm;
             padding-top: 2mm;
             border-top: 1px dashed #000;
+            color: #000;
         }
 
         .conditions p {
@@ -279,22 +296,23 @@ logActivity('ticket_printed', "Ticket 57mm impreso para reparación #{$repair['r
         }
 
         .conditions strong {
-            font-size: 7pt;
+            font-size: 8pt;
         }
 
         /* Footer */
         .footer {
             text-align: center;
-            font-size: 7pt;
+            font-size: 8pt;
             margin-top: 3mm;
             padding-top: 2mm;
             border-top: 1px solid #000;
+            color: #000;
         }
 
         .footer-date {
-            font-size: 6pt;
+            font-size: 7pt;
             margin-top: 1mm;
-            color: #666;
+            color: #000;
         }
 
         /* Controles de impresión */
@@ -304,76 +322,127 @@ logActivity('ticket_printed', "Ticket 57mm impreso para reparación #{$repair['r
             right: 10px;
             background: rgba(0,0,0,0.9);
             color: white;
-            padding: 10px;
-            border-radius: 5px;
+            padding: 15px;
+            border-radius: 8px;
             z-index: 1000;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        }
+
+        .print-controls h4 {
+            margin-bottom: 10px;
+            font-size: 13px;
+            border-bottom: 1px solid #555;
+            padding-bottom: 5px;
         }
 
         .print-controls button {
-            background: #333;
+            background: #444;
             color: white;
-            border: none;
-            padding: 8px 15px;
-            margin: 2px;
-            border-radius: 3px;
+            border: 1px solid #666;
+            padding: 10px 15px;
+            margin: 3px;
+            border-radius: 4px;
             cursor: pointer;
             font-size: 11px;
+            display: block;
+            width: 100%;
+            text-align: left;
         }
 
         .print-controls button:hover {
             background: #555;
         }
 
-        /* Print styles */
+        .print-controls button:active {
+            background: #333;
+        }
+
+        /* Print styles - Optimizado para impresoras térmicas */
         @media print {
             body {
                 margin: 0;
                 padding: 0;
+                background: white;
             }
 
             .print-controls {
-                display: none;
+                display: none !important;
             }
 
             .ticket {
                 margin: 0;
                 padding: 2mm;
+                width: 57mm;
+                max-width: 57mm;
             }
 
             @page {
                 size: 57mm auto;
                 margin: 0;
+                padding: 0;
             }
 
+            /* Forzar colores para impresión */
             * {
                 -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
                 color-adjust: exact !important;
             }
 
-            .cost-box {
-                background: #000 !important;
-                color: white !important;
+            /* Asegurar que todo sea negro sobre blanco */
+            .cost-box,
+            .warranty-header,
+            .device-box,
+            .problem-box,
+            .warranty-box,
+            .warranty-alert,
+            .warranty-info {
+                background: white !important;
+                color: #000 !important;
+            }
+
+            /* Asegurar bordes visibles */
+            .separator {
+                border-bottom: 1px dashed #000 !important;
+            }
+
+            .header {
+                border-bottom: 1px dashed #000 !important;
+            }
+
+            .footer {
+                border-top: 1px solid #000 !important;
+            }
+
+            .conditions {
+                border-top: 1px dashed #000 !important;
             }
         }
 
         /* Vista previa en pantalla */
         @media screen {
             body {
-                background: #f0f0f0;
+                background: #e0e0e0;
                 padding: 20px;
             }
 
             .ticket {
-                box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+                box-shadow: 0 5px 25px rgba(0,0,0,0.3);
+                border: 1px solid #ccc;
             }
         }
     </style>
 </head>
 <body>
-    <!-- Controles de impresión -->
+    <!-- Controles de impresión mejorados -->
     <div class="print-controls">
-        <button onclick="window.print()">🖨️ Imprimir</button>
-        <button onclick="window.close()">❌ Cerrar</button>
+        <h4>⚙️ خيارات الطباعة</h4>
+        <button onclick="window.print()">🖨️ طباعة عادية</button>
+        <button onclick="printSimplified()">📄 طباعة مبسطة (نص فقط)</button>
+        <button onclick="adjustScale(0.9)">🔍 تصغير 10%</button>
+        <button onclick="adjustScale(1.1)">🔎 تكبير 10%</button>
+        <button onclick="adjustScale(1.0)">↺ إعادة تعيين</button>
+        <button onclick="window.close()">❌ إغلاق</button>
     </div>
 
     <div class="ticket">
@@ -484,6 +553,8 @@ logActivity('ticket_printed', "Ticket 57mm impreso para reparación #{$repair['r
     </div>
 
     <script>
+        let currentScale = 1.0;
+
         document.addEventListener('DOMContentLoaded', function() {
             generateBarcode();
 
@@ -513,6 +584,67 @@ logActivity('ticket_printed', "Ticket 57mm impreso para reparación #{$repair['r
             }
         }
 
+        // تعديل حجم التذكرة
+        function adjustScale(scale) {
+            currentScale = scale;
+            const ticket = document.querySelector('.ticket');
+            ticket.style.transform = `scale(${scale})`;
+            ticket.style.transformOrigin = 'top center';
+
+            // تحديث رسالة للمستخدم
+            if (scale !== 1.0) {
+                ticket.style.marginBottom = '20px';
+            } else {
+                ticket.style.marginBottom = '0';
+            }
+        }
+
+        // طباعة مبسطة (نص فقط)
+        function printSimplified() {
+            // إخفاء العناصر المعقدة مؤقتاً
+            const elementsToHide = [
+                '.shop-logo',
+                '.barcode-section',
+                '.cost-box',
+                '.warranty-box'
+            ];
+
+            elementsToHide.forEach(selector => {
+                const elements = document.querySelectorAll(selector);
+                elements.forEach(el => {
+                    el.dataset.originalDisplay = el.style.display;
+                    el.style.display = 'none';
+                });
+            });
+
+            // إزالة الحدود والخلفيات
+            const ticket = document.querySelector('.ticket');
+            ticket.dataset.originalStyle = ticket.getAttribute('style');
+
+            const allBoxes = document.querySelectorAll('.device-box, .problem-box');
+            allBoxes.forEach(box => {
+                box.style.border = '1px solid #000';
+                box.style.background = 'white';
+            });
+
+            // طباعة
+            window.print();
+
+            // إعادة العناصر
+            setTimeout(() => {
+                elementsToHide.forEach(selector => {
+                    const elements = document.querySelectorAll(selector);
+                    elements.forEach(el => {
+                        el.style.display = el.dataset.originalDisplay || '';
+                    });
+                });
+                allBoxes.forEach(box => {
+                    box.style.border = '';
+                    box.style.background = '';
+                });
+            }, 1000);
+        }
+
         // Atajos de teclado
         document.addEventListener('keydown', function(e) {
             if ((e.ctrlKey || e.metaKey) && e.key === 'p') {
@@ -522,6 +654,21 @@ logActivity('ticket_printed', "Ticket 57mm impreso para reparación #{$repair['r
 
             if (e.key === 'Escape') {
                 window.close();
+            }
+
+            // تكبير/تصغير بـ +/-
+            if (e.key === '+' || e.key === '=') {
+                e.preventDefault();
+                adjustScale(currentScale + 0.1);
+            }
+            if (e.key === '-' || e.key === '_') {
+                e.preventDefault();
+                adjustScale(Math.max(0.5, currentScale - 0.1));
+            }
+            // إعادة تعيين بـ 0
+            if (e.key === '0') {
+                e.preventDefault();
+                adjustScale(1.0);
             }
         });
 
