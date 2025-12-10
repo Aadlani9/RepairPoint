@@ -437,6 +437,9 @@ logActivity('ticket_printed', "Ticket 57mm impreso para reparación #{$repair['r
     <!-- Controles de impresión mejorados -->
     <div class="print-controls">
         <h4>⚙️ خيارات الطباعة</h4>
+        <button onclick="printPDF()" style="background: #2ecc71; font-weight: bold;">📑 طباعة PDF (موصى به!)</button>
+        <button onclick="downloadPDF()">💾 تحميل PDF</button>
+        <hr style="border: 1px solid #555; margin: 8px 0;">
         <button onclick="window.print()">🖨️ طباعة عادية</button>
         <button onclick="printSimplified()">📄 طباعة مبسطة (نص فقط)</button>
         <button onclick="adjustScale(0.9)">🔍 تصغير 10%</button>
@@ -597,6 +600,18 @@ logActivity('ticket_printed', "Ticket 57mm impreso para reparación #{$repair['r
             } else {
                 ticket.style.marginBottom = '0';
             }
+        }
+
+        // طباعة PDF (موصى به)
+        function printPDF() {
+            const repairId = <?= $repair_id ?>;
+            window.open(`print_ticket_57mm_pdf.php?id=${repairId}&action=view`, '_blank');
+        }
+
+        // تحميل PDF
+        function downloadPDF() {
+            const repairId = <?= $repair_id ?>;
+            window.location.href = `print_ticket_57mm_pdf.php?id=${repairId}&action=download`;
         }
 
         // طباعة مبسطة (نص فقط)
