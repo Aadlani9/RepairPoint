@@ -5,6 +5,9 @@
  * Solución profesional sin dependencias del navegador
  */
 
+// Iniciar output buffering para evitar errores de TCPDF
+ob_start();
+
 // Definir acceso seguro
 define('SECURE_ACCESS', true);
 
@@ -55,6 +58,11 @@ if ($repair['delivered_at']) {
 
 // Log de actividad
 logActivity('ticket_pdf_generated', "Ticket PDF 57mm generado para reparación #{$repair['reference']}", $_SESSION['user_id']);
+
+// Limpiar cualquier output previo
+if (ob_get_length()) {
+    ob_clean();
+}
 
 // Cargar TCPDF
 require_once '../vendor/autoload.php';
@@ -295,6 +303,10 @@ $pdf->Cell(0, 3, formatDate($repair['received_at'], 'd/m/Y H:i'), 0, 1, 'C');
 // ============================================
 // SALIDA DEL PDF
 // ============================================
+
+// Limpiar cualquier output buffering antes de enviar PDF
+ob_end_clean();
+
 $filename = 'ticket_' . $repair['reference'] . '.pdf';
 
 if ($action === 'download') {
