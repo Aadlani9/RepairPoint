@@ -374,8 +374,8 @@ require_once INCLUDES_PATH . 'header.php';
                                                class="btn btn-info" title="Ver detalles">
                                                 <i class="bi bi-eye"></i>
                                             </a>
-                                            <a href="<?= url('pages/print_invoice_pdf.php?id=' . $invoice['id']) ?>"
-                                               class="btn btn-danger" title="PDF" target="_blank">
+                                            <a href="<?= url('pages/download_invoice_pdf.php?id=' . $invoice['id']) ?>"
+                                               class="btn btn-danger" title="Descargar PDF">
                                                 <i class="bi bi-file-pdf"></i>
                                             </a>
                                         </div>
