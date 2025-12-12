@@ -69,7 +69,6 @@ $items = $db->select(
 
 $page_title = 'Factura ' . $invoice['invoice_number'];
 require_once INCLUDES_PATH . 'header.php';
-require_once INCLUDES_PATH . 'navbar.php';
 ?>
 
 <div class="container-fluid py-4">
