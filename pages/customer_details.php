@@ -69,7 +69,6 @@ $stats = $db->selectOne(
 
 $page_title = 'Detalles del Cliente';
 require_once INCLUDES_PATH . 'header.php';
-require_once INCLUDES_PATH . 'navbar.php';
 ?>
 
 <div class="container-fluid py-4">
