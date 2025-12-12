@@ -251,6 +251,26 @@ if (isset($_SESSION['user_id']) && $shop_id) {
                             <li><hr class="dropdown-divider"></li>
                             <li>
                                 <h6 class="dropdown-header">
+                                    <i class="bi bi-receipt me-1"></i>
+                                    Facturación
+                                </h6>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="<?= url('pages/customers.php') ?>">
+                                    <i class="bi bi-people-fill me-2"></i>
+                                    Clientes
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="<?= url('pages/invoices_reports.php') ?>">
+                                    <i class="bi bi-file-earmark-text me-2"></i>
+                                    Facturas e Informes
+                                </a>
+                            </li>
+
+                            <li><hr class="dropdown-divider"></li>
+                            <li>
+                                <h6 class="dropdown-header">
                                     <i class="bi bi-gear me-1"></i>
                                     Sistema
                                 </h6>
