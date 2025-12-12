@@ -104,7 +104,11 @@ require_once INCLUDES_PATH . 'header.php';
                 </div>
                 <div>
                     <a href="<?= url('pages/print_invoice_pdf.php?id=' . $invoice_id) ?>"
-                       class="btn btn-danger" target="_blank">
+                       class="btn btn-info" target="_blank">
+                        <i class="bi bi-printer"></i> Imprimir
+                    </a>
+                    <a href="<?= url('pages/download_invoice_pdf.php?id=' . $invoice_id) ?>"
+                       class="btn btn-danger">
                         <i class="bi bi-file-pdf"></i> Descargar PDF
                     </a>
                     <button type="button" class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#paymentModal">
