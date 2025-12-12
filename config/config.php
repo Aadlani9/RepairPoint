@@ -259,6 +259,21 @@ class SimpleDB {
         }
     }
 
+    public function exec($sql) {
+        try {
+            return $this->pdo->exec($sql);
+        } catch (PDOException $e) {
+            if (isDebugMode()) {
+                error_log('DB Error: ' . $e->getMessage());
+            }
+            throw $e;
+        }
+    }
+
+    public function getConnection() {
+        return $this->pdo;
+    }
+
     public function delete($sql, $params = []) {
         return $this->update($sql, $params);
     }
