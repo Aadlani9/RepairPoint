@@ -177,6 +177,16 @@ $stats = $db->selectOne(
     [$shop_id]
 );
 
+// Si hay error (tablas no existen), usar valores por defecto
+if (!$stats) {
+    $stats = [
+        'total_customers' => 0,
+        'active_customers' => 0,
+        'inactive_customers' => 0
+    ];
+    $_SESSION['warning'] = 'Las tablas de facturación no existen. Por favor, ejecuta la migración SQL primero.';
+}
+
 $page_title = 'Gestión de Clientes';
 require_once INCLUDES_PATH . 'header.php';
 ?>
@@ -254,6 +264,14 @@ require_once INCLUDES_PATH . 'header.php';
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
         <?php unset($_SESSION['error']); ?>
+    <?php endif; ?>
+
+    <?php if (isset($_SESSION['warning'])): ?>
+        <div class="alert alert-warning alert-dismissible fade show" role="alert">
+            <i class="bi bi-exclamation-triangle"></i> <?= $_SESSION['warning'] ?>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        <?php unset($_SESSION['warning']); ?>
     <?php endif; ?>
 
     <!-- Filtros y búsqueda -->
