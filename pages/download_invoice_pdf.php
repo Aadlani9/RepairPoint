@@ -64,6 +64,17 @@ $items = $db->select(
     [$invoice_id]
 );
 
+// Preparar logo en base64 si existe
+$logo_base64 = '';
+if (!empty($invoice['shop_logo'])) {
+    $logo_path = '../' . $invoice['shop_logo'];
+    if (file_exists($logo_path)) {
+        $logo_data = file_get_contents($logo_path);
+        $logo_type = pathinfo($logo_path, PATHINFO_EXTENSION);
+        $logo_base64 = 'data:image/' . $logo_type . ';base64,' . base64_encode($logo_data);
+    }
+}
+
 // إنشاء HTML للفاتورة
 ob_start();
 ?>
@@ -92,9 +103,11 @@ ob_start();
         }
 
         .header {
-            border-bottom: 3px solid #0066cc;
-            padding-bottom: 10px;
-            margin-bottom: 20px;
+            border-bottom: 4px solid #0066cc;
+            padding-bottom: 15px;
+            margin-bottom: 25px;
+            background: linear-gradient(to bottom, #f8f9fa 0%, #ffffff 100%);
+            padding: 15px;
         }
 
         .header-content {
@@ -104,12 +117,18 @@ ob_start();
 
         .header-left, .header-right {
             display: table-cell;
-            vertical-align: top;
+            vertical-align: middle;
             width: 50%;
         }
 
         .header-right {
             text-align: right;
+        }
+
+        .company-logo {
+            max-width: 120px;
+            max-height: 80px;
+            margin-bottom: 10px;
         }
 
         .company-name {
@@ -148,46 +167,56 @@ ob_start();
 
         .info-box {
             background-color: #f8f9fa;
-            border: 1px solid #dee2e6;
-            padding: 10px;
-            margin-bottom: 10px;
+            border: 2px solid #dee2e6;
+            border-radius: 5px;
+            padding: 12px;
+            margin-bottom: 12px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
 
         .info-title {
             font-size: 11pt;
             font-weight: bold;
             color: #0066cc;
-            margin-bottom: 8px;
-            padding-bottom: 3px;
+            margin-bottom: 10px;
+            padding-bottom: 5px;
             border-bottom: 2px solid #0066cc;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
 
         .info-line {
-            margin: 3px 0;
-            font-size: 9pt;
+            margin: 5px 0;
+            font-size: 9.5pt;
+            line-height: 1.6;
         }
 
         .info-label {
             font-weight: bold;
-            color: #666;
+            color: #555;
+            min-width: 80px;
+            display: inline-block;
         }
 
         table.items {
             width: 100%;
             border-collapse: collapse;
             margin: 20px 0;
+            border: 2px solid #0066cc;
+            border-radius: 5px;
         }
 
         table.items thead {
-            background-color: #0066cc;
+            background: linear-gradient(to bottom, #0066cc 0%, #0052a3 100%);
             color: white;
         }
 
         table.items th {
-            padding: 8px 5px;
+            padding: 10px 6px;
             text-align: left;
             font-weight: bold;
-            font-size: 9pt;
+            font-size: 9.5pt;
+            border-bottom: 2px solid #004080;
         }
 
         table.items th.center {
@@ -206,9 +235,13 @@ ob_start();
             background-color: #f8f9fa;
         }
 
+        table.items tbody tr:hover {
+            background-color: #e9ecef;
+        }
+
         table.items td {
-            padding: 8px 5px;
-            font-size: 9pt;
+            padding: 9px 6px;
+            font-size: 9.5pt;
         }
 
         table.items td.center {
@@ -243,9 +276,12 @@ ob_start();
         }
 
         .totals-table {
-            width: 250px;
+            width: 280px;
             float: right;
             margin-top: 20px;
+            border: 2px solid #0066cc;
+            border-radius: 5px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.15);
         }
 
         .totals-table table {
@@ -254,48 +290,60 @@ ob_start();
         }
 
         .totals-table td {
-            padding: 6px;
-            font-size: 10pt;
+            padding: 8px 10px;
+            font-size: 10.5pt;
         }
 
         .totals-table .label {
             text-align: right;
             font-weight: bold;
-            color: #666;
+            color: #555;
         }
 
         .totals-table .amount {
             text-align: right;
+            font-weight: 600;
         }
 
         .totals-table .total-row {
-            background-color: #0066cc;
+            background: linear-gradient(to bottom, #0066cc 0%, #0052a3 100%);
             color: white;
-            font-size: 12pt;
+            font-size: 13pt;
             font-weight: bold;
         }
 
         .totals-table .subtotal-row {
-            border-top: 1px solid #dee2e6;
+            border-top: 2px solid #dee2e6;
+            background-color: #f8f9fa;
+        }
+
+        .totals-table .iva-row {
+            background-color: #fff3cd;
         }
 
         .notes {
             clear: both;
             margin-top: 30px;
-            padding: 10px;
-            background-color: #fff3cd;
-            border-left: 4px solid #ffc107;
+            padding: 12px 15px;
+            background: linear-gradient(to right, #fff3cd 0%, #fffbeb 100%);
+            border-left: 5px solid #ffc107;
+            border-radius: 5px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
 
         .notes-title {
             font-weight: bold;
             color: #856404;
-            margin-bottom: 5px;
+            margin-bottom: 8px;
+            font-size: 10pt;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
 
         .notes-content {
             color: #856404;
-            font-size: 9pt;
+            font-size: 9.5pt;
+            line-height: 1.5;
         }
 
         .footer {
@@ -303,36 +351,43 @@ ob_start();
             bottom: 0;
             left: 0;
             right: 0;
-            padding: 10px;
-            border-top: 2px solid #0066cc;
-            background-color: #f8f9fa;
-            font-size: 8pt;
+            padding: 12px;
+            border-top: 3px solid #0066cc;
+            background: linear-gradient(to bottom, #f8f9fa 0%, #e9ecef 100%);
+            font-size: 8.5pt;
             color: #666;
             text-align: center;
+            box-shadow: 0 -2px 4px rgba(0,0,0,0.1);
         }
 
         .payment-badge {
             display: inline-block;
-            padding: 4px 12px;
-            border-radius: 4px;
+            padding: 6px 16px;
+            border-radius: 5px;
             font-weight: bold;
-            font-size: 10pt;
-            margin-top: 5px;
+            font-size: 11pt;
+            margin-top: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
         }
 
         .status-pending {
-            background-color: #ffc107;
+            background: linear-gradient(to bottom, #ffc107 0%, #e0a800 100%);
             color: #333;
+            border: 2px solid #d39e00;
         }
 
         .status-partial {
-            background-color: #17a2b8;
+            background: linear-gradient(to bottom, #17a2b8 0%, #117a8b 100%);
             color: white;
+            border: 2px solid #0c6674;
         }
 
         .status-paid {
-            background-color: #28a745;
+            background: linear-gradient(to bottom, #28a745 0%, #1e7e34 100%);
             color: white;
+            border: 2px solid #155724;
         }
 
         .clearfix {
@@ -346,6 +401,9 @@ ob_start();
 <div class="header">
     <div class="header-content">
         <div class="header-left">
+            <?php if ($logo_base64): ?>
+                <img src="<?= $logo_base64 ?>" alt="Logo" class="company-logo">
+            <?php endif; ?>
             <div class="company-name"><?= htmlspecialchars($invoice['shop_name']) ?></div>
             <div class="company-details">
                 <?php if (!empty($invoice['shop_address'])): ?>
@@ -469,7 +527,7 @@ ob_start();
             <td class="label">Subtotal:</td>
             <td class="amount">€<?= number_format($invoice['subtotal'], 2) ?></td>
         </tr>
-        <tr>
+        <tr class="iva-row">
             <td class="label">IVA (<?= $invoice['iva_rate'] ?>%):</td>
             <td class="amount">€<?= number_format($invoice['iva_amount'], 2) ?></td>
         </tr>
