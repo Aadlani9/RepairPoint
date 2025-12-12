@@ -6,7 +6,6 @@
 
 define('SECURE_ACCESS', true);
 require_once '../config/config.php';
-require_once '../config/database.php';
 
 // Verificar sesión
 if (!isset($_SESSION['user_id'])) {
