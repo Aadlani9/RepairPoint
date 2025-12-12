@@ -49,9 +49,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     exit;
 }
 
-// Obtener información de la factura
+// Obtener información de la factura con JOIN
 $invoice = $db->selectOne(
-    "SELECT * FROM invoice_details WHERE id = ? AND shop_id = ?",
+    "SELECT i.*,
+            c.full_name as customer_name,
+            c.phone as customer_phone,
+            c.email as customer_email,
+            c.id_type,
+            c.id_number,
+            c.address as customer_address,
+            s.name as shop_name,
+            s.phone1 as shop_phone,
+            s.email as shop_email,
+            s.address as shop_address,
+            s.logo as shop_logo,
+            u.name as created_by_name
+     FROM invoices i
+     JOIN customers c ON i.customer_id = c.id
+     JOIN shops s ON i.shop_id = s.id
+     JOIN users u ON i.created_by = u.id
+     WHERE i.id = ? AND i.shop_id = ?",
     [$invoice_id, $shop_id]
 );
 

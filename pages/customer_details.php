@@ -45,7 +45,7 @@ if (!$customer) {
 // Obtener facturas del cliente
 $invoices = $db->select(
     "SELECT i.*,
-     COUNT(ii.id) as total_items
+            COUNT(ii.id) as total_items
      FROM invoices i
      LEFT JOIN invoice_items ii ON i.id = ii.invoice_id
      WHERE i.customer_id = ?
@@ -53,6 +53,11 @@ $invoices = $db->select(
      ORDER BY i.invoice_date DESC",
     [$customer_id]
 );
+
+// Si $invoices es false, asignar array vacío
+if ($invoices === false) {
+    $invoices = [];
+}
 
 // Estadísticas del cliente
 $stats = $db->selectOne(

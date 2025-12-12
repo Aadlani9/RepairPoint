@@ -166,6 +166,11 @@ $query .= " GROUP BY c.id ORDER BY c.created_at DESC";
 
 $customers = $db->select($query, $params);
 
+// Si hay error, asignar array vacío
+if ($customers === false) {
+    $customers = [];
+}
+
 // Estadísticas
 $stats = $db->selectOne(
     "SELECT
