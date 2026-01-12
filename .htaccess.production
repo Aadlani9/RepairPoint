@@ -1,0 +1,284 @@
+# ===================================================
+# RepairPoint - Production Server Configuration
+# Domain: rp.electromti.com
+# Last Update: 2026-01-12
+# ===================================================
+
+# تفعيل Rewrite Engine
+RewriteEngine On
+
+# ===================================================
+# إجبار استخدام HTTPS
+# ===================================================
+
+<IfModule mod_rewrite.c>
+    # إعادة توجيه HTTP إلى HTTPS
+    RewriteCond %{HTTPS} off
+    RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+    # إعادة توجيه www إلى non-www (اختياري)
+    RewriteCond %{HTTP_HOST} ^www\.rp\.electromti\.com [NC]
+    RewriteRule ^(.*)$ https://rp.electromti.com/$1 [L,R=301]
+</IfModule>
+
+# ===================================================
+# حماية الملفات والمجلدات الحساسة
+# ===================================================
+
+# حجب الوصول للمجلدات الحساسة تماماً
+<IfModule mod_rewrite.c>
+    # حجب مجلد SQL (خطر جداً!)
+    RewriteRule ^sql/.*$ - [F,L]
+
+    # حجب مجلد logs (حساس!)
+    RewriteRule ^logs/.*$ - [F,L]
+
+    # حجب مجلد config (محمي مسبقاً لكن للتأكيد)
+    RewriteRule ^config/.*$ - [F,L]
+
+    # حجب مجلد includes (محمي مسبقاً لكن للتأكيد)
+    RewriteRule ^includes/.*$ - [F,L]
+
+    # حجب مجلد migrations
+    RewriteRule ^migrations/.*$ - [F,L]
+
+    # حجب مجلد vendor
+    RewriteRule ^vendor/.*$ - [F,L]
+</IfModule>
+
+# ===================================================
+# حماية أنواع الملفات الحساسة
+# ===================================================
+
+# حجب ملفات النسخ الاحتياطية والمؤقتة
+<FilesMatch "\.(bak|backup|tmp|temp|log|sql|old|orig|save|swp|swo)$">
+    Order Allow,Deny
+    Deny from all
+</FilesMatch>
+
+# حجب ملفات النظام والتكوين
+<FilesMatch "^(\.htaccess|\.htpasswd|config\.php|database\.php|\.env|composer\.(json|lock)|package\.(json|lock)|deploy\.sh)$">
+    Order Allow,Deny
+    Deny from all
+</FilesMatch>
+
+# حجب ملفات Git وأنظمة التحكم في الإصدار
+<FilesMatch "^\.git">
+    Order Allow,Deny
+    Deny from all
+</FilesMatch>
+
+# حجب ملفات الإنتاج والمستندات
+<FilesMatch "\.(md|MD|markdown)$">
+    Order Allow,Deny
+    Deny from all
+</FilesMatch>
+
+# ===================================================
+# حماية API - السماح فقط للطلبات من نفس الدومين
+# ===================================================
+
+<IfModule mod_rewrite.c>
+    # التحقق من Referer للطلبات الحساسة
+    RewriteCond %{REQUEST_URI} ^/api/
+    RewriteCond %{REQUEST_METHOD} POST
+    RewriteCond %{HTTP_REFERER} !^https?://[^/]*\.?rp\.electromti\.com [NC]
+    RewriteRule ^api/.*$ - [F,L]
+</IfModule>
+
+# ===================================================
+# حماية من الهجمات الشائعة
+# ===================================================
+
+# منع SQL Injection في URLs
+<IfModule mod_rewrite.c>
+    RewriteCond %{QUERY_STRING} (\<|%3C).*script.*(\>|%3E) [NC,OR]
+    RewriteCond %{QUERY_STRING} GLOBALS(=|\[|\%[0-9A-Z]{0,2}) [OR]
+    RewriteCond %{QUERY_STRING} _REQUEST(=|\[|\%[0-9A-Z]{0,2}) [OR]
+    RewriteCond %{QUERY_STRING} concat[[:space:]]*\( [NC,OR]
+    RewriteCond %{QUERY_STRING} union([[:space:]]*select|[[:space:]]*all[[:space:]]*select) [NC,OR]
+    RewriteCond %{QUERY_STRING} union([[:space:]]*insert|[[:space:]]*update) [NC,OR]
+    RewriteCond %{QUERY_STRING} (;|<|>|'|"|\)|%0A|%0D|%22|%27|%3C|%3E|%00) [NC,OR]
+    RewriteCond %{QUERY_STRING} \.\./\.\./\.\./\.\./
+    RewriteRule .* - [F,L]
+</IfModule>
+
+# منع Path Traversal
+<IfModule mod_rewrite.c>
+    RewriteCond %{REQUEST_URI} \.\./
+    RewriteRule .* - [F,L]
+</IfModule>
+
+# حماية من File Inclusion
+<IfModule mod_rewrite.c>
+    RewriteCond %{QUERY_STRING} (file|path)= [NC]
+    RewriteRule .* - [F,L]
+</IfModule>
+
+# ===================================================
+# إعادة توجيه الصفحات الرئيسية
+# ===================================================
+
+<IfModule mod_rewrite.c>
+    # توجيه فقط الصفحة الرئيسية لـ index.php
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{REQUEST_URI} ^/$
+    RewriteRule ^(.*)$ index.php [QSA,L]
+</IfModule>
+
+# ===================================================
+# إعدادات الأمان الإضافية
+# ===================================================
+
+# منع عرض فهرس المجلدات
+Options -Indexes
+
+# منع عرض معلومات PHP
+<IfModule mod_php.c>
+    php_flag display_errors Off
+    php_flag display_startup_errors Off
+    php_flag expose_php Off
+</IfModule>
+
+# حماية من Clickjacking و XSS
+<IfModule mod_headers.c>
+    # Clickjacking Protection
+    Header always append X-Frame-Options SAMEORIGIN
+
+    # MIME Type Sniffing Protection
+    Header always append X-Content-Type-Options nosniff
+
+    # XSS Protection
+    Header always append X-XSS-Protection "1; mode=block"
+
+    # Referrer Policy
+    Header always append Referrer-Policy "strict-origin-when-cross-origin"
+
+    # Content Security Policy (CSP) - معتدل
+    Header always set Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:;"
+
+    # HSTS (HTTP Strict Transport Security) - بعد التأكد من عمل HTTPS
+    Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+
+    # إزالة معلومات Server
+    Header unset Server
+    Header unset X-Powered-By
+</IfModule>
+
+# ===================================================
+# إدارة انتهاء صلاحية الملفات (Cache Control)
+# ===================================================
+
+<IfModule mod_expires.c>
+    ExpiresActive On
+
+    # ملفات CSS و JS - أسبوع واحد
+    ExpiresByType text/css "access plus 1 week"
+    ExpiresByType application/javascript "access plus 1 week"
+    ExpiresByType text/javascript "access plus 1 week"
+
+    # الصور - شهر واحد
+    ExpiresByType image/png "access plus 1 month"
+    ExpiresByType image/jpg "access plus 1 month"
+    ExpiresByType image/jpeg "access plus 1 month"
+    ExpiresByType image/gif "access plus 1 month"
+    ExpiresByType image/svg+xml "access plus 1 month"
+    ExpiresByType image/webp "access plus 1 month"
+    ExpiresByType image/x-icon "access plus 1 month"
+
+    # الخطوط
+    ExpiresByType font/ttf "access plus 1 month"
+    ExpiresByType font/otf "access plus 1 month"
+    ExpiresByType font/woff "access plus 1 month"
+    ExpiresByType font/woff2 "access plus 1 month"
+
+    # الملفات الديناميكية - بدون cache
+    ExpiresByType text/html "access plus 0 seconds"
+    ExpiresByType application/json "access plus 0 seconds"
+    ExpiresByType application/xml "access plus 0 seconds"
+</IfModule>
+
+# ===================================================
+# ضغط الملفات لتحسين الأداء
+# ===================================================
+
+<IfModule mod_deflate.c>
+    # ضغط أنواع الملفات النصية
+    AddOutputFilterByType DEFLATE text/html
+    AddOutputFilterByType DEFLATE text/plain
+    AddOutputFilterByType DEFLATE text/xml
+    AddOutputFilterByType DEFLATE text/css
+    AddOutputFilterByType DEFLATE text/javascript
+    AddOutputFilterByType DEFLATE application/javascript
+    AddOutputFilterByType DEFLATE application/json
+    AddOutputFilterByType DEFLATE application/xml
+    AddOutputFilterByType DEFLATE application/xhtml+xml
+    AddOutputFilterByType DEFLATE application/rss+xml
+    AddOutputFilterByType DEFLATE image/svg+xml
+
+    # استثناءات للضغط
+    BrowserMatch ^Mozilla/4 gzip-only-text/html
+    BrowserMatch ^Mozilla/4\.0[678] no-gzip
+    BrowserMatch \bMSIE !no-gzip !gzip-only-text/html
+</IfModule>
+
+# ===================================================
+# حد أقصى لحجم رفع الملفات
+# ===================================================
+
+<IfModule mod_php.c>
+    php_value upload_max_filesize 10M
+    php_value post_max_size 12M
+    php_value max_execution_time 300
+    php_value max_input_time 300
+    php_value memory_limit 256M
+</IfModule>
+
+# ===================================================
+# منع الوصول المباشر للملفات المهمة
+# ===================================================
+
+# حجب ملفات التطوير والاختبار
+<FilesMatch "^(debug|test|setup_|import_|generate_|preview_|run_migration)\.php$">
+    Order Allow,Deny
+    Deny from all
+</FilesMatch>
+
+# ===================================================
+# رسائل خطأ مخصصة
+# ===================================================
+
+ErrorDocument 400 /pages/error.php?code=400
+ErrorDocument 401 /pages/error.php?code=401
+ErrorDocument 403 /pages/error.php?code=403
+ErrorDocument 404 /pages/error.php?code=404
+ErrorDocument 500 /pages/error.php?code=500
+ErrorDocument 503 /pages/error.php?code=503
+
+# ===================================================
+# تحسينات إضافية
+# ===================================================
+
+# منع Hotlinking للصور
+<IfModule mod_rewrite.c>
+    RewriteCond %{HTTP_REFERER} !^$
+    RewriteCond %{HTTP_REFERER} !^https?://(www\.)?rp\.electromti\.com [NC]
+    RewriteRule \.(jpg|jpeg|png|gif|svg|webp)$ - [F,L]
+</IfModule>
+
+# التحكم في الوصول لملف robots.txt
+<Files "robots.txt">
+    Order Allow,Deny
+    Allow from all
+</Files>
+
+# السماح بالوصول لـ favicon
+<Files "favicon.ico">
+    Order Allow,Deny
+    Allow from all
+</Files>
+
+# ===================================================
+# End of .htaccess
+# ===================================================
