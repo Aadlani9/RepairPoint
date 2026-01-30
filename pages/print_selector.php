@@ -321,9 +321,9 @@ if (!$repair) {
                 <button type="submit" class="btn btn-print">
                     🖨️ Imprimir
                 </button>
-                <a href="?page=repair_details&id=<?= $repair_id ?>" class="btn btn-cancel">
+                <button type="button" class="btn btn-cancel" onclick="cancelPrint()">
                     ❌ Cancelar
-                </a>
+                </button>
             </div>
         </form>
     </div>
@@ -407,6 +407,19 @@ if (!$repair) {
         document.getElementById('printForm').addEventListener('submit', function() {
             sessionStorage.setItem('print_initiated', 'true');
         });
+
+        // Función para cancelar y volver a la página anterior
+        function cancelPrint() {
+            sessionStorage.setItem('print_initiated', 'true'); // Evitar el mensaje de confirmación
+
+            // Intentar cerrar si es una ventana popup
+            if (window.opener) {
+                window.close();
+            } else {
+                // Si no es popup, volver a la página de detalles
+                window.location.href = '<?= url("pages/repair_details.php?id=" . $repair_id) ?>';
+            }
+        }
     </script>
 </body>
 </html>
