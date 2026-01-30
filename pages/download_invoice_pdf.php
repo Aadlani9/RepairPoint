@@ -67,12 +67,49 @@ $invoice = $db->selectOne(
 );
 
 if (!$invoice) {
-    // Debug: intentar encontrar la factura sin filtro de shop
-    $debug_invoice = $db->selectOne("SELECT id, shop_id, invoice_number FROM invoices WHERE id = ?", [$invoice_id]);
+    // Debug: intentar encontrar la factura sin JOINs
+    $debug_invoice = $db->selectOne("SELECT * FROM invoices WHERE id = ? AND shop_id = ?", [$invoice_id, $shop_id]);
     if ($debug_invoice) {
-        die("Factura encontrada pero pertenece a shop_id: {$debug_invoice['shop_id']} (tu shop_id es: $shop_id)");
+        // Verificar qué JOIN está fallando
+        $customer = $db->selectOne("SELECT id FROM customers WHERE id = ?", [$debug_invoice['customer_id']]);
+        $shop = $db->selectOne("SELECT id FROM shops WHERE id = ?", [$debug_invoice['shop_id']]);
+        $user = $db->selectOne("SELECT id FROM users WHERE id = ?", [$debug_invoice['created_by']]);
+
+        $errors = [];
+        if (!$customer) $errors[] = "Cliente ID {$debug_invoice['customer_id']} no existe";
+        if (!$shop) $errors[] = "Shop ID {$debug_invoice['shop_id']} no existe";
+        if (!$user) $errors[] = "Usuario ID {$debug_invoice['created_by']} no existe";
+
+        if ($errors) {
+            die("Error en datos relacionados: " . implode(", ", $errors));
+        }
+
+        // Si llegamos aquí, usar LEFT JOIN
+        $invoice = $db->selectOne(
+            "SELECT i.*,
+                    COALESCE(c.full_name, 'Cliente desconocido') as customer_name,
+                    COALESCE(c.phone, '') as customer_phone,
+                    c.email as customer_email,
+                    COALESCE(c.id_type, 'dni') as id_type,
+                    COALESCE(c.id_number, '') as id_number,
+                    c.address as customer_address,
+                    COALESCE(s.name, 'Tienda') as shop_name,
+                    s.phone1 as shop_phone,
+                    s.phone2 as shop_phone2,
+                    s.email as shop_email,
+                    s.address as shop_address,
+                    s.logo as shop_logo,
+                    s.nif as shop_nif,
+                    COALESCE(u.name, 'Usuario') as created_by_name
+             FROM invoices i
+             LEFT JOIN customers c ON i.customer_id = c.id
+             LEFT JOIN shops s ON i.shop_id = s.id
+             LEFT JOIN users u ON i.created_by = u.id
+             WHERE i.id = ? AND i.shop_id = ?",
+            [$invoice_id, $shop_id]
+        );
     } else {
-        die("Factura con ID $invoice_id no existe en la base de datos");
+        die("Factura con ID $invoice_id no existe o no pertenece a tu tienda");
     }
 }
 
