@@ -91,6 +91,10 @@ require_once INCLUDES_PATH . 'header.php';
                     </h2>
                 </div>
                 <div>
+                    <a href="<?= url('pages/edit_customer.php?id=' . $customer_id) ?>"
+                       class="btn btn-warning">
+                        <i class="bi bi-pencil"></i> Editar
+                    </a>
                     <a href="<?= url('pages/create_invoice.php?customer_id=' . $customer_id) ?>"
                        class="btn btn-primary">
                         <i class="bi bi-file-earmark-plus"></i> Nueva Factura
