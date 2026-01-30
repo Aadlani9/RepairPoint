@@ -609,35 +609,36 @@ $html .= '
     </table>
 </div>
 
-<!-- TOTALS & QR -->
-<div class="totals-section">
-    <!-- QR Code -->
-    <div class="qr-section">
-        <div class="qr-title">CÓDIGO QR DE VERIFICACIÓN</div>
-        <div class="qr-code">
-            <img src="' . $qr_base64 . '" alt="QR Code">
-        </div>
-        <div class="qr-info">Escanea para ver información</div>
-    </div>
-
-    <!-- Totals -->
-    <table class="totals-table">
-        <tr>
-            <td class="label">Base Imponible:</td>
-            <td class="amount">€' . number_format($invoice['subtotal'], 2) . '</td>
-        </tr>
-        <tr>
-            <td class="label">IVA (' . number_format($invoice['iva_rate'], 0) . '%):</td>
-            <td class="amount">€' . number_format($invoice['iva_amount'], 2) . '</td>
-        </tr>
-        <tr class="total-row">
-            <td class="label">TOTAL:</td>
-            <td class="amount">€' . number_format($invoice['total'], 2) . '</td>
-        </tr>
-    </table>
-</div>
-
-<div class="clearfix"></div>';
+<!-- TOTALS & QR usando tabla -->
+<table style="width: 100%; margin-top: 20px; border-collapse: collapse;">
+    <tr>
+        <td style="width: 40%; vertical-align: top; padding-right: 20px;">
+            <!-- QR Code -->
+            <div style="border: 1px solid #e2e8f0; border-radius: 5px; padding: 15px; text-align: center; background: #fff;">
+                <div style="font-size: 8pt; color: #718096; margin-bottom: 8px; font-weight: bold;">CÓDIGO QR DE VERIFICACIÓN</div>
+                <img src="' . $qr_base64 . '" style="width: 120px; height: 120px;">
+                <div style="font-size: 7pt; color: #a0aec0; margin-top: 8px;">Escanea para ver información</div>
+            </div>
+        </td>
+        <td style="width: 60%; vertical-align: top;">
+            <!-- Totals -->
+            <table style="width: 100%; border: 2px solid ' . $primary . '; border-collapse: collapse; border-radius: 5px;">
+                <tr>
+                    <td style="padding: 10px 15px; text-align: right; font-weight: 600; color: #4a5568; background: ' . $light_bg . '; border-bottom: 1px solid #e2e8f0;">Base Imponible:</td>
+                    <td style="padding: 10px 15px; text-align: right; font-weight: bold; width: 120px; background: #fff; border-bottom: 1px solid #e2e8f0;">€' . number_format($invoice['subtotal'], 2) . '</td>
+                </tr>
+                <tr>
+                    <td style="padding: 10px 15px; text-align: right; font-weight: 600; color: #4a5568; background: ' . $light_bg . '; border-bottom: 1px solid #e2e8f0;">IVA (' . number_format($invoice['iva_rate'], 0) . '%):</td>
+                    <td style="padding: 10px 15px; text-align: right; font-weight: bold; width: 120px; background: #fff; border-bottom: 1px solid #e2e8f0;">€' . number_format($invoice['iva_amount'], 2) . '</td>
+                </tr>
+                <tr>
+                    <td style="padding: 12px 15px; text-align: right; font-weight: bold; font-size: 12pt; background: ' . $primary . '; color: #fff;">TOTAL:</td>
+                    <td style="padding: 12px 15px; text-align: right; font-weight: bold; font-size: 12pt; width: 120px; background: ' . $primary . '; color: #fff;">€' . number_format($invoice['total'], 2) . '</td>
+                </tr>
+            </table>
+        </td>
+    </tr>
+</table>';
 
 // Notes
 if (!empty($invoice['notes'])) {
