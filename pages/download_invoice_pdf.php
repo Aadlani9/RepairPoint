@@ -242,12 +242,13 @@ $html = '
             font-weight: bold;
         }
         .info-content {
-            padding: 10px;
+            padding: 12px;
             background: white;
         }
         .info-line {
-            margin: 4px 0;
+            margin: 8px 0;
             font-size: 9pt;
+            line-height: 1.4;
         }
         .info-label {
             font-weight: bold;
@@ -259,7 +260,7 @@ $html = '
             font-size: 12pt;
             font-weight: bold;
             color: ' . $primary . ';
-            margin-bottom: 5px;
+            margin-bottom: 8px;
         }
         .payment-badge {
             display: inline-block;
@@ -267,7 +268,7 @@ $html = '
             border-radius: 4px;
             font-weight: bold;
             font-size: 10pt;
-            margin: 5px 0;
+            margin: 10px 0;
             background: ' . $payment_status['bg'] . ';
             color: ' . $payment_status['color'] . ';
             border: 2px solid ' . $payment_status['border'] . ';
