@@ -16,6 +16,11 @@ class ComposerStaticInit1ba944b1b2880695113851e981334169
         array (
             'setasign\\Fpdi\\' => 14,
         ),
+        'c' => 
+        array (
+            'chillerlan\\Settings\\' => 20,
+            'chillerlan\\QRCode\\' => 18,
+        ),
         'S' => 
         array (
             'Svg\\' => 4,
@@ -37,19 +42,10 @@ class ComposerStaticInit1ba944b1b2880695113851e981334169
         array (
             'FontLib\\' => 8,
         ),
-        'E' => 
-        array (
-            'Endroid\\QrCode\\' => 15,
-        ),
         'D' => 
         array (
             'Dompdf\\' => 7,
             'DeepCopy\\' => 9,
-            'DASPRiD\\Enum\\' => 13,
-        ),
-        'B' => 
-        array (
-            'BaconQrCode\\' => 12,
         ),
     );
 
@@ -57,6 +53,14 @@ class ComposerStaticInit1ba944b1b2880695113851e981334169
         'setasign\\Fpdi\\' => 
         array (
             0 => __DIR__ . '/..' . '/setasign/fpdi/src',
+        ),
+        'chillerlan\\Settings\\' => 
+        array (
+            0 => __DIR__ . '/..' . '/chillerlan/php-settings-container/src',
+        ),
+        'chillerlan\\QRCode\\' => 
+        array (
+            0 => __DIR__ . '/..' . '/chillerlan/php-qrcode/src',
         ),
         'Svg\\' => 
         array (
@@ -94,10 +98,6 @@ class ComposerStaticInit1ba944b1b2880695113851e981334169
         array (
             0 => __DIR__ . '/..' . '/phenx/php-font-lib/src/FontLib',
         ),
-        'Endroid\\QrCode\\' => 
-        array (
-            0 => __DIR__ . '/..' . '/endroid/qr-code/src',
-        ),
         'Dompdf\\' => 
         array (
             0 => __DIR__ . '/..' . '/dompdf/dompdf/src',
@@ -105,14 +105,6 @@ class ComposerStaticInit1ba944b1b2880695113851e981334169
         'DeepCopy\\' => 
         array (
             0 => __DIR__ . '/..' . '/myclabs/deep-copy/src/DeepCopy',
-        ),
-        'DASPRiD\\Enum\\' => 
-        array (
-            0 => __DIR__ . '/..' . '/dasprid/enum/src',
-        ),
-        'BaconQrCode\\' => 
-        array (
-            0 => __DIR__ . '/..' . '/bacon/bacon-qr-code/src',
         ),
     );
 
