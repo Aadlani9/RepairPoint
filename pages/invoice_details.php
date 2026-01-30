@@ -107,13 +107,13 @@ require_once INCLUDES_PATH . 'header.php';
                        class="btn btn-warning">
                         <i class="bi bi-pencil"></i> Editar
                     </a>
-                    <a href="<?= url('pages/print_invoice_pdf.php?id=' . $invoice_id) ?>"
-                       class="btn btn-info" target="_blank">
-                        <i class="bi bi-printer"></i> Imprimir
-                    </a>
                     <a href="<?= url('pages/download_invoice_pdf.php?id=' . $invoice_id) ?>"
+                       class="btn btn-info" target="_blank">
+                        <i class="bi bi-eye"></i> Ver PDF
+                    </a>
+                    <a href="<?= url('pages/download_invoice_pdf.php?id=' . $invoice_id . '&mode=download') ?>"
                        class="btn btn-danger">
-                        <i class="bi bi-file-pdf"></i> Descargar PDF
+                        <i class="bi bi-download"></i> Descargar PDF
                     </a>
                     <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#paymentModal">
                         <i class="bi bi-cash"></i> Actualizar Pago
