@@ -10,11 +10,8 @@ require_once '../vendor/autoload.php';
 
 use Mpdf\Mpdf;
 use Mpdf\Output\Destination;
-use Endroid\QrCode\QrCode;
-use Endroid\QrCode\Writer\PngWriter;
-use Endroid\QrCode\Encoding\Encoding;
-use Endroid\QrCode\ErrorCorrectionLevel;
-use Endroid\QrCode\Color\Color;
+use chillerlan\QRCode\QRCode;
+use chillerlan\QRCode\QROptions;
 
 // Verificar sesión
 if (!isset($_SESSION['user_id'])) {
@@ -117,18 +114,16 @@ foreach ($qr_data as $key => $value) {
     $qr_text .= "$key: $value\n";
 }
 
-// Generar QR Code
-$qrCode = new QrCode(
-    data: $qr_text,
-    encoding: new Encoding('UTF-8'),
-    errorCorrectionLevel: ErrorCorrectionLevel::Medium,
-    size: 150,
-    margin: 5
-);
+// Generar QR Code con chillerlan/php-qrcode
+$qrOptions = new QROptions([
+    'outputType' => QRCode::OUTPUT_IMAGE_PNG,
+    'eccLevel' => QRCode::ECC_M,
+    'scale' => 5,
+    'imageBase64' => true,
+]);
 
-$writer = new PngWriter();
-$qrResult = $writer->write($qrCode);
-$qr_base64 = 'data:image/png;base64,' . base64_encode($qrResult->getString());
+$qrcode = new QRCode($qrOptions);
+$qr_base64 = $qrcode->render($qr_text);
 
 // Generar nombre del archivo
 $customer_name_clean = preg_replace('/[^a-zA-Z0-9]/', '_', $invoice['customer_name']);

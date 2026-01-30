@@ -2,7 +2,7 @@
     "require": {
         "tecnickcom/tcpdf": "^6.10",
         "dompdf/dompdf": "^2.0",
-        "mpdf/mpdf": "^8.2",
-        "endroid/qr-code": "^6.1"
+        "mpdf/mpdf": "^8.1",
+        "chillerlan/php-qrcode": "^5.0"
     }
 }
