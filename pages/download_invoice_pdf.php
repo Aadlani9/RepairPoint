@@ -26,92 +26,47 @@ if ($_SESSION['user_role'] !== 'admin') {
 $db = getDB();
 $shop_id = $_SESSION['shop_id'] ?? 0;
 
-// Debug: mostrar información si hay problemas
 if ($shop_id <= 0) {
     die('Error: shop_id no válido en la sesión');
 }
 
 // Obtener ID de la factura
 $invoice_id = isset($_GET['id']) ? intval($_GET['id']) : 0;
-
-// Modo: 'preview' para ver en navegador, 'download' para descargar
 $mode = isset($_GET['mode']) ? $_GET['mode'] : 'preview';
 
 if ($invoice_id <= 0) {
     die('ID de factura inválido');
 }
 
-// Obtener información de la factura
-$invoice = $db->selectOne(
-    "SELECT i.*,
-            c.full_name as customer_name,
-            c.phone as customer_phone,
-            c.email as customer_email,
-            c.id_type,
-            c.id_number,
-            c.address as customer_address,
-            s.name as shop_name,
-            s.phone1 as shop_phone,
-            s.phone2 as shop_phone2,
-            s.email as shop_email,
-            s.address as shop_address,
-            s.logo as shop_logo,
-            s.nif as shop_nif,
-            u.name as created_by_name
-     FROM invoices i
-     JOIN customers c ON i.customer_id = c.id
-     JOIN shops s ON i.shop_id = s.id
-     JOIN users u ON i.created_by = u.id
-     WHERE i.id = ? AND i.shop_id = ?",
-    [$invoice_id, $shop_id]
-);
+// Obtener factura básica primero
+$invoice = $db->selectOne("SELECT * FROM invoices WHERE id = ? AND shop_id = ?", [$invoice_id, $shop_id]);
 
 if (!$invoice) {
-    // Debug: intentar encontrar la factura sin JOINs
-    $debug_invoice = $db->selectOne("SELECT * FROM invoices WHERE id = ? AND shop_id = ?", [$invoice_id, $shop_id]);
-    if ($debug_invoice) {
-        // Verificar qué JOIN está fallando
-        $customer = $db->selectOne("SELECT id FROM customers WHERE id = ?", [$debug_invoice['customer_id']]);
-        $shop = $db->selectOne("SELECT id FROM shops WHERE id = ?", [$debug_invoice['shop_id']]);
-        $user = $db->selectOne("SELECT id FROM users WHERE id = ?", [$debug_invoice['created_by']]);
-
-        $errors = [];
-        if (!$customer) $errors[] = "Cliente ID {$debug_invoice['customer_id']} no existe";
-        if (!$shop) $errors[] = "Shop ID {$debug_invoice['shop_id']} no existe";
-        if (!$user) $errors[] = "Usuario ID {$debug_invoice['created_by']} no existe";
-
-        if ($errors) {
-            die("Error en datos relacionados: " . implode(", ", $errors));
-        }
-
-        // Si llegamos aquí, usar LEFT JOIN
-        $invoice = $db->selectOne(
-            "SELECT i.*,
-                    COALESCE(c.full_name, 'Cliente desconocido') as customer_name,
-                    COALESCE(c.phone, '') as customer_phone,
-                    c.email as customer_email,
-                    COALESCE(c.id_type, 'dni') as id_type,
-                    COALESCE(c.id_number, '') as id_number,
-                    c.address as customer_address,
-                    COALESCE(s.name, 'Tienda') as shop_name,
-                    s.phone1 as shop_phone,
-                    s.phone2 as shop_phone2,
-                    s.email as shop_email,
-                    s.address as shop_address,
-                    s.logo as shop_logo,
-                    s.nif as shop_nif,
-                    COALESCE(u.name, 'Usuario') as created_by_name
-             FROM invoices i
-             LEFT JOIN customers c ON i.customer_id = c.id
-             LEFT JOIN shops s ON i.shop_id = s.id
-             LEFT JOIN users u ON i.created_by = u.id
-             WHERE i.id = ? AND i.shop_id = ?",
-            [$invoice_id, $shop_id]
-        );
-    } else {
-        die("Factura con ID $invoice_id no existe o no pertenece a tu tienda");
-    }
+    die("Factura con ID $invoice_id no encontrada");
 }
+
+// Obtener datos relacionados por separado
+$customer = $db->selectOne("SELECT * FROM customers WHERE id = ?", [$invoice['customer_id']]);
+$shop = $db->selectOne("SELECT * FROM shops WHERE id = ?", [$invoice['shop_id']]);
+$user = $db->selectOne("SELECT * FROM users WHERE id = ?", [$invoice['created_by']]);
+
+// Combinar datos con valores por defecto
+$invoice['customer_name'] = $customer['full_name'] ?? 'Cliente';
+$invoice['customer_phone'] = $customer['phone'] ?? '';
+$invoice['customer_email'] = $customer['email'] ?? '';
+$invoice['id_type'] = $customer['id_type'] ?? 'dni';
+$invoice['id_number'] = $customer['id_number'] ?? '';
+$invoice['customer_address'] = $customer['address'] ?? '';
+
+$invoice['shop_name'] = $shop['name'] ?? 'Tienda';
+$invoice['shop_phone'] = $shop['phone1'] ?? '';
+$invoice['shop_phone2'] = $shop['phone2'] ?? '';
+$invoice['shop_email'] = $shop['email'] ?? '';
+$invoice['shop_address'] = $shop['address'] ?? '';
+$invoice['shop_logo'] = $shop['logo'] ?? '';
+$invoice['shop_nif'] = $shop['nif'] ?? '';
+
+$invoice['created_by_name'] = $user['name'] ?? 'Usuario';
 
 // Obtener items de la factura
 $items = $db->select(
