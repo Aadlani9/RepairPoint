@@ -38,6 +38,11 @@ try {
     $db = getDB();
     $shop_id = $_SESSION['shop_id'];
 
+    // Debug mode - سجل الأخطاء للتشخيص
+    $debug_info = [];
+    $debug_info['db_connected'] = ($db !== null);
+    $debug_info['shop_id'] = $shop_id;
+
     // Obtener parámetro البحث
     $search_term = trim($_GET['term'] ?? $_GET['search'] ?? '');
     $limit = intval($_GET['limit'] ?? 20);
@@ -49,6 +54,25 @@ try {
 
     if (strlen($search_term) < 2) {
         sendJsonResponse(false, null, 'El término de búsqueda debe tener al menos 2 caracteres');
+    }
+
+    // Debug: اختبار بسيط للاتصال بقاعدة البيانات
+    $debug_info['search_term'] = $search_term;
+
+    // اختبار وجود الجداول
+    try {
+        $test_models = $db->select("SELECT COUNT(*) as cnt FROM models");
+        $debug_info['models_count'] = $test_models[0]['cnt'] ?? 'error';
+
+        $test_brands = $db->select("SELECT COUNT(*) as cnt FROM brands");
+        $debug_info['brands_count'] = $test_brands[0]['cnt'] ?? 'error';
+
+        // اختبار بحث بسيط بدون معلمات
+        $simple_test = $db->select("SELECT id, name FROM models WHERE name LIKE '%iPhone%' LIMIT 3");
+        $debug_info['simple_search_count'] = count($simple_test);
+        $debug_info['simple_search_results'] = $simple_test;
+    } catch (Exception $debug_e) {
+        $debug_info['debug_error'] = $debug_e->getMessage();
     }
 
     // البحث في الموديلات
@@ -131,7 +155,12 @@ try {
         ];
     }
 
-    sendJsonResponse(true, $results, count($results) . ' modelo(s) encontrado(s)');
+    // إضافة معلومات التشخيص للاستجابة
+    $response_data = [
+        'results' => $results,
+        'debug' => $debug_info
+    ];
+    sendJsonResponse(true, $response_data, count($results) . ' modelo(s) encontrado(s)');
 
 } catch (Exception $e) {
     error_log("Error en API models_search: " . $e->getMessage());
