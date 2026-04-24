@@ -1795,7 +1795,7 @@ require_once INCLUDES_PATH . 'header.php';
     <script>
         // متغيرات عامة
         const repairId = <?= $repair['id'] ?>;
-        const canUseSpareParts = <?= json_encode($spare_parts_permissions['use_spare_parts']) ?>;
+        const canUseSpareParts = <?= json_encode($spare_parts_permissions['use_spare_parts'] && $repair['status'] !== 'delivered') ?>;
         const brandId = <?= $repair['brand_id'] ?>;
         const modelId = <?= $repair['model_id'] ?>;
 
