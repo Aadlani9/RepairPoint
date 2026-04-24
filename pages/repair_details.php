@@ -321,14 +321,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                                 reopen_warranty_days = 30,
                                 reopen_count = COALESCE(reopen_count, 0) + 1,
                                 last_reopen_by = ?,
-                                updated_at = NOW(),
-                                updated_by = ?
+                                updated_at = NOW()
                              WHERE id = ? AND shop_id = ?",
                             [
                                 $reopen_type,
                                 $reopen_reason,
                                 $reopen_notes,
-                                $_SESSION['user_id'],
                                 $_SESSION['user_id'],
                                 $repair_id,
                                 $shop_id
@@ -1819,6 +1817,7 @@ require_once INCLUDES_PATH . 'header.php';
             const searchInput = document.getElementById('modalSparePartSearch');
             const categoryFilter = document.getElementById('modalCategoryFilter');
             const resultsContainer = document.getElementById('modalSparePartResults');
+            if (!searchInput || !categoryFilter || !resultsContainer) return;
             let searchTimeout;
 
             function performSearch() {
