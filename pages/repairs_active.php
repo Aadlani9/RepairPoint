@@ -702,7 +702,7 @@ require_once INCLUDES_PATH . 'header.php';
 
             <?php if ($total_pages > 1): ?>
                 <div class="card-footer">
-                    <?= generatePagination($page, $total_pages, 'repairs_active.php', [
+                    <?= generatePagination($page, $total_pages, $_SERVER['PHP_SELF'], [
                         'search' => $search,
                         'status' => $status_filter,
                         'priority' => $priority_filter

@@ -417,9 +417,9 @@ function getPriorityBadge($priority) {
 function generatePagination($current_page, $total_pages, $base_url, $params = []) {
     if ($total_pages <= 1) return '';
 
-    // إصلاح المسار - إزالة BASE_URL إذا كان موجود
+    // بناء مسار مطلق صحيح يبدأ بـ /
     $clean_url = str_replace(BASE_URL, '', $base_url);
-    $clean_url = ltrim($clean_url, '/');
+    $clean_url = '/' . ltrim($clean_url, '/');
 
     $html = '<nav aria-label="Paginación">';
     $html .= '<ul class="pagination justify-content-center">';

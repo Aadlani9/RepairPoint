@@ -63,8 +63,12 @@ $repair['original_delivered_at'] = $repair['original_delivered_at'] ?? null;
 $repair['reopen_delivered_at'] = $repair['reopen_delivered_at'] ?? null;
 $repair['reopen_warranty_days'] = $repair['reopen_warranty_days'] ?? null;
 $repair['reopen_count'] = $repair['reopen_count'] ?? 0;
-$repair['reopen_completed_at'] = $repair['reopen_completed_at'] ?? null;
-$repair['last_reopen_by'] = $repair['last_reopen_by'] ?? null;
+$repair['reopen_completed_at']   = $repair['reopen_completed_at'] ?? null;
+$repair['last_reopen_by']        = $repair['last_reopen_by'] ?? null;
+$repair['unrepairable_reason']   = $repair['unrepairable_reason'] ?? null;
+$repair['unrepairable_notes']    = $repair['unrepairable_notes'] ?? null;
+$repair['unrepairable_at']       = $repair['unrepairable_at'] ?? null;
+$repair['unrepairable_by']       = $repair['unrepairable_by'] ?? null;
 
 // Obtener qطع الغيار المستخدمة en esta reparación
 $used_spare_parts = getRepairSpareParts($repair_id);
@@ -289,6 +293,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     }
                 } else {
                     $message = 'Debe especificar quién entrega';
+                }
+                break;
+
+            case 'mark_unrepairable':
+                $unrepairable_reason = cleanString($_POST['unrepairable_reason'] ?? '');
+                $unrepairable_notes  = cleanString($_POST['unrepairable_notes'] ?? '');
+
+                if ($unrepairable_reason) {
+                    $updated = $db->update(
+                        "UPDATE repairs SET
+                            status = 'unrepairable',
+                            unrepairable_reason = ?,
+                            unrepairable_notes = ?,
+                            unrepairable_at = NOW(),
+                            unrepairable_by = ?,
+                            updated_at = NOW()
+                         WHERE id = ? AND shop_id = ?",
+                        [$unrepairable_reason, $unrepairable_notes, $_SESSION['user_id'], $repair_id, $shop_id]
+                    );
+
+                    if ($updated !== false) {
+                        logActivity('repair_unrepairable', "Reparación #{$repair['reference']} marcada como no reparable", $_SESSION['user_id']);
+                        $success = true;
+                        $message = 'Reparación marcada como no reparable';
+                        $repair['status'] = 'unrepairable';
+                        $repair['unrepairable_reason'] = $unrepairable_reason;
+                        $repair['unrepairable_notes']  = $unrepairable_notes;
+                        $repair['unrepairable_at']     = getCurrentDateTime();
+                    } else {
+                        $message = 'Error al marcar como no reparable';
+                    }
+                } else {
+                    $message = 'Debe especificar el motivo';
                 }
                 break;
 
@@ -983,7 +1020,7 @@ require_once INCLUDES_PATH . 'header.php';
                         </div>
 
                         <!-- Acciones según el estado -->
-                        <?php if ($repair['status'] !== 'delivered'): ?>
+                        <?php if (!in_array($repair['status'], ['delivered', 'unrepairable'])): ?>
                             <div class="actions-section">
                                 <label class="fw-bold text-muted">Cambiar Estado:</label>
                                 <form method="POST" action="" class="mt-2">
@@ -1009,20 +1046,60 @@ require_once INCLUDES_PATH . 'header.php';
                                         <i class="bi bi-check me-2"></i>Actualizar Estado
                                     </button>
                                 </form>
+
+                                <!-- Botón No Reparable -->
+                                <div class="mt-2">
+                                    <button class="btn btn-dark btn-sm w-100"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#unrepairableModal">
+                                        <i class="bi bi-x-circle me-2"></i>
+                                        Marcar como No Reparable
+                                    </button>
+                                </div>
                             </div>
                         <?php endif; ?>
 
-                        <!-- Botón de entrega -->
-                        <?php if ($repair['status'] === 'completed'): ?>
+                        <!-- Botón de entrega (reparado o no reparado) -->
+                        <?php if (in_array($repair['status'], ['completed', 'unrepairable'])): ?>
                             <div class="delivery-section mt-4">
                                 <button class="btn btn-success w-100" data-bs-toggle="modal" data-bs-target="#deliveryModal">
                                     <i class="bi bi-hand-thumbs-up me-2"></i>
-                                    Marcar como Entregado
+                                    <?= $repair['status'] === 'unrepairable' ? 'Devolver Dispositivo al Cliente' : 'Marcar como Entregado' ?>
                                 </button>
                             </div>
                         <?php endif; ?>
                     </div>
                 </div>
+
+                <!-- Aviso: No Reparable -->
+                <?php if ($repair['status'] === 'unrepairable'): ?>
+                <div class="card mb-4 border-dark">
+                    <div class="card-header bg-dark text-white">
+                        <h6 class="card-title mb-0">
+                            <i class="bi bi-x-circle me-2"></i>
+                            Dispositivo No Reparable
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-2">
+                            <span class="fw-bold text-muted small">Motivo:</span>
+                            <div class="mt-1"><?= htmlspecialchars($repair['unrepairable_reason'] ?? '-') ?></div>
+                        </div>
+                        <?php if ($repair['unrepairable_notes']): ?>
+                        <div class="mb-2">
+                            <span class="fw-bold text-muted small">Notas:</span>
+                            <div class="mt-1 text-muted small"><?= nl2br(htmlspecialchars($repair['unrepairable_notes'])) ?></div>
+                        </div>
+                        <?php endif; ?>
+                        <?php if ($repair['unrepairable_at']): ?>
+                        <div class="text-muted small">
+                            <i class="bi bi-clock me-1"></i>
+                            <?= formatDateTime($repair['unrepairable_at']) ?>
+                        </div>
+                        <?php endif; ?>
+                    </div>
+                </div>
+                <?php endif; ?>
 
                 <!-- Información de fechas -->
                 <div class="card mb-4">
@@ -1061,6 +1138,26 @@ require_once INCLUDES_PATH . 'header.php';
                                         <div class="timeline-date">
                                             <?= formatDateTime($repair['completed_at']) ?>
                                         </div>
+                                    </div>
+                                </div>
+                            <?php endif; ?>
+
+                            <!-- No Reparable -->
+                            <?php if ($repair['unrepairable_at']): ?>
+                                <div class="timeline-item">
+                                    <div class="timeline-marker bg-dark"></div>
+                                    <div class="timeline-content">
+                                        <div class="timeline-title">
+                                            <i class="bi bi-x-circle me-2 text-danger"></i>No Reparable
+                                        </div>
+                                        <div class="timeline-date">
+                                            <?= formatDateTime($repair['unrepairable_at']) ?>
+                                        </div>
+                                        <?php if ($repair['unrepairable_reason']): ?>
+                                            <small class="text-muted">
+                                                <?= htmlspecialchars($repair['unrepairable_reason']) ?>
+                                            </small>
+                                        <?php endif; ?>
                                     </div>
                                 </div>
                             <?php endif; ?>
@@ -1508,6 +1605,71 @@ require_once INCLUDES_PATH . 'header.php';
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
                         <button type="submit" class="btn btn-success">
                             <i class="bi bi-check me-2"></i>Confirmar Entrega
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Marcar como No Reparable -->
+    <div class="modal fade" id="unrepairableModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form method="POST" action="">
+                    <input type="hidden" name="csrf_token" value="<?= generateCSRFToken() ?>">
+                    <input type="hidden" name="action" value="mark_unrepairable">
+
+                    <div class="modal-header bg-dark text-white">
+                        <h5 class="modal-title">
+                            <i class="bi bi-x-circle me-2"></i>Dispositivo No Reparable
+                        </h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+
+                        <div class="alert alert-warning mb-3">
+                            <i class="bi bi-exclamation-triangle me-2"></i>
+                            Se marcará este dispositivo como <strong>no reparable</strong>.<br>
+                            Podrás devolverlo al cliente después.
+                        </div>
+
+                        <div class="customer-reminder mb-3 p-3 bg-light rounded">
+                            <h6>Dispositivo:</h6>
+                            <div><strong><?= htmlspecialchars($repair['customer_name']) ?></strong></div>
+                            <div class="text-muted small">
+                                <?= htmlspecialchars($repair['brand_name']) ?> <?= htmlspecialchars($repair['model_name']) ?>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="unrepairable_reason" class="form-label fw-bold">Motivo de No Reparación *</label>
+                            <select class="form-select" id="unrepairable_reason" name="unrepairable_reason" required>
+                                <option value="">Selecciona un motivo</option>
+                                <option value="Pieza no disponible en el mercado">Pieza no disponible en el mercado</option>
+                                <option value="Daño severo en placa base">Daño severo en placa base</option>
+                                <option value="Daño por agua irreparable">Daño por agua irreparable</option>
+                                <option value="Costo de reparación mayor al valor del dispositivo">Costo de reparación mayor al valor del dispositivo</option>
+                                <option value="Decisión del cliente: no reparar">Decisión del cliente: no reparar</option>
+                                <option value="Fallo múltiple de componentes">Fallo múltiple de componentes</option>
+                                <option value="Otro motivo">Otro motivo</option>
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="unrepairable_notes" class="form-label">Notas Adicionales</label>
+                            <textarea class="form-control"
+                                      id="unrepairable_notes"
+                                      name="unrepairable_notes"
+                                      rows="3"
+                                      placeholder="Describe más detalles si es necesario..."></textarea>
+                        </div>
+
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-dark">
+                            <i class="bi bi-x-circle me-2"></i>Confirmar - No Reparable
                         </button>
                     </div>
                 </form>

@@ -127,7 +127,8 @@ function getConfig($key = null) {
             'in_progress' => ['name' => 'En Proceso', 'color' => 'info'],
             'completed' => ['name' => 'Completado', 'color' => 'success'],
             'delivered' => ['name' => 'Entregado', 'color' => 'primary'],
-            'reopened' => ['name' => 'Reabierto', 'color' => 'danger']
+            'reopened' => ['name' => 'Reabierto', 'color' => 'danger'],
+            'unrepairable' => ['name' => 'No Reparable', 'color' => 'dark']
         ],
         'repair_priority' => [
             'low' => ['name' => 'Baja', 'color' => 'secondary'],
