@@ -829,9 +829,17 @@ function qiSelectCustomer(c) {
 
 // ── Crear cliente nuevo ──
 function qiShowNewCustomerForm() {
-    document.getElementById('nc-name').value      = '';
-    document.getElementById('nc-phone').value     = document.getElementById('qi-search-input').value.trim();
-    document.getElementById('nc-id-number').value = '';
+    const term = document.getElementById('qi-search-input').value.trim();
+
+    // Detect whether the search term is a phone, ID document, or name
+    const isPhone = /^[\+]?[\d\s\-\(\)]{6,}$/.test(term);
+    const isDNI   = /^\d{8}[A-Za-z]$/i.test(term);
+    const isNIE   = /^[XYZxyz]\d{7}[A-Za-z]$/i.test(term);
+    const isId    = isDNI || isNIE;
+
+    document.getElementById('nc-name').value      = (!isPhone && !isId) ? term : '';
+    document.getElementById('nc-phone').value     = isPhone ? term : '';
+    document.getElementById('nc-id-number').value = isId ? term.toUpperCase() : '';
     document.getElementById('nc-email').value     = '';
     document.getElementById('nc-address').value   = '';
     qiShowStep(2);
