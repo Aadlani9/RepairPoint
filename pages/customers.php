@@ -829,11 +829,29 @@ function qiSelectCustomer(c) {
 
 // ── Crear cliente nuevo ──
 function qiShowNewCustomerForm() {
-    document.getElementById('nc-name').value      = '';
-    document.getElementById('nc-phone').value     = document.getElementById('qi-search-input').value.trim();
-    document.getElementById('nc-id-number').value = '';
+    const term = document.getElementById('qi-search-input').value.trim();
+
+    // Detect whether the search term is a phone number, ID document, or name
+    const isPhone    = /^[\+]?[\d\s\-\(\)]{6,}$/.test(term);
+    const isDNI      = /^\d{8}[A-Za-z]$/i.test(term);
+    const isNIE      = /^[XYZxyz]\d{7}[A-Za-z]$/i.test(term);
+    // Passport: alphanumeric mix (letters+digits), no spaces, 6–12 chars
+    const isPassport = !isPhone && !isDNI && !isNIE &&
+                       /^[A-Za-z0-9]{6,12}$/.test(term) &&
+                       /[A-Za-z]/.test(term) && /\d/.test(term);
+    const isId       = isDNI || isNIE || isPassport;
+
+    document.getElementById('nc-name').value      = (!isPhone && !isId) ? term : '';
+    document.getElementById('nc-phone').value     = isPhone ? term : '';
+    document.getElementById('nc-id-number').value = isId ? term.toUpperCase() : '';
     document.getElementById('nc-email').value     = '';
     document.getElementById('nc-address').value   = '';
+
+    // Auto-select the matching document type in the dropdown
+    if (isDNI)           document.getElementById('nc-id-type').value = 'dni';
+    else if (isNIE)      document.getElementById('nc-id-type').value = 'nie';
+    else if (isPassport) document.getElementById('nc-id-type').value = 'passport';
+
     qiShowStep(2);
 }
 
