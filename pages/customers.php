@@ -139,17 +139,17 @@ if (isset($_GET['action']) && $_GET['action'] === 'delete' && isset($_GET['id'])
 $search = isset($_GET['search']) ? trim($_GET['search']) : '';
 $status_filter = isset($_GET['status']) ? $_GET['status'] : 'all';
 
+// Parámetros de paginación
+$page   = max(1, intval($_GET['page'] ?? 1));
+$limit  = RECORDS_PER_PAGE;
+$offset = calculateOffset($page, $limit);
+
 // Construir query de búsqueda
-$query = "SELECT c.*,
-          COUNT(DISTINCT i.id) as total_invoices,
-          COALESCE(SUM(CASE WHEN i.payment_status = 'pending' THEN i.total ELSE 0 END), 0) as pending_amount
-          FROM customers c
-          LEFT JOIN invoices i ON c.id = i.customer_id
-          WHERE c.shop_id = ?";
+$where = "c.shop_id = ?";
 $params = [$shop_id];
 
 if (!empty($search)) {
-    $query .= " AND (c.full_name LIKE ? OR c.phone LIKE ? OR c.id_number LIKE ? OR c.email LIKE ?)";
+    $where .= " AND (c.full_name LIKE ? OR c.phone LIKE ? OR c.id_number LIKE ? OR c.email LIKE ?)";
     $search_param = "%$search%";
     $params[] = $search_param;
     $params[] = $search_param;
@@ -158,11 +158,26 @@ if (!empty($search)) {
 }
 
 if ($status_filter !== 'all') {
-    $query .= " AND c.status = ?";
+    $where .= " AND c.status = ?";
     $params[] = $status_filter;
 }
 
-$query .= " GROUP BY c.id ORDER BY c.created_at DESC";
+// Contar total para paginación
+$total_records = $db->selectOne(
+    "SELECT COUNT(DISTINCT c.id) as count FROM customers c WHERE $where",
+    $params
+)['count'] ?? 0;
+
+$total_pages = calculateTotalPages($total_records, $limit);
+
+$query = "SELECT c.*,
+          COUNT(DISTINCT i.id) as total_invoices,
+          COALESCE(SUM(CASE WHEN i.payment_status = 'pending' THEN i.total ELSE 0 END), 0) as pending_amount
+          FROM customers c
+          LEFT JOIN invoices i ON c.id = i.customer_id
+          WHERE $where
+          GROUP BY c.id ORDER BY c.created_at DESC
+          LIMIT $limit OFFSET $offset";
 
 $customers = $db->select($query, $params);
 
@@ -393,6 +408,17 @@ require_once INCLUDES_PATH . 'header.php';
                     </tbody>
                 </table>
             </div>
+
+            <!-- Paginación -->
+            <?php if ($total_pages > 1): ?>
+            <div class="card-footer">
+                <?= generatePagination($page, $total_pages, $_SERVER['PHP_SELF'], [
+                    'search' => $search,
+                    'status' => $status_filter
+                ]) ?>
+            </div>
+            <?php endif; ?>
+
         </div>
     </div>
 </div>
