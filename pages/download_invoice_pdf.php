@@ -47,26 +47,32 @@ if (!$invoice) {
 
 // Obtener datos relacionados por separado
 $customer = $db->selectOne("SELECT * FROM customers WHERE id = ?", [$invoice['customer_id']]);
-$shop = $db->selectOne("SELECT * FROM shops WHERE id = ?", [$invoice['shop_id']]);
-$user = $db->selectOne("SELECT * FROM users WHERE id = ?", [$invoice['created_by']]);
+$shop     = $db->selectOne("SELECT * FROM shops WHERE id = ?", [$invoice['shop_id']]);
+$user     = $db->selectOne("SELECT * FROM users WHERE id = ?", [$invoice['created_by']]);
 
 // Combinar datos con valores por defecto
-$invoice['customer_name'] = $customer['full_name'] ?? 'Cliente';
-$invoice['customer_phone'] = $customer['phone'] ?? '';
-$invoice['customer_email'] = $customer['email'] ?? '';
-$invoice['id_type'] = $customer['id_type'] ?? 'dni';
-$invoice['id_number'] = $customer['id_number'] ?? '';
-$invoice['customer_address'] = $customer['address'] ?? '';
+$invoice['customer_name']    = $customer['full_name']  ?? 'Cliente';
+$invoice['customer_phone']   = $customer['phone']      ?? '';
+$invoice['customer_email']   = $customer['email']      ?? '';
+$invoice['id_type']          = $customer['id_type']    ?? 'dni';
+$invoice['id_number']        = $customer['id_number']  ?? '';
+$invoice['customer_address'] = $customer['address']    ?? '';
 
-$invoice['shop_name'] = $shop['name'] ?? 'Tienda';
-$invoice['shop_phone'] = $shop['phone1'] ?? '';
-$invoice['shop_phone2'] = $shop['phone2'] ?? '';
-$invoice['shop_email'] = $shop['email'] ?? '';
+$invoice['shop_name']    = $shop['name']    ?? 'Tienda';
+$invoice['shop_phone']   = $shop['phone1']  ?? '';
+$invoice['shop_phone2']  = $shop['phone2']  ?? '';
+$invoice['shop_email']   = $shop['email']   ?? '';
 $invoice['shop_address'] = $shop['address'] ?? '';
-$invoice['shop_logo'] = $shop['logo'] ?? '';
-$invoice['shop_nif'] = $shop['nif'] ?? '';
+$invoice['shop_logo']    = $shop['logo']    ?? '';
+$invoice['shop_nif']     = $shop['nif']     ?? '';
 
 $invoice['created_by_name'] = $user['name'] ?? 'Usuario';
+
+// Tipo de documento (compatible si la migración no se ha aplicado)
+$invoice_device = $invoice['device']         ?? null;
+$invoice_status = $invoice['invoice_status'] ?? 'invoice';
+$is_quote       = ($invoice_status === 'quote');
+$doc_label      = $is_quote ? 'PRESUPUESTO' : 'FACTURA';
 
 // Obtener items de la factura
 $items = $db->select(
@@ -87,356 +93,120 @@ if (!empty($invoice['shop_logo'])) {
 
 // Generar QR Code con toda la información
 $qr_data = [
-    'Factura' => $invoice['invoice_number'],
-    'Fecha' => date('d/m/Y', strtotime($invoice['invoice_date'])),
-    'Cliente' => $invoice['customer_name'],
-    'NIF/DNI' => strtoupper($invoice['id_type']) . ' ' . $invoice['id_number'],
-    'Total' => number_format($invoice['total'], 2) . ' EUR',
-    'Estado' => $invoice['payment_status'] === 'paid' ? 'PAGADO' : ($invoice['payment_status'] === 'partial' ? 'PARCIAL' : 'PENDIENTE'),
-    'Empresa' => $invoice['shop_name'],
+    $doc_label  => $invoice['invoice_number'],
+    'Fecha'     => date('d/m/Y', strtotime($invoice['invoice_date'])),
+    'Cliente'   => $invoice['customer_name'],
+    'NIF/DNI'   => strtoupper($invoice['id_type']) . ' ' . $invoice['id_number'],
+    'Total'     => number_format($invoice['total'], 2) . ' EUR',
+    'Estado'    => $invoice['payment_status'] === 'paid' ? 'PAGADO' : ($invoice['payment_status'] === 'partial' ? 'PARCIAL' : 'PENDIENTE'),
+    'Empresa'   => $invoice['shop_name'],
 ];
 
 if (!empty($invoice['shop_nif'])) {
     $qr_data['NIF Empresa'] = $invoice['shop_nif'];
 }
+if (!empty($invoice_device)) {
+    $qr_data['Dispositivo'] = $invoice_device;
+}
 
-// Convertir a texto para QR
 $qr_text = "";
 foreach ($qr_data as $key => $value) {
     $qr_text .= "$key: $value\n";
 }
 
-// Generar QR Code con chillerlan/php-qrcode
+// Generar QR Code
 $qrOptions = new QROptions([
-    'outputType' => QRCode::OUTPUT_IMAGE_PNG,
-    'eccLevel' => QRCode::ECC_M,
-    'scale' => 5,
+    'outputType'  => QRCode::OUTPUT_IMAGE_PNG,
+    'eccLevel'    => QRCode::ECC_M,
+    'scale'       => 5,
     'imageBase64' => true,
 ]);
 
-$qrcode = new QRCode($qrOptions);
+$qrcode    = new QRCode($qrOptions);
 $qr_base64 = $qrcode->render($qr_text);
 
 // Generar nombre del archivo
-$customer_name_clean = preg_replace('/[^a-zA-Z0-9]/', '_', $invoice['customer_name']);
-$customer_name_clean = preg_replace('/_+/', '_', $customer_name_clean);
-$customer_name_clean = trim($customer_name_clean, '_');
+$customer_name_clean    = preg_replace('/_+/', '_', preg_replace('/[^a-zA-Z0-9]/', '_', $invoice['customer_name']));
+$customer_name_clean    = trim($customer_name_clean, '_');
 $invoice_date_formatted = date('d-m-Y', strtotime($invoice['invoice_date']));
-$invoice_number_clean = str_replace(['/', '\\', ' '], '-', $invoice['invoice_number']);
-$filename = $customer_name_clean . '_' . $invoice_date_formatted . '_' . $invoice_number_clean . '.pdf';
+$invoice_number_clean   = str_replace(['/', '\\', ' '], '-', $invoice['invoice_number']);
+$doc_prefix             = $is_quote ? 'PRESUPUESTO' : 'FACTURA';
+$filename               = $doc_prefix . '_' . $customer_name_clean . '_' . $invoice_date_formatted . '_' . $invoice_number_clean . '.pdf';
 
 // Estado de pago configuración
 $status_config = [
-    'pending' => ['text' => 'PENDIENTE', 'bg' => '#fef3c7', 'color' => '#92400e', 'border' => '#f59e0b'],
-    'partial' => ['text' => 'PAGO PARCIAL', 'bg' => '#dbeafe', 'color' => '#1e40af', 'border' => '#3b82f6'],
-    'paid' => ['text' => 'PAGADO', 'bg' => '#d1fae5', 'color' => '#065f46', 'border' => '#10b981']
+    'pending' => ['text' => 'PENDIENTE',     'bg' => '#fef3c7', 'color' => '#92400e', 'border' => '#f59e0b'],
+    'partial' => ['text' => 'PAGO PARCIAL',  'bg' => '#dbeafe', 'color' => '#1e40af', 'border' => '#3b82f6'],
+    'paid'    => ['text' => 'PAGADO',        'bg' => '#d1fae5', 'color' => '#065f46', 'border' => '#10b981']
 ];
 $payment_status = $status_config[$invoice['payment_status']];
 
-// Colores del tema
-$primary = '#1a365d';
-$secondary = '#2c5282';
-$accent = '#3182ce';
-$light_bg = '#f7fafc';
-$border = '#e2e8f0';
+// Colores del tema: azul para factura, naranja para presupuesto
+$primary    = $is_quote ? '#92400e' : '#1a365d';
+$secondary  = $is_quote ? '#b45309' : '#2c5282';
+$accent     = $is_quote ? '#d97706' : '#3182ce';
+$light_bg   = $is_quote ? '#fffbeb' : '#f7fafc';
+$border     = '#e2e8f0';
+$badge_bg   = $is_quote ? '#d97706' : $primary;
 
-// Crear HTML para el PDF
+// ── Crear HTML para el PDF ──────────────────────────────────────────────────
 $html = '
 <!DOCTYPE html>
 <html>
 <head>
     <meta charset="UTF-8">
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        body {
-            font-family: "DejaVu Sans", Arial, sans-serif;
-            font-size: 10pt;
-            color: #2d3748;
-            line-height: 1.4;
-        }
-
-        /* Header */
-        .header {
-            width: 100%;
-            margin-bottom: 15px;
-        }
-        .header-table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-        .header-left {
-            width: 50%;
-            vertical-align: top;
-        }
-        .header-right {
-            width: 50%;
-            vertical-align: top;
-            text-align: right;
-        }
-        .company-name {
-            font-size: 18pt;
-            font-weight: bold;
-            color: ' . $primary . ';
-            margin-bottom: 5px;
-        }
-        .company-info {
-            font-size: 9pt;
-            color: #718096;
-            line-height: 1.6;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: "DejaVu Sans", Arial, sans-serif; font-size: 10pt; color: #2d3748; line-height: 1.4; }
+        .header { width: 100%; margin-bottom: 15px; }
+        .header-table { width: 100%; border-collapse: collapse; }
+        .header-left  { width: 50%; vertical-align: top; }
+        .header-right { width: 50%; vertical-align: top; text-align: right; }
+        .company-name { font-size: 18pt; font-weight: bold; color: ' . $primary . '; margin-bottom: 5px; }
+        .company-info { font-size: 9pt; color: #718096; line-height: 1.6; }
         .invoice-badge {
             display: inline-block;
-            background: ' . $primary . ';
+            background: ' . $badge_bg . ';
             color: white;
-            font-size: 18pt;
+            font-size: 16pt;
             font-weight: bold;
             padding: 8px 20px;
             letter-spacing: 2px;
         }
-        .invoice-number {
-            font-size: 14pt;
-            font-weight: bold;
-            color: ' . $primary . ';
-            margin: 8px 0;
-        }
-        .invoice-dates {
-            font-size: 9pt;
-            color: #4a5568;
-        }
-
-        /* Divider */
-        .divider {
-            height: 3px;
-            background: linear-gradient(to right, ' . $primary . ', ' . $accent . ');
-            margin: 12px 0;
-        }
-
-        /* Info boxes */
-        .info-section {
-            width: 100%;
-            margin: 15px 0;
-        }
-        .info-table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-        .info-cell {
-            width: 48%;
-            vertical-align: top;
-            padding: 0 5px;
-        }
-        .info-box {
-            border: 1px solid ' . $border . ';
-            border-radius: 5px;
-            overflow: hidden;
-        }
-        .info-header {
-            background: ' . $primary . ';
-            color: white;
-            padding: 8px 10px;
-            font-size: 10pt;
-            font-weight: bold;
-        }
-        .info-content {
-            padding: 12px;
-            background: white;
-        }
-        .info-line {
-            margin: 8px 0;
-            font-size: 9pt;
-            line-height: 1.4;
-        }
-        .info-label {
-            font-weight: bold;
-            color: #4a5568;
-            display: inline-block;
-            min-width: 65px;
-        }
-        .customer-name {
-            font-size: 12pt;
-            font-weight: bold;
-            color: ' . $primary . ';
-            margin-bottom: 8px;
-        }
+        .invoice-number { font-size: 14pt; font-weight: bold; color: ' . $primary . '; margin: 8px 0; }
+        .invoice-dates  { font-size: 9pt; color: #4a5568; }
+        .divider { height: 3px; background: ' . $primary . '; margin: 12px 0; }
+        .info-section { width: 100%; margin: 15px 0; }
+        .info-table   { width: 100%; border-collapse: collapse; }
+        .info-cell    { width: 48%; vertical-align: top; padding: 0 5px; }
+        .info-box     { border: 1px solid ' . $border . '; border-radius: 5px; overflow: hidden; }
+        .info-header  { background: ' . $primary . '; color: white; padding: 8px 10px; font-size: 10pt; font-weight: bold; }
+        .info-content { padding: 12px; background: white; }
+        .info-line    { margin: 8px 0; font-size: 9pt; line-height: 1.4; }
+        .info-label   { font-weight: bold; color: #4a5568; display: inline-block; min-width: 65px; }
+        .customer-name { font-size: 12pt; font-weight: bold; color: ' . $primary . '; margin-bottom: 8px; }
         .payment-badge {
-            display: inline-block;
-            padding: 5px 12px;
-            border-radius: 4px;
-            font-weight: bold;
-            font-size: 10pt;
-            margin: 10px 0;
-            background: ' . $payment_status['bg'] . ';
-            color: ' . $payment_status['color'] . ';
+            display: inline-block; padding: 5px 12px; border-radius: 4px;
+            font-weight: bold; font-size: 10pt; margin: 10px 0;
+            background: ' . $payment_status['bg'] . '; color: ' . $payment_status['color'] . ';
             border: 2px solid ' . $payment_status['border'] . ';
         }
-        .amount-pending {
-            color: #c53030;
-            font-weight: bold;
-        }
-
-        /* Items table */
-        .items-section {
-            margin: 15px 0;
-        }
-        .items-title {
-            background: ' . $secondary . ';
-            color: white;
-            padding: 8px 10px;
-            font-size: 11pt;
-            font-weight: bold;
-            border-radius: 4px 4px 0 0;
-        }
-        table.items {
-            width: 100%;
-            border-collapse: collapse;
-            border: 1px solid ' . $border . ';
-            border-top: none;
-        }
-        table.items th {
-            background: ' . $light_bg . ';
-            padding: 8px 6px;
-            text-align: left;
-            font-weight: bold;
-            font-size: 9pt;
-            color: #4a5568;
-            border-bottom: 2px solid ' . $border . ';
-        }
+        .amount-pending { color: #c53030; font-weight: bold; }
+        .items-section { margin: 15px 0; }
+        .items-title   { background: ' . $secondary . '; color: white; padding: 8px 10px; font-size: 11pt; font-weight: bold; border-radius: 4px 4px 0 0; }
+        table.items    { width: 100%; border-collapse: collapse; border: 1px solid ' . $border . '; border-top: none; }
+        table.items th { background: ' . $light_bg . '; padding: 8px 6px; text-align: left; font-weight: bold; font-size: 9pt; color: #4a5568; border-bottom: 2px solid ' . $border . '; }
         table.items th.center { text-align: center; }
-        table.items th.right { text-align: right; }
-        table.items td {
-            padding: 8px 6px;
-            font-size: 9pt;
-            border-bottom: 1px solid ' . $border . ';
-        }
+        table.items th.right  { text-align: right; }
+        table.items td        { padding: 8px 6px; font-size: 9pt; border-bottom: 1px solid ' . $border . '; }
         table.items td.center { text-align: center; }
-        table.items td.right { text-align: right; }
-        table.items tr:nth-child(even) {
-            background: #fafafa;
-        }
-        .type-badge {
-            display: inline-block;
-            padding: 2px 6px;
-            border-radius: 3px;
-            font-size: 8pt;
-            font-weight: bold;
-        }
-        .type-service { background: #e0f2fe; color: #0369a1; }
-        .type-product { background: #dcfce7; color: #166534; }
+        table.items td.right  { text-align: right; }
+        table.items tr:nth-child(even) { background: #fafafa; }
+        .type-badge    { display: inline-block; padding: 2px 6px; border-radius: 3px; font-size: 8pt; font-weight: bold; }
+        .type-service  { background: #e0f2fe; color: #0369a1; }
+        .type-product  { background: #dcfce7; color: #166534; }
         .type-spare_part { background: #fef3c7; color: #92400e; }
-
-        /* Totals */
-        .totals-section {
-            margin-top: 15px;
-            width: 100%;
-        }
-        .totals-table {
-            width: 250px;
-            float: right;
-            border: 2px solid ' . $primary . ';
-            border-radius: 5px;
-            overflow: hidden;
-        }
-        .totals-table td {
-            padding: 8px 10px;
-            font-size: 10pt;
-        }
-        .totals-table .label {
-            text-align: right;
-            font-weight: 600;
-            color: #4a5568;
-            background: ' . $light_bg . ';
-        }
-        .totals-table .amount {
-            text-align: right;
-            font-weight: bold;
-            width: 90px;
-            background: white;
-        }
-        .totals-table .total-row td {
-            background: ' . $primary . ' !important;
-            color: white;
-            font-size: 12pt;
-        }
-
-        /* QR Section */
-        .qr-section {
-            float: left;
-            width: 180px;
-            text-align: center;
-            padding: 10px;
-            border: 1px solid ' . $border . ';
-            border-radius: 5px;
-            background: white;
-        }
-        .qr-title {
-            font-size: 8pt;
-            color: #718096;
-            margin-bottom: 5px;
-        }
-        .qr-code img {
-            width: 120px;
-            height: 120px;
-        }
-        .qr-info {
-            font-size: 7pt;
-            color: #a0aec0;
-            margin-top: 5px;
-        }
-
-        /* Notes */
-        .notes-section {
-            clear: both;
-            margin-top: 20px;
-            padding: 10px;
-            background: #fffbeb;
-            border: 1px solid #fbbf24;
-            border-left: 4px solid #f59e0b;
-            border-radius: 4px;
-        }
-        .notes-title {
-            font-weight: bold;
-            color: #92400e;
-            font-size: 10pt;
-            margin-bottom: 4px;
-        }
-        .notes-content {
-            color: #78350f;
-            font-size: 9pt;
-        }
-
-        /* Legal */
-        .legal-info {
-            clear: both;
-            margin-top: 25px;
-            padding-top: 10px;
-            border-top: 1px dashed ' . $border . ';
-            font-size: 8pt;
-            color: #a0aec0;
-            text-align: center;
-        }
-
-        /* Footer */
-        .footer {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            padding: 8px 0;
-            background: ' . $light_bg . ';
-            border-top: 2px solid ' . $primary . ';
-            font-size: 8pt;
-            color: #718096;
-            text-align: center;
-        }
-        .footer-company {
-            font-weight: bold;
-            color: ' . $primary . ';
-        }
-
+        .legal-info { clear: both; margin-top: 25px; padding-top: 10px; border-top: 1px dashed ' . $border . '; font-size: 8pt; color: #a0aec0; text-align: center; }
         .clearfix { clear: both; }
     </style>
 </head>
@@ -448,7 +218,6 @@ $html = '
         <tr>
             <td class="header-left">';
 
-// Logo
 if ($logo_base64) {
     $html .= '<img src="' . $logo_base64 . '" style="max-width: 100px; max-height: 50px; margin-bottom: 8px;"><br>';
 }
@@ -457,28 +226,20 @@ $html .= '
                 <div class="company-name">' . htmlspecialchars($invoice['shop_name']) . '</div>
                 <div class="company-info">';
 
-if (!empty($invoice['shop_nif'])) {
-    $html .= '<strong>NIF:</strong> ' . htmlspecialchars($invoice['shop_nif']) . '<br>';
-}
-if (!empty($invoice['shop_address'])) {
-    $html .= nl2br(htmlspecialchars($invoice['shop_address'])) . '<br>';
-}
+if (!empty($invoice['shop_nif']))     { $html .= '<strong>NIF:</strong> ' . htmlspecialchars($invoice['shop_nif']) . '<br>'; }
+if (!empty($invoice['shop_address'])) { $html .= nl2br(htmlspecialchars($invoice['shop_address'])) . '<br>'; }
 if (!empty($invoice['shop_phone'])) {
     $html .= 'Tel: ' . htmlspecialchars($invoice['shop_phone']);
-    if (!empty($invoice['shop_phone2'])) {
-        $html .= ' / ' . htmlspecialchars($invoice['shop_phone2']);
-    }
+    if (!empty($invoice['shop_phone2'])) { $html .= ' / ' . htmlspecialchars($invoice['shop_phone2']); }
     $html .= '<br>';
 }
-if (!empty($invoice['shop_email'])) {
-    $html .= htmlspecialchars($invoice['shop_email']);
-}
+if (!empty($invoice['shop_email'])) { $html .= htmlspecialchars($invoice['shop_email']); }
 
 $html .= '
                 </div>
             </td>
             <td class="header-right">
-                <div class="invoice-badge">FACTURA</div><br>
+                <div class="invoice-badge">' . $doc_label . '</div><br>
                 <div class="invoice-number">' . htmlspecialchars($invoice['invoice_number']) . '</div>
                 <div class="invoice-dates">
                     <strong>Fecha:</strong> ' . date('d/m/Y', strtotime($invoice['invoice_date'])) . '<br>';
@@ -492,11 +253,20 @@ $html .= '
             </td>
         </tr>
     </table>
-</div>
+</div>';
 
-<div class="divider"></div>
+// Aviso de presupuesto
+if ($is_quote) {
+    $html .= '
+<div style="background:#fef3c7;border:2px solid #f59e0b;border-radius:5px;padding:10px 14px;margin:10px 0;font-size:9pt;color:#92400e;">
+    <strong>⚠ DOCUMENTO PROVISIONAL – PRESUPUESTO</strong><br>
+    Este documento es un presupuesto sujeto a la aceptación del cliente. No tiene validez como factura fiscal hasta su conversión.
+</div>';}
 
-<!-- INFO SECTION -->
+$html .= '<div class="divider"></div>';
+
+// INFO SECTION
+$html .= '
 <div class="info-section">
     <table class="info-table">
         <tr>
@@ -515,17 +285,13 @@ $html .= '
                         </div>';
 
 if (!empty($invoice['customer_email'])) {
-    $html .= '<div class="info-line">
-                            <span class="info-label">Email:</span>
-                            ' . htmlspecialchars($invoice['customer_email']) . '
-                        </div>';
+    $html .= '<div class="info-line"><span class="info-label">Email:</span> ' . htmlspecialchars($invoice['customer_email']) . '</div>';
 }
-
 if (!empty($invoice['customer_address'])) {
-    $html .= '<div class="info-line">
-                            <span class="info-label">Dirección:</span>
-                            ' . nl2br(htmlspecialchars($invoice['customer_address'])) . '
-                        </div>';
+    $html .= '<div class="info-line"><span class="info-label">Dirección:</span> ' . nl2br(htmlspecialchars($invoice['customer_address'])) . '</div>';
+}
+if (!empty($invoice_device)) {
+    $html .= '<div class="info-line"><span class="info-label">Dispositivo:</span> <strong>' . htmlspecialchars($invoice_device) . '</strong></div>';
 }
 
 $html .= '
@@ -539,28 +305,13 @@ $html .= '
                         <div class="payment-badge">' . $payment_status['text'] . '</div>';
 
 if ($invoice['payment_status'] === 'paid') {
-    $html .= '<div class="info-line">
-                            <span class="info-label">Fecha pago:</span>
-                            ' . date('d/m/Y', strtotime($invoice['payment_date'])) . '
-                        </div>
-                        <div class="info-line">
-                            <span class="info-label">Método:</span>
-                            ' . ucfirst($invoice['payment_method']) . '
-                        </div>';
+    $html .= '<div class="info-line"><span class="info-label">Fecha pago:</span> ' . date('d/m/Y', strtotime($invoice['payment_date'])) . '</div>'
+           . '<div class="info-line"><span class="info-label">Método:</span> ' . ucfirst($invoice['payment_method']) . '</div>';
 } elseif ($invoice['payment_status'] === 'partial') {
-    $html .= '<div class="info-line">
-                            <span class="info-label">Pagado:</span>
-                            <strong style="color: #276749;">€' . number_format($invoice['paid_amount'], 2) . '</strong>
-                        </div>
-                        <div class="info-line">
-                            <span class="info-label">Pendiente:</span>
-                            <span class="amount-pending">€' . number_format($invoice['total'] - $invoice['paid_amount'], 2) . '</span>
-                        </div>';
+    $html .= '<div class="info-line"><span class="info-label">Pagado:</span> <strong style="color:#276749;">€' . number_format($invoice['paid_amount'], 2) . '</strong></div>'
+           . '<div class="info-line"><span class="info-label">Pendiente:</span> <span class="amount-pending">€' . number_format($invoice['total'] - $invoice['paid_amount'], 2) . '</span></div>';
 } else {
-    $html .= '<div class="info-line">
-                            <span class="info-label">A pagar:</span>
-                            <span class="amount-pending" style="font-size: 12pt;">€' . number_format($invoice['total'], 2) . '</span>
-                        </div>';
+    $html .= '<div class="info-line"><span class="info-label">A pagar:</span> <span class="amount-pending" style="font-size:12pt;">€' . number_format($invoice['total'], 2) . '</span></div>';
 }
 
 $html .= '
@@ -573,24 +324,24 @@ $html .= '
 
 <!-- ITEMS -->
 <div class="items-section">
-    <div class="items-title">DETALLE DE LA FACTURA</div>
+    <div class="items-title">DETALLE ' . ($is_quote ? 'DEL PRESUPUESTO' : 'DE LA FACTURA') . '</div>
     <table class="items">
         <thead>
             <tr>
-                <th style="width: 40%;">Descripción</th>
-                <th style="width: 12%;">Tipo</th>
-                <th style="width: 15%;">IMEI/Serie</th>
-                <th style="width: 8%;" class="center">Cant.</th>
-                <th style="width: 12%;" class="right">P.Unit.</th>
-                <th style="width: 13%;" class="right">Subtotal</th>
+                <th style="width:40%;">Descripción</th>
+                <th style="width:12%;">Tipo</th>
+                <th style="width:15%;">IMEI/Serie</th>
+                <th style="width:8%;" class="center">Cant.</th>
+                <th style="width:12%;" class="right">Precio Base</th>
+                <th style="width:13%;" class="right">Subtotal</th>
             </tr>
         </thead>
         <tbody>';
 
 $type_config = [
-    'service' => ['label' => 'Servicio', 'class' => 'type-service'],
-    'product' => ['label' => 'Producto', 'class' => 'type-product'],
-    'spare_part' => ['label' => 'Repuesto', 'class' => 'type-spare_part']
+    'service'    => ['label' => 'Servicio',  'class' => 'type-service'],
+    'product'    => ['label' => 'Producto',  'class' => 'type-product'],
+    'spare_part' => ['label' => 'Repuesto',  'class' => 'type-spare_part']
 ];
 
 foreach ($items as $item) {
@@ -598,7 +349,7 @@ foreach ($items as $item) {
     $html .= '<tr>
                 <td>' . nl2br(htmlspecialchars($item['description'])) . '</td>
                 <td><span class="type-badge ' . $type['class'] . '">' . $type['label'] . '</span></td>
-                <td>' . (!empty($item['imei']) ? '<code style="font-size: 8pt;">' . htmlspecialchars($item['imei']) . '</code>' : '-') . '</td>
+                <td>' . (!empty($item['imei']) ? '<code style="font-size:8pt;">' . htmlspecialchars($item['imei']) . '</code>' : '-') . '</td>
                 <td class="center">' . $item['quantity'] . '</td>
                 <td class="right">€' . number_format($item['unit_price'], 2) . '</td>
                 <td class="right"><strong>€' . number_format($item['subtotal'], 2) . '</strong></td>
@@ -610,96 +361,86 @@ $html .= '
     </table>
 </div>
 
-<!-- TOTALS & QR usando tabla -->
-<table style="width: 100%; margin-top: 20px; border-collapse: collapse;">
+<!-- TOTALS & QR -->
+<table style="width:100%;margin-top:20px;border-collapse:collapse;">
     <tr>
-        <td style="width: 40%; vertical-align: top; padding-right: 20px;">
-            <!-- QR Code -->
-            <div style="border: 1px solid #e2e8f0; border-radius: 5px; padding: 15px; text-align: center; background: #fff;">
-                <div style="font-size: 8pt; color: #718096; margin-bottom: 8px; font-weight: bold;">CÓDIGO QR DE VERIFICACIÓN</div>
-                <img src="' . $qr_base64 . '" style="width: 120px; height: 120px;">
-                <div style="font-size: 7pt; color: #a0aec0; margin-top: 8px;">Escanea para ver información</div>
+        <td style="width:40%;vertical-align:top;padding-right:20px;">
+            <div style="border:1px solid #e2e8f0;border-radius:5px;padding:15px;text-align:center;background:#fff;">
+                <div style="font-size:8pt;color:#718096;margin-bottom:8px;font-weight:bold;">CÓDIGO QR DE VERIFICACIÓN</div>
+                <img src="' . $qr_base64 . '" style="width:120px;height:120px;">
+                <div style="font-size:7pt;color:#a0aec0;margin-top:8px;">Escanea para ver información</div>
             </div>
         </td>
-        <td style="width: 60%; vertical-align: top;">
-            <!-- Totals -->
-            <table style="width: 100%; border: 2px solid ' . $primary . '; border-collapse: collapse; border-radius: 5px;">
+        <td style="width:60%;vertical-align:top;">
+            <table style="width:100%;border:2px solid ' . $primary . ';border-collapse:collapse;border-radius:5px;">
                 <tr>
-                    <td style="padding: 10px 15px; text-align: right; font-weight: 600; color: #4a5568; background: ' . $light_bg . '; border-bottom: 1px solid #e2e8f0;">Base Imponible:</td>
-                    <td style="padding: 10px 15px; text-align: right; font-weight: bold; width: 120px; background: #fff; border-bottom: 1px solid #e2e8f0;">€' . number_format($invoice['subtotal'], 2) . '</td>
+                    <td style="padding:10px 15px;text-align:right;font-weight:600;color:#4a5568;background:' . $light_bg . ';border-bottom:1px solid #e2e8f0;">Base Imponible:</td>
+                    <td style="padding:10px 15px;text-align:right;font-weight:bold;width:120px;background:#fff;border-bottom:1px solid #e2e8f0;">€' . number_format($invoice['subtotal'], 2) . '</td>
                 </tr>
                 <tr>
-                    <td style="padding: 10px 15px; text-align: right; font-weight: 600; color: #4a5568; background: ' . $light_bg . '; border-bottom: 1px solid #e2e8f0;">IVA (' . number_format($invoice['iva_rate'], 0) . '%):</td>
-                    <td style="padding: 10px 15px; text-align: right; font-weight: bold; width: 120px; background: #fff; border-bottom: 1px solid #e2e8f0;">€' . number_format($invoice['iva_amount'], 2) . '</td>
+                    <td style="padding:10px 15px;text-align:right;font-weight:600;color:#4a5568;background:' . $light_bg . ';border-bottom:1px solid #e2e8f0;">IVA (' . number_format($invoice['iva_rate'], 0) . '%):</td>
+                    <td style="padding:10px 15px;text-align:right;font-weight:bold;width:120px;background:#fff;border-bottom:1px solid #e2e8f0;">€' . number_format($invoice['iva_amount'], 2) . '</td>
                 </tr>
                 <tr>
-                    <td style="padding: 12px 15px; text-align: right; font-weight: bold; font-size: 12pt; background: ' . $primary . '; color: #fff;">TOTAL:</td>
-                    <td style="padding: 12px 15px; text-align: right; font-weight: bold; font-size: 12pt; width: 120px; background: ' . $primary . '; color: #fff;">€' . number_format($invoice['total'], 2) . '</td>
+                    <td style="padding:12px 15px;text-align:right;font-weight:bold;font-size:12pt;background:' . $primary . ';color:#fff;">TOTAL:</td>
+                    <td style="padding:12px 15px;text-align:right;font-weight:bold;font-size:12pt;width:120px;background:' . $primary . ';color:#fff;">€' . number_format($invoice['total'], 2) . '</td>
                 </tr>
             </table>
         </td>
     </tr>
 </table>';
 
-// Notes
 if (!empty($invoice['notes'])) {
     $html .= '
-<div class="notes-section">
-    <div class="notes-title">Observaciones:</div>
-    <div class="notes-content">' . nl2br(htmlspecialchars($invoice['notes'])) . '</div>
-</div>';
-}
+<div style="clear:both;margin-top:20px;padding:10px;background:#fffbeb;border:1px solid #fbbf24;border-left:4px solid #f59e0b;border-radius:4px;">
+    <div style="font-weight:bold;color:#92400e;font-size:10pt;margin-bottom:4px;">Observaciones:</div>
+    <div style="color:#78350f;font-size:9pt;">' . nl2br(htmlspecialchars($invoice['notes'])) . '</div>
+</div>';}
 
-$html .= '
-<!-- Legal -->
-<div class="legal-info">
-    Factura emitida conforme a la normativa fiscal vigente.';
-
+$legal_text = $is_quote
+    ? 'Presupuesto válido por 30 días. Sujeto a aceptación del cliente. No tiene validez fiscal como factura.'
+    : 'Documento emitido conforme a la normativa fiscal vigente.';
 if (!empty($invoice['shop_nif'])) {
-    $html .= ' • NIF: ' . htmlspecialchars($invoice['shop_nif']);
+    $legal_text .= ' • NIF: ' . htmlspecialchars($invoice['shop_nif']);
 }
 
 $html .= '
-</div>
+<div class="legal-info">' . $legal_text . '</div>
 
 </body>
 </html>';
 
-// Crear PDF con mPDF
+// ── Crear PDF con mPDF ──────────────────────────────────────────────────────
 try {
     $mpdf = new Mpdf([
-        'mode' => 'utf-8',
-        'format' => 'A4',
-        'margin_left' => 15,
-        'margin_right' => 15,
-        'margin_top' => 15,
-        'margin_bottom' => 25,
-        'margin_header' => 10,
-        'margin_footer' => 10,
-        'default_font' => 'dejavusans',
+        'mode'           => 'utf-8',
+        'format'         => 'A4',
+        'margin_left'    => 15,
+        'margin_right'   => 15,
+        'margin_top'     => 15,
+        'margin_bottom'  => 25,
+        'margin_header'  => 10,
+        'margin_footer'  => 10,
+        'default_font'   => 'dejavusans',
         'default_font_size' => 10,
     ]);
 
-    // Metadata
-    $mpdf->SetTitle('Factura ' . $invoice['invoice_number']);
+    $mpdf->SetTitle($doc_label . ' ' . $invoice['invoice_number']);
     $mpdf->SetAuthor($invoice['shop_name']);
     $mpdf->SetCreator('RepairPoint');
-    $mpdf->SetSubject('Factura para ' . $invoice['customer_name']);
+    $mpdf->SetSubject($doc_label . ' para ' . $invoice['customer_name']);
 
-    // Footer
     $mpdf->SetHTMLFooter('
-        <div style="text-align: center; font-size: 8pt; color: #718096; border-top: 2px solid ' . $primary . '; padding-top: 8px;">
-            <span style="font-weight: bold; color: ' . $primary . ';">' . htmlspecialchars($invoice['shop_name']) . '</span>
-            • Documento generado el ' . date('d/m/Y H:i') . '
-            • Factura ' . htmlspecialchars($invoice['invoice_number']) . '
+        <div style="text-align:center;font-size:8pt;color:#718096;border-top:2px solid ' . $primary . ';padding-top:8px;">
+            <span style="font-weight:bold;color:' . $primary . ';">' . htmlspecialchars($invoice['shop_name']) . '</span>
+            • Generado el ' . date('d/m/Y H:i') . '
+            • ' . $doc_label . ' ' . htmlspecialchars($invoice['invoice_number']) . '
             • Página {PAGENO} de {nbpg}
         </div>
     ');
 
-    // Escribir HTML
     $mpdf->WriteHTML($html);
 
-    // Output
     if ($mode === 'download') {
         $mpdf->Output($filename, Destination::DOWNLOAD);
     } else {
