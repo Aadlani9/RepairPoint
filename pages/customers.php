@@ -151,6 +151,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'quick
     $pay_status     = $_POST['inv_payment_status']  ?? 'pending';
     $pay_method     = $_POST['inv_payment_method']  ?? '';
     $notes          = trim($_POST['inv_notes']      ?? '');
+    $device         = trim($_POST['inv_device']     ?? '');
     $items_json     = $_POST['inv_items_data']      ?? '[]';
     $items          = json_decode($items_json, true) ?: [];
 
@@ -164,9 +165,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'quick
         $db->beginTransaction();
 
         $invoice_id = $db->insert(
-            "INSERT INTO invoices (customer_id, invoice_date, due_date, iva_rate, payment_status, payment_method, notes, shop_id, created_by)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            [$customer_id, $invoice_date, $due_date, $iva_rate, $pay_status, $pay_method, $notes, $shop_id, $_SESSION['user_id']]
+            "INSERT INTO invoices (customer_id, invoice_date, due_date, iva_rate, payment_status, payment_method, notes, device, invoice_status, shop_id, created_by)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'quote', ?, ?)",
+            [$customer_id, $invoice_date, $due_date, $iva_rate, $pay_status, $pay_method, $notes, $device, $shop_id, $_SESSION['user_id']]
         );
 
         if (!$invoice_id) throw new Exception('Error creando factura');
@@ -198,6 +199,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'quick
         header('Location: ' . url('pages/customers.php'));
         exit;
     }
+}
+
+// Convertir presupuesto a factura
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'convert_to_invoice') {
+    $inv_id = intval($_POST['invoice_id'] ?? 0);
+    if ($inv_id > 0) {
+        $db->update(
+            "UPDATE invoices SET invoice_status = 'invoice' WHERE id = ? AND shop_id = ?",
+            [$inv_id, $shop_id]
+        );
+        $_SESSION['success'] = 'Presupuesto convertido a factura correctamente';
+        logActivity('invoice_converted', "Factura #{$inv_id} convertida de presupuesto a factura", $_SESSION['user_id']);
+    }
+    header('Location: ' . url('pages/invoice_details.php?id=' . $inv_id));
+    exit;
 }
 
 // Eliminar cliente
@@ -650,6 +666,11 @@ require_once INCLUDES_PATH . 'header.php';
                                 <input type="number" name="inv_iva" id="qi-iva-rate" class="form-control"
                                        value="21" step="0.01" min="0" required onchange="qiCalcTotals()">
                             </div>
+                            <div class="col-md-12">
+                                <label class="form-label"><i class="bi bi-phone me-1"></i>Dispositivo</label>
+                                <input type="text" name="inv_device" class="form-control"
+                                       placeholder="Ej: iPhone 13, Samsung Galaxy S22, MacBook Air...">
+                            </div>
                             <div class="col-md-2">
                                 <label class="form-label">Estado Pago <span class="text-danger">*</span></label>
                                 <select name="inv_payment_status" class="form-select" required>
@@ -684,12 +705,12 @@ require_once INCLUDES_PATH . 'header.php';
                                         <thead class="table-light">
                                             <tr>
                                                 <th style="width:14%">Tipo</th>
-                                                <th style="width:38%">Descripción</th>
-                                                <th style="width:16%">IMEI</th>
+                                                <th style="width:35%">Descripción</th>
+                                                <th style="width:13%">IMEI</th>
                                                 <th style="width:8%">Cant.</th>
-                                                <th style="width:12%">Precio</th>
-                                                <th style="width:10%" class="text-end">Subtotal</th>
-                                                <th style="width:2%"></th>
+                                                <th style="width:14%">Precio (IVA inc.)</th>
+                                                <th style="width:13%" class="text-end">Total (IVA inc.)</th>
+                                                <th style="width:3%"></th>
                                             </tr>
                                         </thead>
                                         <tbody id="qi-items-body">
@@ -713,7 +734,7 @@ require_once INCLUDES_PATH . 'header.php';
                                     <div class="col-md-5">
                                         <table class="table table-sm mb-0 text-end">
                                             <tr>
-                                                <td>Subtotal:</td>
+                                                <td>Base (sin IVA):</td>
                                                 <td><strong id="qi-subtotal">€0.00</strong></td>
                                             </tr>
                                             <tr>
@@ -721,7 +742,7 @@ require_once INCLUDES_PATH . 'header.php';
                                                 <td><strong id="qi-iva-amt">€0.00</strong></td>
                                             </tr>
                                             <tr class="table-success">
-                                                <td><strong>TOTAL:</strong></td>
+                                                <td><strong>TOTAL (IVA inc.):</strong></td>
                                                 <td><strong id="qi-total">€0.00</strong></td>
                                             </tr>
                                         </table>
@@ -893,7 +914,7 @@ function qiAddItem() {
         <td><input type="text" class="form-control form-control-sm" placeholder="Descripción" onchange="qiUpdateItem(${id})"></td>
         <td><input type="text" class="form-control form-control-sm" placeholder="IMEI" onchange="qiUpdateItem(${id})"></td>
         <td><input type="number" class="form-control form-control-sm" value="1" min="1" onchange="qiUpdateItem(${id})"></td>
-        <td><input type="number" class="form-control form-control-sm" value="0.00" min="0" step="0.01" onchange="qiUpdateItem(${id})"></td>
+        <td><input type="number" class="form-control form-control-sm" value="0.00" min="0" step="0.01" placeholder="Con IVA" onchange="qiUpdateItem(${id})"></td>
         <td class="text-end"><strong class="qi-subtotal">€0.00</strong></td>
         <td><button type="button" class="btn btn-danger btn-sm" onclick="qiRemoveItem(${id})"><i class="bi bi-trash"></i></button></td>`;
     document.getElementById('qi-items-body').appendChild(tr);
@@ -904,14 +925,18 @@ function qiUpdateItem(id) {
     const tr = document.getElementById('qi-item-' + id);
     const inputs = tr.querySelectorAll('input, select');
     const qty = parseInt(inputs[3].value) || 0;
-    const price = parseFloat(inputs[4].value) || 0;
-    const subtotal = qty * price;
+    const priceWithIva = parseFloat(inputs[4].value) || 0;
+    const ivaRate = parseFloat(document.getElementById('qi-iva-rate').value) || 0;
+    // El precio ingresado ya incluye IVA → convertir a precio base
+    const basePrice   = priceWithIva / (1 + ivaRate / 100);
+    const baseSubtotal = qty * basePrice;
+    const displaySubtotal = qty * priceWithIva; // mostrar con IVA incluido
     const idx = qiItems.findIndex(x => x.id === id);
     if (idx !== -1) {
         qiItems[idx] = { id, type: inputs[0].value, description: inputs[1].value,
-                         imei: inputs[2].value, quantity: qty, price, subtotal };
+                         imei: inputs[2].value, quantity: qty, price: basePrice, subtotal: baseSubtotal };
     }
-    tr.querySelector('.qi-subtotal').textContent = '€' + subtotal.toFixed(2);
+    tr.querySelector('.qi-subtotal').textContent = '€' + displaySubtotal.toFixed(2);
     qiCalcTotals();
 }
 
@@ -928,12 +953,13 @@ function qiRemoveItem(id) {
 
 function qiCalcTotals() {
     const iva = parseFloat(document.getElementById('qi-iva-rate').value) || 0;
-    const sub = qiItems.reduce((s, i) => s + i.subtotal, 0);
-    const ivaAmt = sub * iva / 100;
-    document.getElementById('qi-subtotal').textContent = '€' + sub.toFixed(2);
+    const baseSub = qiItems.reduce((s, i) => s + i.subtotal, 0); // base sin IVA
+    const ivaAmt  = baseSub * iva / 100;
+    const total   = baseSub + ivaAmt;
+    document.getElementById('qi-subtotal').textContent = '€' + baseSub.toFixed(2);
     document.getElementById('qi-iva-pct').textContent  = iva.toFixed(0);
     document.getElementById('qi-iva-amt').textContent  = '€' + ivaAmt.toFixed(2);
-    document.getElementById('qi-total').textContent    = '€' + (sub + ivaAmt).toFixed(2);
+    document.getElementById('qi-total').textContent    = '€' + total.toFixed(2);
 }
 
 function qiSubmit() {
