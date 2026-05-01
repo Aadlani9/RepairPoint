@@ -27,19 +27,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     try {
         $db->beginTransaction();
 
-        $customer_id = intval($_POST['customer_id']);
-        $invoice_date = $_POST['invoice_date'];
-        $due_date = !empty($_POST['due_date']) ? $_POST['due_date'] : null;
-        $iva_rate = floatval($_POST['iva_rate']);
+        $customer_id    = intval($_POST['customer_id']);
+        $invoice_date   = $_POST['invoice_date'];
+        $due_date       = !empty($_POST['due_date']) ? $_POST['due_date'] : null;
+        $iva_rate       = floatval($_POST['iva_rate']);
         $payment_status = $_POST['payment_status'];
         $payment_method = !empty($_POST['payment_method']) ? $_POST['payment_method'] : null;
-        $notes = trim($_POST['notes']);
+        $notes          = trim($_POST['notes']);
+        $device         = trim($_POST['device'] ?? '');
+        $invoice_status = $_POST['invoice_status'] ?? 'invoice';
 
         // Insertar factura
-        $invoice_query = "INSERT INTO invoices (customer_id, invoice_date, due_date, iva_rate, payment_status, payment_method, notes, shop_id, created_by)
-                          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        $invoice_query = "INSERT INTO invoices (customer_id, invoice_date, due_date, iva_rate, payment_status, payment_method, notes, device, invoice_status, shop_id, created_by)
+                          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         $invoice_id = $db->insert($invoice_query, [
-            $customer_id, $invoice_date, $due_date, $iva_rate, $payment_status, $payment_method, $notes, $shop_id, $_SESSION['user_id']
+            $customer_id, $invoice_date, $due_date, $iva_rate, $payment_status, $payment_method, $notes, $device, $invoice_status, $shop_id, $_SESSION['user_id']
         ]);
 
         if (!$invoice_id) {
@@ -195,6 +197,13 @@ require_once INCLUDES_PATH . 'header.php';
                                        value="21.00" step="0.01" required onchange="calculateTotals()">
                             </div>
                             <div class="col-md-6 mb-3">
+                                <label class="form-label">Tipo de Documento <span class="text-danger">*</span></label>
+                                <select name="invoice_status" class="form-select" required>
+                                    <option value="quote">Presupuesto (pendiente aprobación)</option>
+                                    <option value="invoice" selected>Factura (aprobada)</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6 mb-3">
                                 <label class="form-label">Estado de Pago <span class="text-danger">*</span></label>
                                 <select name="payment_status" class="form-select" required>
                                     <option value="pending">Pendiente</option>
@@ -202,7 +211,7 @@ require_once INCLUDES_PATH . 'header.php';
                                     <option value="partial">Pago Parcial</option>
                                 </select>
                             </div>
-                            <div class="col-md-12 mb-3">
+                            <div class="col-md-6 mb-3">
                                 <label class="form-label">Método de Pago</label>
                                 <select name="payment_method" class="form-select">
                                     <option value="">Seleccionar...</option>
@@ -211,6 +220,11 @@ require_once INCLUDES_PATH . 'header.php';
                                     <option value="transferencia">Transferencia</option>
                                     <option value="bizum">Bizum</option>
                                 </select>
+                            </div>
+                            <div class="col-md-12 mb-3">
+                                <label class="form-label"><i class="bi bi-phone me-1"></i>Dispositivo</label>
+                                <input type="text" name="device" class="form-control"
+                                       placeholder="Ej: iPhone 13, Samsung Galaxy S22, MacBook Air...">
                             </div>
                         </div>
                     </div>
@@ -227,16 +241,20 @@ require_once INCLUDES_PATH . 'header.php';
                 </button>
             </div>
             <div class="card-body">
+                <div class="alert alert-info py-2 mb-3">
+                    <i class="bi bi-info-circle me-1"></i>
+                    <strong>Precios con IVA incluido:</strong> Introduce el precio final que paga el cliente (IVA ya incluido). El sistema desglosará la base imponible y el IVA automáticamente.
+                </div>
                 <div class="table-responsive">
                     <table class="table table-bordered" id="itemsTable">
                         <thead class="table-light">
                             <tr>
                                 <th width="15%">Tipo</th>
-                                <th width="35%">Descripción</th>
-                                <th width="15%">IMEI (opcional)</th>
-                                <th width="10%">Cantidad</th>
-                                <th width="12%">Precio Unit.</th>
-                                <th width="10%">Subtotal</th>
+                                <th width="33%">Descripción</th>
+                                <th width="13%">IMEI (opcional)</th>
+                                <th width="8%">Cantidad</th>
+                                <th width="14%">Precio (IVA inc.)</th>
+                                <th width="14%">Total (IVA inc.)</th>
                                 <th width="3%"></th>
                             </tr>
                         </thead>
@@ -257,7 +275,7 @@ require_once INCLUDES_PATH . 'header.php';
                     <div class="col-md-4">
                         <table class="table table-sm">
                             <tr>
-                                <td class="text-end"><strong>Subtotal:</strong></td>
+                                <td class="text-end"><strong>Base (sin IVA):</strong></td>
                                 <td class="text-end" id="display_subtotal">€0.00</td>
                             </tr>
                             <tr>
@@ -265,7 +283,7 @@ require_once INCLUDES_PATH . 'header.php';
                                 <td class="text-end" id="display_iva">€0.00</td>
                             </tr>
                             <tr class="table-primary">
-                                <td class="text-end"><strong>TOTAL:</strong></td>
+                                <td class="text-end"><strong>TOTAL (IVA inc.):</strong></td>
                                 <td class="text-end"><h4 id="display_total">€0.00</h4></td>
                             </tr>
                         </table>
@@ -347,7 +365,7 @@ function addItem() {
         </td>
         <td>
             <input type="number" class="form-control form-control-sm" value="0.00" min="0" step="0.01"
-                   onchange="updateItem(${itemCounter})" required>
+                   placeholder="Con IVA" onchange="updateItem(${itemCounter})" required>
         </td>
         <td class="text-end">
             <strong class="item-subtotal">€0.00</strong>
@@ -375,27 +393,33 @@ function addItem() {
     itemCounter++;
 }
 
-// Actualizar item
+// Actualizar item – precio ingresado con IVA incluido
 function updateItem(id) {
     const row = document.getElementById('item_' + id);
     const inputs = row.querySelectorAll('input, select');
 
-    const itemData = {
-        id: id,
-        type: inputs[0].value,
-        description: inputs[1].value,
-        imei: inputs[2].value,
-        quantity: parseInt(inputs[3].value),
-        price: parseFloat(inputs[4].value),
-        subtotal: parseInt(inputs[3].value) * parseFloat(inputs[4].value)
-    };
+    const qty          = parseInt(inputs[3].value) || 0;
+    const priceWithIva = parseFloat(inputs[4].value) || 0;
+    const ivaRate      = parseFloat(document.getElementById('iva_rate').value) || 0;
+    // Convertir precio con IVA a precio base
+    const basePrice    = priceWithIva / (1 + ivaRate / 100);
+    const baseSubtotal = qty * basePrice;
+    const displayTotal = qty * priceWithIva; // mostrar con IVA al usuario
 
     const index = items.findIndex(item => item.id === id);
     if (index !== -1) {
-        items[index] = itemData;
+        items[index] = {
+            id,
+            type: inputs[0].value,
+            description: inputs[1].value,
+            imei: inputs[2].value,
+            quantity: qty,
+            price: basePrice,
+            subtotal: baseSubtotal
+        };
     }
 
-    row.querySelector('.item-subtotal').textContent = '€' + itemData.subtotal.toFixed(2);
+    row.querySelector('.item-subtotal').textContent = '€' + displayTotal.toFixed(2);
     calculateTotals();
 }
 
@@ -418,17 +442,17 @@ function removeItem(id) {
     calculateTotals();
 }
 
-// Calcular totales
+// Calcular totales – base sin IVA + IVA = total
 function calculateTotals() {
-    const subtotal = items.reduce((sum, item) => sum + item.subtotal, 0);
+    const baseSub = items.reduce((sum, item) => sum + item.subtotal, 0);
     const ivaRate = parseFloat(document.getElementById('iva_rate').value);
-    const iva = subtotal * (ivaRate / 100);
-    const total = subtotal + iva;
+    const ivaAmt  = baseSub * (ivaRate / 100);
+    const total   = baseSub + ivaAmt;
 
-    document.getElementById('display_subtotal').textContent = '€' + subtotal.toFixed(2);
+    document.getElementById('display_subtotal').textContent = '€' + baseSub.toFixed(2);
     document.getElementById('display_iva_rate').textContent = ivaRate.toFixed(0);
-    document.getElementById('display_iva').textContent = '€' + iva.toFixed(2);
-    document.getElementById('display_total').textContent = '€' + total.toFixed(2);
+    document.getElementById('display_iva').textContent      = '€' + ivaAmt.toFixed(2);
+    document.getElementById('display_total').textContent    = '€' + total.toFixed(2);
 }
 
 // Validar y enviar formulario

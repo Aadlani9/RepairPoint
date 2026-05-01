@@ -30,6 +30,18 @@ if ($invoice_id <= 0) {
     exit;
 }
 
+// Convertir presupuesto a factura
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'convert_to_invoice') {
+    $db->update(
+        "UPDATE invoices SET invoice_status = 'invoice' WHERE id = ? AND shop_id = ?",
+        [$invoice_id, $shop_id]
+    );
+    logActivity('invoice_converted', "Presupuesto #{$invoice_id} convertido a factura", $_SESSION['user_id']);
+    $_SESSION['success'] = 'Presupuesto convertido a factura correctamente';
+    header('Location: ' . url('pages/invoice_details.php?id=' . $invoice_id));
+    exit;
+}
+
 // Procesar actualización de pago
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'update_payment') {
     $payment_status = $_POST['payment_status'];
@@ -78,13 +90,18 @@ if (!$invoice) {
     exit;
 }
 
+// Columnas opcionales (compatibilidad si la migración no se ha aplicado)
+$invoice_device  = $invoice['device']         ?? null;
+$invoice_status  = $invoice['invoice_status'] ?? 'invoice';
+$is_quote        = ($invoice_status === 'quote');
+
 // Obtener items de la factura
 $items = $db->select(
     "SELECT * FROM invoice_items WHERE invoice_id = ? ORDER BY id",
     [$invoice_id]
 );
 
-$page_title = 'Factura ' . $invoice['invoice_number'];
+$page_title = ($is_quote ? 'Presupuesto ' : 'Factura ') . $invoice['invoice_number'];
 require_once INCLUDES_PATH . 'header.php';
 ?>
 
@@ -92,17 +109,30 @@ require_once INCLUDES_PATH . 'header.php';
     <!-- Header -->
     <div class="row mb-4">
         <div class="col-12">
-            <div class="d-flex justify-content-between align-items-center">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
                 <div>
                     <a href="<?= url('pages/customer_details.php?id=' . $invoice['customer_id']) ?>" class="btn btn-outline-secondary btn-sm mb-2">
                         <i class="bi bi-arrow-left"></i> Volver al Cliente
                     </a>
                     <h2 class="mb-0">
-                        <i class="bi bi-receipt text-primary"></i>
-                        Factura <?= htmlspecialchars($invoice['invoice_number']) ?>
+                        <?php if ($is_quote): ?>
+                            <i class="bi bi-file-earmark-text text-warning"></i>
+                            <span class="badge bg-warning text-dark me-2">PRESUPUESTO</span>
+                        <?php else: ?>
+                            <i class="bi bi-receipt text-primary"></i>
+                        <?php endif; ?>
+                        <?= htmlspecialchars($invoice['invoice_number']) ?>
                     </h2>
                 </div>
-                <div>
+                <div class="d-flex flex-wrap gap-2">
+                    <?php if ($is_quote): ?>
+                        <form method="POST" class="d-inline" onsubmit="return confirm('¿Convertir este presupuesto a factura definitiva? Esta acción no se puede deshacer.')">
+                            <input type="hidden" name="action" value="convert_to_invoice">
+                            <button type="submit" class="btn btn-success">
+                                <i class="bi bi-check2-circle me-1"></i> Aprobado – Convertir a Factura
+                            </button>
+                        </form>
+                    <?php endif; ?>
                     <a href="<?= url('pages/edit_invoice.php?id=' . $invoice_id) ?>"
                        class="btn btn-warning">
                         <i class="bi bi-pencil"></i> Editar
@@ -122,6 +152,17 @@ require_once INCLUDES_PATH . 'header.php';
             </div>
         </div>
     </div>
+
+    <!-- Aviso si es presupuesto -->
+    <?php if ($is_quote): ?>
+    <div class="alert alert-warning d-flex align-items-center mb-4">
+        <i class="bi bi-exclamation-triangle-fill me-3 fs-4"></i>
+        <div>
+            <strong>Este documento es un Presupuesto</strong> — pendiente de aprobación del cliente.<br>
+            Cuando el cliente apruebe, haz clic en <strong>"Aprobado – Convertir a Factura"</strong> para emitir la factura definitiva.
+        </div>
+    </div>
+    <?php endif; ?>
 
     <!-- Mensajes -->
     <?php if (isset($_SESSION['success'])): ?>
@@ -175,6 +216,16 @@ require_once INCLUDES_PATH . 'header.php';
                             <?php endif; ?>
                         </div>
                     </div>
+                    <?php if (!empty($invoice_device)): ?>
+                    <hr>
+                    <div class="d-flex align-items-center gap-2">
+                        <i class="bi bi-phone text-primary fs-5"></i>
+                        <div>
+                            <small class="text-muted d-block">Dispositivo</small>
+                            <strong><?= htmlspecialchars($invoice_device) ?></strong>
+                        </div>
+                    </div>
+                    <?php endif; ?>
                 </div>
             </div>
 
@@ -192,44 +243,51 @@ require_once INCLUDES_PATH . 'header.php';
                                     <th>Tipo</th>
                                     <th>IMEI</th>
                                     <th class="text-center">Cant.</th>
-                                    <th class="text-end">Precio Unit.</th>
-                                    <th class="text-end">Subtotal</th>
+                                    <th class="text-end">Precio Base</th>
+                                    <th class="text-end">Precio (IVA inc.)</th>
+                                    <th class="text-end">Subtotal Base</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <?php foreach ($items as $item): ?>
+                                    <?php
+                                    $iva_rate = floatval($invoice['iva_rate']);
+                                    $price_with_iva   = $item['unit_price'] * (1 + $iva_rate / 100);
+                                    $subtotal_with_iva = $item['subtotal']  * (1 + $iva_rate / 100);
+                                    ?>
                                     <tr>
                                         <td><?= nl2br(htmlspecialchars($item['description'])) ?></td>
                                         <td>
                                             <?php
                                             $type_badges = [
-                                                'service' => '<span class="badge bg-info">Servicio</span>',
-                                                'product' => '<span class="badge bg-success">Producto</span>',
+                                                'service'    => '<span class="badge bg-info">Servicio</span>',
+                                                'product'    => '<span class="badge bg-success">Producto</span>',
                                                 'spare_part' => '<span class="badge bg-warning">Repuesto</span>'
                                             ];
-                                            echo $type_badges[$item['item_type']];
+                                            echo $type_badges[$item['item_type']] ?? '';
                                             ?>
                                         </td>
                                         <td>
                                             <?= !empty($item['imei']) ? '<code>' . htmlspecialchars($item['imei']) . '</code>' : '<span class="text-muted">-</span>' ?>
                                         </td>
                                         <td class="text-center"><?= $item['quantity'] ?></td>
-                                        <td class="text-end">€<?= number_format($item['unit_price'], 2) ?></td>
-                                        <td class="text-end"><strong>€<?= number_format($item['subtotal'], 2) ?></strong></td>
+                                        <td class="text-end text-muted">€<?= number_format($item['unit_price'], 2) ?></td>
+                                        <td class="text-end"><strong>€<?= number_format($price_with_iva, 2) ?></strong></td>
+                                        <td class="text-end">€<?= number_format($item['subtotal'], 2) ?></td>
                                     </tr>
                                 <?php endforeach; ?>
                             </tbody>
                             <tfoot class="table-light">
                                 <tr>
-                                    <td colspan="5" class="text-end"><strong>Subtotal:</strong></td>
+                                    <td colspan="6" class="text-end"><strong>Base imponible (sin IVA):</strong></td>
                                     <td class="text-end"><strong>€<?= number_format($invoice['subtotal'], 2) ?></strong></td>
                                 </tr>
                                 <tr>
-                                    <td colspan="5" class="text-end"><strong>IVA (<?= $invoice['iva_rate'] ?>%):</strong></td>
+                                    <td colspan="6" class="text-end"><strong>IVA (<?= $invoice['iva_rate'] ?>%):</strong></td>
                                     <td class="text-end"><strong>€<?= number_format($invoice['iva_amount'], 2) ?></strong></td>
                                 </tr>
                                 <tr class="table-primary">
-                                    <td colspan="5" class="text-end"><h5 class="mb-0">TOTAL:</h5></td>
+                                    <td colspan="6" class="text-end"><h5 class="mb-0">TOTAL (IVA incluido):</h5></td>
                                     <td class="text-end"><h4 class="mb-0">€<?= number_format($invoice['total'], 2) ?></h4></td>
                                 </tr>
                             </tfoot>
@@ -248,6 +306,28 @@ require_once INCLUDES_PATH . 'header.php';
 
         <!-- Información lateral -->
         <div class="col-md-4">
+            <!-- Tipo de documento -->
+            <div class="card mb-3">
+                <div class="card-header <?= $is_quote ? 'bg-warning' : 'bg-primary text-white' ?>">
+                    <h5 class="mb-0">
+                        <i class="bi bi-file-earmark-text me-1"></i>
+                        <?= $is_quote ? 'Presupuesto' : 'Factura' ?>
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p class="mb-0">
+                        <strong>Tipo:</strong>
+                        <?php if ($is_quote): ?>
+                            <span class="badge bg-warning text-dark">Presupuesto</span>
+                            <small class="d-block text-muted mt-1">Pendiente de aprobación del cliente</small>
+                        <?php else: ?>
+                            <span class="badge bg-primary">Factura</span>
+                            <small class="d-block text-muted mt-1">Documento aprobado y definitivo</small>
+                        <?php endif; ?>
+                    </p>
+                </div>
+            </div>
+
             <!-- Estado de pago -->
             <div class="card mb-3">
                 <div class="card-header
@@ -264,7 +344,7 @@ require_once INCLUDES_PATH . 'header.php';
                         $status_badges = [
                             'pending' => '<span class="badge bg-warning">Pendiente</span>',
                             'partial' => '<span class="badge bg-info">Parcial</span>',
-                            'paid' => '<span class="badge bg-success">Pagado</span>'
+                            'paid'    => '<span class="badge bg-success">Pagado</span>'
                         ];
                         echo $status_badges[$invoice['payment_status']];
                         ?>
@@ -287,9 +367,14 @@ require_once INCLUDES_PATH . 'header.php';
                     <h5 class="mb-0"><i class="bi bi-info-circle"></i> Información</h5>
                 </div>
                 <div class="card-body">
-                    <p class="mb-2"><strong>Fecha Factura:</strong><br><?= date('d/m/Y', strtotime($invoice['invoice_date'])) ?></p>
+                    <p class="mb-2"><strong>Fecha:</strong><br><?= date('d/m/Y', strtotime($invoice['invoice_date'])) ?></p>
                     <?php if (!empty($invoice['due_date'])): ?>
-                        <p class="mb-2"><strong>Fecha Vencimiento:</strong><br><?= date('d/m/Y', strtotime($invoice['due_date'])) ?></p>
+                        <p class="mb-2"><strong>Vencimiento:</strong><br><?= date('d/m/Y', strtotime($invoice['due_date'])) ?></p>
+                    <?php endif; ?>
+                    <?php if (!empty($invoice_device)): ?>
+                        <p class="mb-2"><strong>Dispositivo:</strong><br>
+                            <i class="bi bi-phone text-primary"></i> <?= htmlspecialchars($invoice_device) ?>
+                        </p>
                     <?php endif; ?>
                     <p class="mb-2"><strong>Creado por:</strong><br><?= htmlspecialchars($invoice['created_by_name']) ?></p>
                     <p class="mb-0"><strong>Fecha Creación:</strong><br><?= date('d/m/Y H:i', strtotime($invoice['created_at'])) ?></p>
@@ -353,18 +438,18 @@ require_once INCLUDES_PATH . 'header.php';
 <script>
 function updatePaymentFields() {
     const status = document.getElementById('payment_status').value;
-    const paidAmountField = document.getElementById('paid_amount_field');
+    const paidAmountField    = document.getElementById('paid_amount_field');
     const paymentMethodField = document.getElementById('payment_method_field');
-    const paymentDateField = document.getElementById('payment_date_field');
+    const paymentDateField   = document.getElementById('payment_date_field');
 
     if (status === 'pending') {
-        paidAmountField.style.display = 'none';
+        paidAmountField.style.display    = 'none';
         paymentMethodField.style.display = 'none';
-        paymentDateField.style.display = 'none';
+        paymentDateField.style.display   = 'none';
     } else {
-        paidAmountField.style.display = 'block';
+        paidAmountField.style.display    = 'block';
         paymentMethodField.style.display = 'block';
-        paymentDateField.style.display = 'block';
+        paymentDateField.style.display   = 'block';
 
         if (status === 'paid') {
             document.querySelector('[name="paid_amount"]').value = <?= $invoice['total'] ?>;
@@ -372,7 +457,6 @@ function updatePaymentFields() {
     }
 }
 
-// Inicializar al cargar
 updatePaymentFields();
 </script>
 
