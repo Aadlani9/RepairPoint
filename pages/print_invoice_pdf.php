@@ -97,13 +97,11 @@ $html = '
         table.items { width: 100%; border-collapse: collapse; margin: 20px 0; }
         table.items thead { background-color: ' . $doc_color . '; color: white; }
         table.items th { padding: 10px; text-align: left; font-weight: bold; font-size: 10pt; }
-        table.items th.center { text-align: center; }
-        table.items th.right  { text-align: right; }
+        table.items th.center { text-align: center; } table.items th.right { text-align: right; }
         table.items tbody tr { border-bottom: 1px solid #dee2e6; }
         table.items tbody tr:nth-child(even) { background-color: #f8f9fa; }
         table.items td { padding: 10px; font-size: 10pt; }
-        table.items td.center { text-align: center; }
-        table.items td.right  { text-align: right; }
+        table.items td.center { text-align: center; } table.items td.right { text-align: right; }
         .item-description { font-weight: 500; }
         .item-type { display: inline-block; padding: 2px 8px; border-radius: 3px; font-size: 8pt; font-weight: bold; }
         .type-service    { background-color: #17a2b8; color: white; }
@@ -130,15 +128,14 @@ $html = '
 </head>
 <body>';
 
-// Aviso presupuesto
 if ($is_quote) {
     $html .= '
     <div class="quote-notice">
-        <strong>⚠ DOCUMENTO PROVISIONAL – PRESUPUESTO</strong><br>
+        <strong>DOCUMENTO PROVISIONAL – PRESUPUESTO</strong><br>
         Este documento es un presupuesto sujeto a la aceptación del cliente. No tiene validez como factura fiscal hasta su aprobación y conversión.
-    </div>';}
+    </div>';
+}
 
-// Header con logo y datos de la empresa
 $html .= '
     <div class="header">
         <div class="header-content">
@@ -175,7 +172,6 @@ $html .= '
         </div>
     </div>';
 
-// Información del cliente
 $html .= '
     <div class="info-section">
         <div class="info-box">
@@ -184,15 +180,9 @@ $html .= '
             <div class="info-line"><span class="info-label">Documento:</span> ' . strtoupper($invoice['id_type']) . ' ' . htmlspecialchars($invoice['id_number']) . '</div>
             <div class="info-line"><span class="info-label">Teléfono:</span> ' . htmlspecialchars($invoice['customer_phone']) . '</div>';
 
-if (!empty($invoice['customer_email'])) {
-    $html .= '<div class="info-line"><span class="info-label">Email:</span> ' . htmlspecialchars($invoice['customer_email']) . '</div>';
-}
-if (!empty($invoice['customer_address'])) {
-    $html .= '<div class="info-line"><span class="info-label">Dirección:</span> ' . nl2br(htmlspecialchars($invoice['customer_address'])) . '</div>';
-}
-if (!empty($invoice_device)) {
-    $html .= '<div class="info-line"><span class="info-label">Dispositivo:</span> <strong>' . htmlspecialchars($invoice_device) . '</strong></div>';
-}
+if (!empty($invoice['customer_email']))   { $html .= '<div class="info-line"><span class="info-label">Email:</span> '     . htmlspecialchars($invoice['customer_email'])   . '</div>'; }
+if (!empty($invoice['customer_address'])) { $html .= '<div class="info-line"><span class="info-label">Dirección:</span> ' . nl2br(htmlspecialchars($invoice['customer_address'])) . '</div>'; }
+if (!empty($invoice_device))              { $html .= '<div class="info-line"><span class="info-label">Dispositivo:</span> <strong>' . htmlspecialchars($invoice_device) . '</strong></div>'; }
 
 $html .= '
         </div>
@@ -202,8 +192,7 @@ $html .= '
 $status_text  = ['pending' => 'PENDIENTE DE PAGO', 'partial' => 'PAGO PARCIAL', 'paid' => 'PAGADO'];
 $status_class = ['pending' => 'status-pending',     'partial' => 'status-partial',  'paid' => 'status-paid'];
 
-$html .= '<div class="payment-status ' . $status_class[$invoice['payment_status']] . '">'
-       . $status_text[$invoice['payment_status']] . '</div>';
+$html .= '<div class="payment-status ' . $status_class[$invoice['payment_status']] . '">' . $status_text[$invoice['payment_status']] . '</div>';
 
 if ($invoice['payment_status'] === 'paid') {
     $html .= '<div class="info-line" style="margin-top:10px;"><span class="info-label">Fecha de Pago:</span> ' . date('d/m/Y', strtotime($invoice['payment_date'])) . '</div>'
@@ -217,7 +206,6 @@ $html .= '
         </div>
     </div>';
 
-// Tabla de items
 $html .= '
     <table class="items">
         <thead>
@@ -251,7 +239,6 @@ $html .= '
         </tbody>
     </table>';
 
-// Totales
 $html .= '
     <div class="totals">
         <table>
@@ -275,7 +262,8 @@ if (!empty($invoice['notes'])) {
     <div class="notes">
         <div class="notes-title">Notas:</div>
         <div class="notes-content">' . nl2br(htmlspecialchars($invoice['notes'])) . '</div>
-    </div>';}
+    </div>';
+}
 
 $footer_text = $is_quote
     ? 'Presupuesto provisional • ' . htmlspecialchars($invoice['shop_name']) . ' • Válido 30 días • Generado el ' . date('d/m/Y H:i')
@@ -286,10 +274,10 @@ $html .= '
 
     <div class="no-print" style="position:fixed;top:10px;right:10px;z-index:1000;">
         <button onclick="window.print()" style="padding:10px 20px;background:' . $doc_color . ';color:white;border:none;border-radius:5px;cursor:pointer;font-size:14pt;">
-            📄 Imprimir / Guardar PDF
+            Imprimir / Guardar PDF
         </button>
         <button onclick="window.close()" style="padding:10px 20px;background:#6c757d;color:white;border:none;border-radius:5px;cursor:pointer;font-size:14pt;margin-left:10px;">
-            ✕ Cerrar
+            Cerrar
         </button>
     </div>
 </body>
