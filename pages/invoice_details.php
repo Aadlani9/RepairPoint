@@ -30,6 +30,19 @@ if ($invoice_id <= 0) {
     exit;
 }
 
+// Cancelar factura
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'cancel_invoice') {
+    $canceled_reason = trim($_POST['canceled_reason'] ?? '');
+    $db->update(
+        "UPDATE invoices SET invoice_status = 'canceled', canceled_at = NOW(), canceled_reason = ? WHERE id = ? AND shop_id = ?",
+        [$canceled_reason ?: null, $invoice_id, $shop_id]
+    );
+    logActivity('invoice_canceled', "Factura #{$invoice_id} cancelada", $_SESSION['user_id']);
+    $_SESSION['success'] = 'Factura cancelada correctamente';
+    header('Location: ' . url('pages/invoice_details.php?id=' . $invoice_id));
+    exit;
+}
+
 // Convertir presupuesto a factura
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'convert_to_invoice') {
     $db->update(
@@ -94,6 +107,7 @@ if (!$invoice) {
 $invoice_device  = $invoice['device']         ?? null;
 $invoice_status  = $invoice['invoice_status'] ?? 'invoice';
 $is_quote        = ($invoice_status === 'quote');
+$is_canceled     = ($invoice_status === 'canceled');
 
 // Obtener items de la factura
 $items = $db->select(
@@ -101,7 +115,7 @@ $items = $db->select(
     [$invoice_id]
 );
 
-$page_title = ($is_quote ? 'Presupuesto ' : 'Factura ') . $invoice['invoice_number'];
+$page_title = ($is_quote ? 'Presupuesto ' : ($is_canceled ? 'Factura Cancelada ' : 'Factura ')) . $invoice['invoice_number'];
 require_once INCLUDES_PATH . 'header.php';
 ?>
 
@@ -115,7 +129,10 @@ require_once INCLUDES_PATH . 'header.php';
                         <i class="bi bi-arrow-left"></i> Volver al Cliente
                     </a>
                     <h2 class="mb-0">
-                        <?php if ($is_quote): ?>
+                        <?php if ($is_canceled): ?>
+                            <i class="bi bi-x-circle text-danger"></i>
+                            <span class="badge bg-danger me-2">CANCELADA</span>
+                        <?php elseif ($is_quote): ?>
                             <i class="bi bi-file-earmark-text text-warning"></i>
                             <span class="badge bg-warning text-dark me-2">PRESUPUESTO</span>
                         <?php else: ?>
@@ -125,18 +142,26 @@ require_once INCLUDES_PATH . 'header.php';
                     </h2>
                 </div>
                 <div class="d-flex flex-wrap gap-2">
-                    <?php if ($is_quote): ?>
-                        <form method="POST" class="d-inline" onsubmit="return confirm('¿Convertir este presupuesto a factura definitiva? Esta acción no se puede deshacer.')">
-                            <input type="hidden" name="action" value="convert_to_invoice">
-                            <button type="submit" class="btn btn-success">
-                                <i class="bi bi-check2-circle me-1"></i> Aprobado – Convertir a Factura
-                            </button>
-                        </form>
+                    <?php if (!$is_canceled): ?>
+                        <?php if ($is_quote): ?>
+                            <form method="POST" class="d-inline" onsubmit="return confirm('¿Convertir este presupuesto a factura definitiva? Esta acción no se puede deshacer.')">
+                                <input type="hidden" name="action" value="convert_to_invoice">
+                                <button type="submit" class="btn btn-success">
+                                    <i class="bi bi-check2-circle me-1"></i> Aprobado – Convertir a Factura
+                                </button>
+                            </form>
+                        <?php endif; ?>
+                        <a href="<?= url('pages/edit_invoice.php?id=' . $invoice_id) ?>"
+                           class="btn btn-warning">
+                            <i class="bi bi-pencil"></i> Editar
+                        </a>
+                        <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#paymentModal">
+                            <i class="bi bi-cash"></i> Actualizar Pago
+                        </button>
+                        <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#cancelModal">
+                            <i class="bi bi-x-circle"></i> Cancelar Factura
+                        </button>
                     <?php endif; ?>
-                    <a href="<?= url('pages/edit_invoice.php?id=' . $invoice_id) ?>"
-                       class="btn btn-warning">
-                        <i class="bi bi-pencil"></i> Editar
-                    </a>
                     <a href="<?= url('pages/download_invoice_pdf.php?id=' . $invoice_id) ?>"
                        class="btn btn-info" target="_blank">
                         <i class="bi bi-eye"></i> Ver PDF
@@ -145,13 +170,26 @@ require_once INCLUDES_PATH . 'header.php';
                        class="btn btn-danger">
                         <i class="bi bi-download"></i> Descargar PDF
                     </a>
-                    <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#paymentModal">
-                        <i class="bi bi-cash"></i> Actualizar Pago
-                    </button>
                 </div>
             </div>
         </div>
     </div>
+
+    <!-- Aviso si está cancelada -->
+    <?php if ($is_canceled): ?>
+    <div class="alert alert-danger d-flex align-items-center mb-4">
+        <i class="bi bi-x-circle-fill me-3 fs-4"></i>
+        <div>
+            <strong>Esta factura ha sido CANCELADA</strong> y no tiene validez contable.<br>
+            <?php if (!empty($invoice['canceled_at'])): ?>
+                Cancelada el <?= date('d/m/Y H:i', strtotime($invoice['canceled_at'])) ?>.
+            <?php endif; ?>
+            <?php if (!empty($invoice['canceled_reason'])): ?>
+                <br><strong>Motivo:</strong> <?= htmlspecialchars($invoice['canceled_reason']) ?>
+            <?php endif; ?>
+        </div>
+    </div>
+    <?php endif; ?>
 
     <!-- Aviso si es presupuesto -->
     <?php if ($is_quote): ?>
@@ -308,16 +346,19 @@ require_once INCLUDES_PATH . 'header.php';
         <div class="col-md-4">
             <!-- Tipo de documento -->
             <div class="card mb-3">
-                <div class="card-header <?= $is_quote ? 'bg-warning' : 'bg-primary text-white' ?>">
+                <div class="card-header <?= $is_canceled ? 'bg-danger text-white' : ($is_quote ? 'bg-warning' : 'bg-primary text-white') ?>">
                     <h5 class="mb-0">
                         <i class="bi bi-file-earmark-text me-1"></i>
-                        <?= $is_quote ? 'Presupuesto' : 'Factura' ?>
+                        <?= $is_canceled ? 'Factura Cancelada' : ($is_quote ? 'Presupuesto' : 'Factura') ?>
                     </h5>
                 </div>
                 <div class="card-body">
                     <p class="mb-0">
                         <strong>Tipo:</strong>
-                        <?php if ($is_quote): ?>
+                        <?php if ($is_canceled): ?>
+                            <span class="badge bg-danger">Cancelada</span>
+                            <small class="d-block text-muted mt-1">Documento anulado, sin validez contable</small>
+                        <?php elseif ($is_quote): ?>
                             <span class="badge bg-warning text-dark">Presupuesto</span>
                             <small class="d-block text-muted mt-1">Pendiente de aprobación del cliente</small>
                         <?php else: ?>
@@ -428,6 +469,39 @@ require_once INCLUDES_PATH . 'header.php';
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
                     <button type="submit" class="btn btn-warning">
                         <i class="bi bi-save"></i> Actualizar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Cancelar Factura -->
+<div class="modal fade" id="cancelModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title"><i class="bi bi-x-circle"></i> Cancelar Factura</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" onsubmit="return confirm('¿Estás seguro de cancelar esta factura? Esta acción no se puede deshacer. El número <?= htmlspecialchars($invoice['invoice_number']) ?> quedará anulado y no se reutilizará.')">
+                <input type="hidden" name="action" value="cancel_invoice">
+                <div class="modal-body">
+                    <div class="alert alert-warning">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        <strong>Atención:</strong> La factura <strong><?= htmlspecialchars($invoice['invoice_number']) ?></strong> quedará anulada.
+                        El número <strong>no se reutilizará</strong> para mantener la trazabilidad contable.
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Motivo de cancelación <span class="text-muted">(opcional)</span></label>
+                        <textarea name="canceled_reason" class="form-control" rows="3"
+                                  placeholder="Ej: Error en los datos, cliente canceló el pedido..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Volver</button>
+                    <button type="submit" class="btn btn-danger">
+                        <i class="bi bi-x-circle"></i> Confirmar Cancelación
                     </button>
                 </div>
             </form>
