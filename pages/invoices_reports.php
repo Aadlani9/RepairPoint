@@ -27,7 +27,7 @@ $date_from = isset($_GET['date_from']) ? $_GET['date_from'] : date('Y-m-01');
 $date_to = isset($_GET['date_to']) ? $_GET['date_to'] : date('Y-m-d');
 $payment_status = isset($_GET['payment_status']) ? $_GET['payment_status'] : 'all';
 
-// Estadísticas generales
+// Estadísticas generales — excluye facturas canceladas
 $stats_query = "SELECT
     COUNT(*) as total_invoices,
     COALESCE(SUM(total), 0) as total_amount,
@@ -38,23 +38,25 @@ $stats_query = "SELECT
     COALESCE(SUM(iva_amount), 0) as total_iva,
     COUNT(DISTINCT customer_id) as total_customers
 FROM invoices
-WHERE shop_id = ? AND invoice_date BETWEEN ? AND ?";
+WHERE shop_id = ? AND invoice_date BETWEEN ? AND ?
+  AND COALESCE(invoice_status, 'invoice') != 'canceled'";
 
 $params = [$shop_id, $date_from, $date_to];
 $stats = $db->selectOne($stats_query, $params);
 
-// Facturas por estado
+// Facturas por estado de pago — excluye canceladas
 $status_stats = $db->select(
     "SELECT payment_status,
             COUNT(*) as count,
             COALESCE(SUM(total), 0) as total
      FROM invoices
      WHERE shop_id = ? AND invoice_date BETWEEN ? AND ?
+       AND COALESCE(invoice_status, 'invoice') != 'canceled'
      GROUP BY payment_status",
     $params
 );
 
-// Top 10 clientes
+// Top 10 clientes — excluye canceladas
 $top_customers = $db->select(
     "SELECT c.full_name, c.phone,
             COUNT(i.id) as invoice_count,
@@ -62,24 +64,27 @@ $top_customers = $db->select(
      FROM customers c
      JOIN invoices i ON c.id = i.customer_id
      WHERE c.shop_id = ? AND i.invoice_date BETWEEN ? AND ?
+       AND COALESCE(i.invoice_status, 'invoice') != 'canceled'
      GROUP BY c.id
      ORDER BY total_amount DESC
      LIMIT 10",
     $params
 );
 
-// Facturas por método de pago
+// Facturas por método de pago — excluye canceladas
 $payment_methods = $db->select(
     "SELECT payment_method,
             COUNT(*) as count,
             COALESCE(SUM(total), 0) as total
      FROM invoices
-     WHERE shop_id = ? AND invoice_date BETWEEN ? AND ? AND payment_status = 'paid'
+     WHERE shop_id = ? AND invoice_date BETWEEN ? AND ?
+       AND payment_status = 'paid'
+       AND COALESCE(invoice_status, 'invoice') != 'canceled'
      GROUP BY payment_method",
     $params
 );
 
-// Últimas facturas
+// Últimas facturas (incluye canceladas para trazabilidad, marcadas visualmente)
 $recent_query = "SELECT i.*, c.full_name as customer_name
                  FROM invoices i
                  JOIN customers c ON i.customer_id = c.id
@@ -353,20 +358,34 @@ require_once INCLUDES_PATH . 'header.php';
                             </tr>
                         <?php else: ?>
                             <?php foreach ($recent_invoices as $invoice): ?>
-                                <tr>
-                                    <td><strong><?= htmlspecialchars($invoice['invoice_number']) ?></strong></td>
+                                <?php $inv_canceled = (($invoice['invoice_status'] ?? 'invoice') === 'canceled'); ?>
+                                <tr class="<?= $inv_canceled ? 'table-danger opacity-75' : '' ?>">
+                                    <td>
+                                        <strong><?= htmlspecialchars($invoice['invoice_number']) ?></strong>
+                                        <?php if ($inv_canceled): ?>
+                                            <br><span class="badge bg-danger">Cancelada</span>
+                                        <?php endif; ?>
+                                    </td>
                                     <td><?= date('d/m/Y', strtotime($invoice['invoice_date'])) ?></td>
                                     <td><?= htmlspecialchars($invoice['customer_name']) ?></td>
-                                    <td class="text-end"><strong>€<?= number_format($invoice['total'], 2) ?></strong></td>
+                                    <td class="text-end">
+                                        <strong class="<?= $inv_canceled ? 'text-decoration-line-through text-muted' : '' ?>">
+                                            €<?= number_format($invoice['total'], 2) ?>
+                                        </strong>
+                                    </td>
                                     <td>
-                                        <?php
-                                        $status_badges = [
-                                            'pending' => '<span class="badge bg-warning">Pendiente</span>',
-                                            'partial' => '<span class="badge bg-info">Parcial</span>',
-                                            'paid' => '<span class="badge bg-success">Pagado</span>'
-                                        ];
-                                        echo $status_badges[$invoice['payment_status']];
-                                        ?>
+                                        <?php if ($inv_canceled): ?>
+                                            <span class="badge bg-danger">Cancelada</span>
+                                        <?php else: ?>
+                                            <?php
+                                            $status_badges = [
+                                                'pending' => '<span class="badge bg-warning">Pendiente</span>',
+                                                'partial' => '<span class="badge bg-info">Parcial</span>',
+                                                'paid' => '<span class="badge bg-success">Pagado</span>'
+                                            ];
+                                            echo $status_badges[$invoice['payment_status']] ?? '';
+                                            ?>
+                                        <?php endif; ?>
                                     </td>
                                     <td>
                                         <div class="btn-group btn-group-sm">

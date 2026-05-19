@@ -179,13 +179,13 @@ require_once INCLUDES_PATH . 'header.php';
 
                     <div class="col-md-12 mb-3">
                         <label class="form-label">Dirección</label>
-                        <textarea name="address" class="form-control" rows="2"><?= htmlspecialchars($customer['address']) ?></textarea>
+                        <textarea name="address" class="form-control" rows="2"><?= htmlspecialchars($customer['address'] ?? '') ?></textarea>
                     </div>
 
                     <div class="col-md-12 mb-3">
                         <label class="form-label">Notas</label>
                         <textarea name="notes" class="form-control" rows="2"
-                                  placeholder="Notas internas sobre el cliente..."><?= htmlspecialchars($customer['notes']) ?></textarea>
+                                  placeholder="Notas internas sobre el cliente..."><?= htmlspecialchars($customer['notes'] ?? '') ?></textarea>
                     </div>
 
                     <div class="col-md-6 mb-3">

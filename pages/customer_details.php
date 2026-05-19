@@ -59,7 +59,7 @@ if ($invoices === false) {
     $invoices = [];
 }
 
-// Estadísticas del cliente
+// Estadísticas del cliente — excluye facturas canceladas
 $stats = $db->selectOne(
     "SELECT
         COUNT(*) as total_invoices,
@@ -68,7 +68,8 @@ $stats = $db->selectOne(
         COALESCE(SUM(CASE WHEN payment_status = 'pending' THEN total ELSE 0 END), 0) as pending_amount,
         COALESCE(SUM(CASE WHEN payment_status = 'partial' THEN total - paid_amount ELSE 0 END), 0) as partial_pending
     FROM invoices
-    WHERE customer_id = ?",
+    WHERE customer_id = ?
+      AND COALESCE(invoice_status, 'invoice') != 'canceled'",
     [$customer_id]
 );
 
@@ -248,14 +249,19 @@ require_once INCLUDES_PATH . 'header.php';
                                     </td>
                                     <td>
                                         <?php
-                                        $status_badges = [
-                                            'pending' => '<span class="badge bg-warning">Pendiente</span>',
-                                            'partial' => '<span class="badge bg-info">Parcial</span>',
-                                            'paid' => '<span class="badge bg-success">Pagado</span>'
-                                        ];
-                                        echo $status_badges[$invoice['payment_status']];
+                                        $is_inv_canceled = (($invoice['invoice_status'] ?? 'invoice') === 'canceled');
+                                        if ($is_inv_canceled) {
+                                            echo '<span class="badge bg-danger">Cancelada</span>';
+                                        } else {
+                                            $status_badges = [
+                                                'pending' => '<span class="badge bg-warning">Pendiente</span>',
+                                                'partial' => '<span class="badge bg-info">Parcial</span>',
+                                                'paid' => '<span class="badge bg-success">Pagado</span>'
+                                            ];
+                                            echo $status_badges[$invoice['payment_status']] ?? '';
+                                        }
                                         ?>
-                                        <?php if ($invoice['payment_status'] === 'partial'): ?>
+                                        <?php if (!$is_inv_canceled && $invoice['payment_status'] === 'partial'): ?>
                                             <br><small class="text-muted">Pagado: €<?= number_format($invoice['paid_amount'], 2) ?></small>
                                         <?php endif; ?>
                                     </td>
